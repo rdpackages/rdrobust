@@ -29,12 +29,11 @@ net install rdrobust, from(https://github.com/rdpackages/rdrobust/stata) replace
 To install/update in R type:
 ```
 install.packages('rdrobust')
-'''
+```
 
-- Help: <a href="https://cran.r-project.org/web/packages/rdrobust/rdrobust.pdf" target="_blank">Manual
+- Help: [R Manual](https://cran.r-project.org/web/packages/rdrobust/rdrobust.pdf), [CRAN repository](https://cran.r-project.org/package=rdrobust).
 
-- Replication: <a href="https://sites.google.com/site/rdpackages/rdrobust/r/rdrobust_illustration.r?attredirects=0" target="_blank">R-script</a>, <a href="https://sites.google.com/site/rdpackages/rdrobust/r/rdplot_illustration.R?attredirects=0" target="_blank"><font face="courier new, monospace">rdplot</font> illustration</a>, <a href="https://sites.google.com/site/rdpackages/rdrobust/r/rdrobust_senate.csv?attredirects=0" target="_blank">senate data</a></li>
-<li style="margin-bottom:10px"><a href="https://cran.r-project.org/package=rdrobust" target="_blank">CRAN repository</a>
+- Replication: [R-script](R/rdrobust_illustration.r), [rdplot illustration](R/rdplot_illustration.R), [senate data](R/rdrobust_senate.csv).
 
 ## References
 
