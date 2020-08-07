@@ -49,7 +49,7 @@ For overviews and introductions, see [rdpackages website]().
 
 ### Technical and Methodological
 
-- Calonico, Cattaneo and Titiunik (2014): [Robust Nonparametric Confidence Intervals for Regression-Discontinuity Designs](references/Calonico-Cattaneo-Titiunik_2014_ECMA.pdf), _Econometrica_ 82(6): 2295-2326. [Supplemental Appendix](references/Calonico-Cattaneo-Titiunik_2014_ECMA--Supplemental.pdf).
+- Calonico, Cattaneo and Titiunik (2014): [Robust Nonparametric Confidence Intervals for Regression-Discontinuity Designs](../rdpower/references/Calonico-Cattaneo-Titiunik_2014_ECMA.pdf), _Econometrica_ 82(6): 2295-2326. [Supplemental Appendix](references/Calonico-Cattaneo-Titiunik_2014_ECMA--Supplemental.pdf).
 
 - Calonico, Cattaneo and Titiunik (2015): [Optimal Data-Driven Regression Discontinuity Plots](references/Calonico-Cattaneo-Titiunik_2015_JASA.pdf), _Journal of the American Statistical Association_ 110(512): 1753-1769. [Supplemental Appendix](references/Calonico-Cattaneo-Titiunik_2015_JASA--Supplement.pdf).
 
