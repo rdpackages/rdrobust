@@ -37,7 +37,7 @@ install.packages('rdrobust')
 
 ## References
 
-### Technical and Methodological:
+### Technical and Methodological
 
 - Calonico, Cattaneo and Titiunik (2014): [Robust Nonparametric Confidence Intervals for Regression-Discontinuity Designs](references/Calonico-Cattaneo-Titiunik_2014_ECMA.pdf), _Econometrica_ 82(6): 2295-2326. [Supplemental Appendix](references/Calonico-Cattaneo-Titiunik_2014_ECMA--Supplemental.pdf).
 
