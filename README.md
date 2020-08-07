@@ -46,7 +46,7 @@ This package was first released in Spring 2014, and had two major upgrades in Fa
 
 To install/update in Stata type:
 ```
-net install rdrobust, from(https://sites.google.com/site/rdpackages/rdrobust/stata) replace
+net install rdrobust, from(https://github.com/rdpackages/rdrobust/stata) replace
 ```
 
 <ul>
