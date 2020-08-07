@@ -2,7 +2,7 @@
 
 The **rdrobust** package provides <font face="courier new, monospace">Stata</font> and <font face="courier new, monospace">R</font> implementations of statistical inference and graphical procedures for Regression Discontinuity designs employing local polynomial and partitioning methods. It provides point estimators, confidence intervals estimators, bandwidth selectors, automatic RD plots, and many other features.
 
-This work was supported in part by the National Science Foundation through grants <a href="http://www.nsf.gov/awardsearch/showAward?AWD_ID=1357561" target="_blank">SES-1357561</a>, <a href="http://www.nsf.gov/awardsearch/showAward?AWD_ID=1459931" target="_blank">SES-1459931</a>, and <a href="http://www.nsf.gov/awardsearch/showAward?AWD_ID=1947805" target="_blank">SES-1947805</a>.
+This work was supported in part by the National Science Foundation through grants [SES-1357561](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1357561), [SES-1459931](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1459931), and [SES-1947805](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1947805).
 
 
 ## Major Upgrades
