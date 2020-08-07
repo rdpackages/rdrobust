@@ -24,7 +24,7 @@ net install rdrobust, from(https://github.com/rdpackages/rdrobust/stata) replace
 
 - Replication: <a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdrobust_illustration.do?attredirects=0" target="_blank">do-file</a>, <a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdplot_illustration.do?attredirects=0" target="_blank"><font face="courier new, monospace">rdplot</font> illustration</a>, <a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdrobust_senate.dta?attredirects=0" target="_blank">senate data</a></li>
 
-### R Implementation
+## R Implementation
 
 To install/update in R type:
 ```
@@ -49,7 +49,7 @@ install.packages('rdrobust')
 
 - Calonico, Cattaneo and Farrell (2020): [Optimal Bandwidth Choice for Robust Bias Corrected Inference in Regression Discontinuity Designs](references/Calonico-Cattaneo-Farrell_2020_ECTJ.pdf), _Econometrics Journal_ 23(2): 192-210. [Supplemental Appendix](references/Calonico-Cattaneo-Farrell_2020_ECTJ--Supplement.pdf).
 
-- Calonico, Cattaneo and Farrell (2020): [Coverage Error Optimal Confidence Intervals for Local Polynomial Regression](references/Calonico-Cattaneo-Farrell_2020_CEopt.pdf). [Supplemental Appendix](references/Calonico-Cattaneo-Farrell_2020_CEopt--Supplement.pdf).
+- Calonico, Cattaneo and Farrell (2020): [Coverage Error Optimal Confidence Intervals for Local Polynomial Regression](references/Calonico-Cattaneo-Farrell_2020_CEopt.pdf), working paper. [Supplemental Appendix](references/Calonico-Cattaneo-Farrell_2020_CEopt--Supplement.pdf).
 
 ### Software and Implementation
 
