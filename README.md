@@ -2,8 +2,9 @@
 
 The **rdrobust** package provides <font face="courier new, monospace">Stata</font> and <font face="courier new, monospace">R</font> implementations of statistical inference and graphical procedures for Regression Discontinuity designs employing local polynomial and partitioning methods. It provides point estimators, confidence intervals estimators, bandwidth selectors, automatic RD plots, and other related features.
 
-This work was supported by the National Science Foundation through grant <a href="http://www.nsf.gov/awardsearch/showAward?AWD_ID=1357561" target="_blank">SES-1357561</a>, <a href="http://www.nsf.gov/awardsearch/showAward?AWD_ID=1459931" target="_blank">SES-1459931</a>, and <a href="http://www.nsf.gov/awardsearch/showAward?AWD_ID=1947805" target="_blank">SES-1947805</a>.
+This work was supported in part by the National Science Foundation through grants <a href="http://www.nsf.gov/awardsearch/showAward?AWD_ID=1357561" target="_blank">SES-1357561</a>, <a href="http://www.nsf.gov/awardsearch/showAward?AWD_ID=1459931" target="_blank">SES-1459931</a>, and <a href="http://www.nsf.gov/awardsearch/showAward?AWD_ID=1947805" target="_blank">SES-1947805</a>.
 
+<br>
 
 ## Major Upgrades
 
@@ -13,8 +14,11 @@ This package was first released in Spring 2014, and had two major upgrades in Fa
 
 - _Winter 2020 new features include_: (i) discrete running variable checks and adjustments; (ii) bandwidth selection adjustments for too few mass points in and/or overshooting of the support of the running variable; (iii) RD Plots with additional covariates plotted at their mean (previously the package set additional covariates at zero); (iv) automatic removal of co-linear additional covariates; (v) turn on/off standardization of variables (which may lead to small numerical/rounding discrepancies with prior versions); and (vi) <font face="courier new, monospace">rdplot</font> output using <font face="courier new, monospace">ggplot2</font> in <font face="courier new, monospace">R</font>.
 
+<br>
 
-## Technical and methodological details:
+## References
+
+### Technical and Methodological:
 
 - Calonico, Cattaneo and Titiunik (2014): [Robust Nonparametric Confidence Intervals for Regression-Discontinuity Designs](references/Calonico-Cattaneo-Titiunik_2014_ECMA.pdf), _Econometrica_ 82(6): 2295-2326. [Supplemental Appendix](references/Calonico-Cattaneo-Titiunik_2014_ECMA--Supplemental.pdf).
 
@@ -28,19 +32,17 @@ This package was first released in Spring 2014, and had two major upgrades in Fa
 
 - Calonico, Cattaneo and Farrell (2020): <a href="https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Farrell_2020_CEopt.pdf?attredirects=0" target="_blank">Coverage Error Optimal Confidence Intervals for Local Polynomial Regression</a>. [<a href="https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Farrell_2020_CEopt--Supplement.pdf?attredirects=0" target="_blank">Supplemental Appendix</a>]
 
+### Software and Implementation
 
-</ul>
+- Calonico, Cattaneo and Titiunik (2014): [Robust Data-Driven Inference in the Regression-Discontinuity Design](references/Calonico-Cattaneo-Titiunik_2014_Stata.pdf), _Stata Journal_ 14(4): 909-946.
 
-For software and implementation details see:
-<ul>
-<li style="margin-bottom:5px">Calonico, Cattaneo and Titiunik (2014): <a href="https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Titiunik_2014_Stata.pdf?attredirects=0" target="_blank">Robust Data-Driven Inference in the Regression-Discontinuity Design</a>, <i>Stata Journal</i> 14(4): 909-946.</li>
+- Calonico, Cattaneo and Titiunik (2015): [rdrobust: An R Package for Robust Nonparametric Inference in Regression-Discontinuity Designs](references/Calonico-Cattaneo-Titiunik_2015_R.pdf), _R Journal_ 7(1): 38-51.
 
-<li style="margin-bottom:5px">Calonico, Cattaneo and Titiunik (2015): <a href="https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Titiunik_2015_R.pdf?attredirects=0" target="_blank"><font face="courier new, monospace">rdrobust</font>: An R Package for Robust Nonparametric Inference in Regression-Discontinuity Designs</a>, <i>R Journal</i> 7(1): 38-51.</li>
+- Calonico, Cattaneo, Farrell and Titiunik (2017): [rdrobust: Software for Regression Discontinuity Designs](references/Calonico-Cattaneo-Farrell-Titiunik_2017_Stata.pdf), _Stata Journal_ 17(2): 372-404.
 
-<li style="margin-bottom:5px">Calonico, Cattaneo, Farrell and Titiunik (2017): <a href="https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Farrell-Titiunik_2017_Stata.pdf?attredirects=0" target="_blank"><font face="courier new, monospace">rdrobust</font>: Software for Regression Discontinuity Designs</a>, <i>Stata Journal</i> 17(2): 372-404.</li>
-</ul>
+<br>
 
-# Implementation in Stata:</b><br>
+## Stata Implementation:</b><br>
 
 To install/update in Stata type:
 ```
