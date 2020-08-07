@@ -1,6 +1,6 @@
 # RDROBUST
 
-The **rdrobust** package provides <font face="courier new, monospace">Stata</font> and <font face="courier new, monospace">R</font> implementations of statistical inference and graphical procedures for Regression Discontinuity designs employing local polynomial and partitioning methods. It provides point estimators, confidence intervals estimators, bandwidth selectors, automatic RD plots, and other related features.
+The **rdrobust** package provides <font face="courier new, monospace">Stata</font> and <font face="courier new, monospace">R</font> implementations of statistical inference and graphical procedures for Regression Discontinuity designs employing local polynomial and partitioning methods. It provides point estimators, confidence intervals estimators, bandwidth selectors, automatic RD plots, and many other features.
 
 This work was supported in part by the National Science Foundation through grants <a href="http://www.nsf.gov/awardsearch/showAward?AWD_ID=1357561" target="_blank">SES-1357561</a>, <a href="http://www.nsf.gov/awardsearch/showAward?AWD_ID=1459931" target="_blank">SES-1459931</a>, and <a href="http://www.nsf.gov/awardsearch/showAward?AWD_ID=1947805" target="_blank">SES-1947805</a>.
 
@@ -13,6 +13,28 @@ This package was first released in Spring 2014, and had two major upgrades in Fa
 
 - _Winter 2020 new features include_: (i) discrete running variable checks and adjustments; (ii) bandwidth selection adjustments for too few mass points in and/or overshooting of the support of the running variable; (iii) RD Plots with additional covariates plotted at their mean (previously the package set additional covariates at zero); (iv) automatic removal of co-linear additional covariates; (v) turn on/off standardization of variables (which may lead to small numerical/rounding discrepancies with prior versions); and (vi) <font face="courier new, monospace">rdplot</font> output using <font face="courier new, monospace">ggplot2</font> in <font face="courier new, monospace">R</font>.
 
+## Stata Implementation
+
+To install/update in Stata type:
+```
+net install rdrobust, from(https://github.com/rdpackages/rdrobust/stata) replace
+```
+
+- Help: <a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdrobust.pdf?attredirects=0" target="_blank"><font face="courier new, monospace">rdrobust</font></a>, <a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdbwselect.pdf?attredirects=0" target="_blank"><font face="courier new, monospace">rdbwselect</font></a>, <font face="courier new, monospace"><a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdplot.pdf?attredirects=0" target="_blank">rdplot</a></font>
+
+- Replication: <a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdrobust_illustration.do?attredirects=0" target="_blank">do-file</a>, <a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdplot_illustration.do?attredirects=0" target="_blank"><font face="courier new, monospace">rdplot</font> illustration</a>, <a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdrobust_senate.dta?attredirects=0" target="_blank">senate data</a></li>
+
+### R Implementation
+
+To install/update in R type:
+```
+install.packages('rdrobust')
+'''
+
+- Help: <a href="https://cran.r-project.org/web/packages/rdrobust/rdrobust.pdf" target="_blank">Manual
+
+- Replication: <a href="https://sites.google.com/site/rdpackages/rdrobust/r/rdrobust_illustration.r?attredirects=0" target="_blank">R-script</a>, <a href="https://sites.google.com/site/rdpackages/rdrobust/r/rdplot_illustration.R?attredirects=0" target="_blank"><font face="courier new, monospace">rdplot</font> illustration</a>, <a href="https://sites.google.com/site/rdpackages/rdrobust/r/rdrobust_senate.csv?attredirects=0" target="_blank">senate data</a></li>
+<li style="margin-bottom:10px"><a href="https://cran.r-project.org/package=rdrobust" target="_blank">CRAN repository</a>
 
 ## References
 
@@ -37,31 +59,6 @@ This package was first released in Spring 2014, and had two major upgrades in Fa
 - Calonico, Cattaneo and Titiunik (2015): [rdrobust: An R Package for Robust Nonparametric Inference in Regression-Discontinuity Designs](references/Calonico-Cattaneo-Titiunik_2015_R.pdf), _R Journal_ 7(1): 38-51.
 
 - Calonico, Cattaneo, Farrell and Titiunik (2017): [rdrobust: Software for Regression Discontinuity Designs](references/Calonico-Cattaneo-Farrell-Titiunik_2017_Stata.pdf), _Stata Journal_ 17(2): 372-404.
-
-<br>
-
-## Stata Implementation
-
-To install/update in Stata type:
-```
-net install rdrobust, from(https://github.com/rdpackages/rdrobust/stata) replace
-```
-
-- Help: <a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdrobust.pdf?attredirects=0" target="_blank"><font face="courier new, monospace">rdrobust</font></a>, <a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdbwselect.pdf?attredirects=0" target="_blank"><font face="courier new, monospace">rdbwselect</font></a>, <font face="courier new, monospace"><a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdplot.pdf?attredirects=0" target="_blank">rdplot</a></font>
-
-- Replication: <a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdrobust_illustration.do?attredirects=0" target="_blank">do-file</a>, <a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdplot_illustration.do?attredirects=0" target="_blank"><font face="courier new, monospace">rdplot</font> illustration</a>, <a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdrobust_senate.dta?attredirects=0" target="_blank">senate data</a></li>
-
-### R Implementation
-
-To install/update in R type:
-```
-install.packages('rdrobust')
-'''
-
-- Help: <a href="https://cran.r-project.org/web/packages/rdrobust/rdrobust.pdf" target="_blank">Manual
-
-- Replication: <a href="https://sites.google.com/site/rdpackages/rdrobust/r/rdrobust_illustration.r?attredirects=0" target="_blank">R-script</a>, <a href="https://sites.google.com/site/rdpackages/rdrobust/r/rdplot_illustration.R?attredirects=0" target="_blank"><font face="courier new, monospace">rdplot</font> illustration</a>, <a href="https://sites.google.com/site/rdpackages/rdrobust/r/rdrobust_senate.csv?attredirects=0" target="_blank">senate data</a></li>
-<li style="margin-bottom:10px"><a href="https://cran.r-project.org/package=rdrobust" target="_blank">CRAN repository</a>
 
 <br>
 <br>
