@@ -1,4 +1,4 @@
-# RDROBUST
+## RDROBUST
 RDD inference and graphical procedures using local polynomial and partitioning regression methods.
 
 The *rdrobust* package provides <font face="courier new, monospace">Stata</font> and <font face="courier new, monospace">R</font> implementations of statistical inference and graphical procedures for Regression Discontinuity designs employing local polynomial and partitioning methods. It provides point estimators, confidence intervals estimators, bandwidth selectors, automatic RD plots, and other related features. This work was supported by the National Science Foundation through grant <a href="http://www.nsf.gov/awardsearch/showAward?AWD_ID=1357561" target="_blank">SES-1357561</a>, <a href="http://www.nsf.gov/awardsearch/showAward?AWD_ID=1459931" target="_blank">SES-1459931</a>, and <a href="http://www.nsf.gov/awardsearch/showAward?AWD_ID=1947805" target="_blank">SES-1947805</a>.<br>
@@ -41,11 +41,12 @@ For software and implementation details see:
 <li style="margin-bottom:5px">Calonico, Cattaneo, Farrell and Titiunik (2017): <a href="https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Farrell-Titiunik_2017_Stata.pdf?attredirects=0" target="_blank"><font face="courier new, monospace">rdrobust</font>: Software for Regression Discontinuity Designs</a>, <i>Stata Journal</i> 17(2): 372-404.</li>
 </ul>
 
-<br>
-<b>Implementation in Stata:</b><br>
+# Implementation in Stata:</b><br>
 
-<ul><li>To install/update in Stata type:</li></ul>
-<font face="courier new, monospace" style="margin-left:60px">net install rdrobust, from(https://sites.google.com/site/rdpackages/rdrobust/stata) replace</font>
+To install/update in Stata type:
+```
+net install rdrobust, from(https://sites.google.com/site/rdpackages/rdrobust/stata) replace
+```
 
 <ul>
 <li style="margin-bottom:10px">Help files: <a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdrobust.pdf?attredirects=0" target="_blank"><font face="courier new, monospace">rdrobust</font></a>, <a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdbwselect.pdf?attredirects=0" target="_blank"><font face="courier new, monospace">rdbwselect</font></a>, <font face="courier new, monospace"><a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdplot.pdf?attredirects=0" target="_blank">rdplot</a></font> -- Replication files: <a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdrobust_illustration.do?attredirects=0" target="_blank">do-file</a>, <a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdplot_illustration.do?attredirects=0" target="_blank"><font face="courier new, monospace">rdplot</font> illustration</a>, <a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdrobust_senate.dta?attredirects=0" target="_blank">senate data</a></li>
