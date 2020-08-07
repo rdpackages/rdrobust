@@ -17,7 +17,7 @@ This package was first released in Spring 2014, and had two major upgrades in Fa
 
 To install/update in Stata type:
 ```
-net install rdrobust, from("https://raw.githubusercontent.com/rdpackages/rdrobust/master/stata") replace
+net install rdrobust, from(https://raw.githubusercontent.com/rdpackages/rdrobust/master/stata) replace
 ```
 
 - Help: <a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdrobust.pdf?attredirects=0" target="_blank"><font face="courier new, monospace">rdrobust</font></a>, <a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdbwselect.pdf?attredirects=0" target="_blank"><font face="courier new, monospace">rdbwselect</font></a>, <font face="courier new, monospace"><a href="https://sites.google.com/site/rdpackages/rdrobust/stata/rdplot.pdf?attredirects=0" target="_blank">rdplot</a></font>
