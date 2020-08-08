@@ -60,5 +60,4 @@ For overviews and introductions, see [rdpackages website](https://rdpackages.git
 
 - Calonico, Cattaneo and Farrell (2020): [Coverage Error Optimal Confidence Intervals for Local Polynomial Regression](https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2020_CEopt.pdf), working paper. [Supplemental Appendix](https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2020_CEopt--Supplement.pdf).
 
-<br>
-<br>
+<br><br>
