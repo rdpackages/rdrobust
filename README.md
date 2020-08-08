@@ -40,7 +40,7 @@ For overviews and introductions, see [rdpackages website](https://rdpackages.git
 
 ### Software and Implementation
 
-- Calonico, Cattaneo and Titiunik (2014): ![Robust Data-Driven Inference in the Regression-Discontinuity Design](https://rdpackages.github.io/references/Calonico-Cattaneo-Titiunik_2014_Stata.pdf), _Stata Journal_ 14(4): 909-946.
+- Calonico, Cattaneo and Titiunik (2014): [Robust Data-Driven Inference in the Regression-Discontinuity Design](https://rdpackages.github.io/references/Calonico-Cattaneo-Titiunik_2014_Stata.pdf), _Stata Journal_ 14(4): 909-946.
 
 - Calonico, Cattaneo and Titiunik (2015): [rdrobust: An R Package for Robust Nonparametric Inference in Regression-Discontinuity Designs](https://rdpackages.github.io/references/Calonico-Cattaneo-Titiunik_2015_R.pdf), _R Journal_ 7(1): 38-51.
 
