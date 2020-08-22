@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 8.0.3  06-04-2020}{...}
+{* *!version 8.0.4  2020-08-22}{...}
 {viewerjumpto "Syntax" "rdbwselect##syntax"}{...}
 {viewerjumpto "Description" "rdbwselect##description"}{...}
 {viewerjumpto "Options" "rdbwselect##options"}{...}
@@ -42,22 +42,22 @@
 {title:Description}
 
 {p 4 8}{cmd:rdbwselect} implements bandwidth selectors for local polynomial Regression Discontinuity (RD) point estimators and inference procedures developed in
-{browse "https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Titiunik_2014_ECMA.pdf":Calonico, Cattaneo and Titiunik (2014a)},
-{browse "https://sites.google.com/site/nppackages/nprobust/Calonico-Cattaneo-Farrell_2018_JASA.pdf":Calonico, Cattaneo and Farrell (2018)},
-{browse "https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Farrell-Titiunik_2019_RESTAT.pdf":Calonico, Cattaneo, Farrell and Titiunik (2019)},
-and {browse "https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Farrell_2020_ECTJ.pdf":Calonico, Cattaneo and Farrell (2020)}.{p_end}
+{browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Titiunik_2014_ECMA.pdf":Calonico, Cattaneo and Titiunik (2014a)},
+{browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2018_JASA.pdf":Calonico, Cattaneo and Farrell (2018)},
+{browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell-Titiunik_2019_RESTAT.pdf":Calonico, Cattaneo, Farrell and Titiunik (2019)},
+and {browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2020_ECTJ.pdf":Calonico, Cattaneo and Farrell (2020)}.{p_end}
 
 {p 8 8} Companion commands are: {help rdrobust:rdrobust} for point estimation and inference procedures, and {help rdplot:rdplot} for data-driven RD plots (see
-{browse "https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Titiunik_2015_JASA.pdf":Calonico, Cattaneo and Titiunik (2015a)} for details).{p_end}
+{browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Titiunik_2015_JASA.pdf":Calonico, Cattaneo and Titiunik (2015a)} for details).{p_end}
 
 {p 8 8}A detailed introduction to this command is given in
-{browse "https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Titiunik_2014_Stata.pdf":Calonico, Cattaneo and Titiunik (2014b)},
-and {browse "https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Farrell-Titiunik_2017_Stata.pdf":Calonico, Cattaneo, Farrell and Titiunik (2017)}. A companion {browse "www.r-project.org":R} package is also described in
-{browse "https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Titiunik_2015_R.pdf":Calonico, Cattaneo and Titiunik (2015b)}.{p_end}
+{browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Titiunik_2014_Stata.pdf":Calonico, Cattaneo and Titiunik (2014b)},
+and {browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell-Titiunik_2017_Stata.pdf":Calonico, Cattaneo, Farrell and Titiunik (2017)}. A companion {browse "www.r-project.org":R} package is also described in
+{browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Titiunik_2015_R.pdf":Calonico, Cattaneo and Titiunik (2015b)}.{p_end}
 
 {p 4 8}Related Stata and R packages useful for inference in RD designs are described in the following website:{p_end}
 
-{p 8 8}{browse "https://sites.google.com/site/rdpackages/":https://sites.google.com/site/rdpackages/}{p_end}
+{p 8 8}{browse "https://rdpackages.github.io/":https://rdpackages.github.io/}{p_end}
 
 
 {marker options}{...}
@@ -109,10 +109,10 @@ Options are:{p_end}
 {p 8 12}{opt cercomb2} for median({opt certwo},{opt cerrd},{opt cersum}), for each side of the cutoff separately.{p_end}
 {p 8 12}Note: MSE = Mean Square Error; CER = Coverage Error Rate.{p_end}
 {p 8 12}Default is {cmd:bwselect(mserd)}. For details on implementation see
-{browse "https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Titiunik_2014_ECMA.pdf":Calonico, Cattaneo and Titiunik (2014a)},
-{browse "https://sites.google.com/site/nppackages/nprobust/Calonico-Cattaneo-Farrell_2018_JASA.pdf":Calonico, Cattaneo and Farrell (2018)},
-{browse "https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Farrell-Titiunik_2019_RESTAT.pdf":Calonico, Cattaneo, Farrell and Titiunik (2019)}, 
-and {browse "https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Farrell_2020_ECTJ.pdf":Calonico, Cattaneo and Farrell (2020)},
+{browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Titiunik_2014_ECMA.pdf":Calonico, Cattaneo and Titiunik (2014a)},
+{browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2018_JASA.pdf":Calonico, Cattaneo and Farrell (2018)},
+{browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell-Titiunik_2019_RESTAT.pdf":Calonico, Cattaneo, Farrell and Titiunik (2019)}, 
+and {browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2020_ECTJ.pdf":Calonico, Cattaneo and Farrell (2020)},
 and the companion software articles.{p_end}
 
 {p 4 8}{cmd:all} if specified, {cmd:rdbwselect} reports all available bandwidth selection procedures.{p_end}
@@ -222,39 +222,39 @@ Options are:{p_end}
 {title:References}
 
 {p 4 8}Calonico, S., M. D. Cattaneo, and M. H. Farrell. 2020.
-{browse "https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Farrell_2020_ECTJ.pdf":Optimal Bandwidth Choice for Robust Bias Corrected Inference in Regression Discontinuity Designs}.
-{it:Econometrics Journal}, forthcoming.{p_end}
+{browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2020_ECTJ.pdf":Optimal Bandwidth Choice for Robust Bias Corrected Inference in Regression Discontinuity Designs}.
+{it:Econometrics Journal} 23(2): 192-210.{p_end}
 
 {p 4 8}Calonico, S., M. D. Cattaneo, and M. H. Farrell. 2018.
-{browse "https://sites.google.com/site/nppackages/nprobust/Calonico-Cattaneo-Farrell_2018_JASA.pdf":On the Effect of Bias Estimation on Coverage Accuracy in Nonparametric Inference}.
-{it:Journal of the American Statistical Association}, 113(522): 767-779.{p_end}
+{browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2018_JASA.pdf":On the Effect of Bias Estimation on Coverage Accuracy in Nonparametric Inference}.
+{it:Journal of the American Statistical Association} 113(522): 767-779.{p_end}
 
 {p 4 8}Calonico, S., M. D. Cattaneo, M. H. Farrell, and R. Titiunik. 2019.
-{browse "https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Farrell-Titiunik_2019_RESTAT.pdf":Regression Discontinuity Designs using Covariates}.
+{browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell-Titiunik_2019_RESTAT.pdf":Regression Discontinuity Designs using Covariates}.
 {it:Review of Economics and Statistics}, 101(3): 442-451.{p_end}
 
 {p 4 8}Calonico, S., M. D. Cattaneo, M. H. Farrell, and R. Titiunik. 2017.
-{browse "https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Farrell-Titiunik_2017_Stata.pdf":rdrobust: Software for Regression Discontinuity Designs}.
-{it:Stata Journal}, 17(2): 372-404.{p_end}
+{browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell-Titiunik_2017_Stata.pdf":rdrobust: Software for Regression Discontinuity Designs}.
+{it:Stata Journal} 17(2): 372-404.{p_end}
 
 {p 4 8}Calonico, S., M. D. Cattaneo, and R. Titiunik. 2014a.
-{browse "https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Titiunik_2014_ECMA.pdf":Robust Nonparametric Confidence Intervals for Regression-Discontinuity Designs}.
+{browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Titiunik_2014_ECMA.pdf":Robust Nonparametric Confidence Intervals for Regression-Discontinuity Designs}.
 {it:Econometrica} 82(6): 2295-2326.{p_end}
 
 {p 4 8}Calonico, S., M. D. Cattaneo, and R. Titiunik. 2014b.
-{browse "https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Titiunik_2014_Stata.pdf":Robust Data-Driven Inference in the Regression-Discontinuity Design}.
+{browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Titiunik_2014_Stata.pdf":Robust Data-Driven Inference in the Regression-Discontinuity Design}.
 {it:Stata Journal} 14(4): 909-946.{p_end}
 
 {p 4 8}Calonico, S., M. D. Cattaneo, and R. Titiunik. 2015a.
-{browse "https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Titiunik_2015_JASA.pdf":Optimal Data-Driven Regression Discontinuity Plots}.
+{browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Titiunik_2015_JASA.pdf":Optimal Data-Driven Regression Discontinuity Plots}.
 {it:Journal of the American Statistical Association} 110(512): 1753-1769.{p_end}
 
 {p 4 8}Calonico, S., M. D. Cattaneo, and R. Titiunik. 2015b.
-{browse "https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Titiunik_2015_R.pdf":rdrobust: An R Package for Robust Nonparametric Inference in Regression-Discontinuity Designs}.
+{browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Titiunik_2015_R.pdf":rdrobust: An R Package for Robust Nonparametric Inference in Regression-Discontinuity Designs}.
 {it:R Journal} 7(1): 38-51.{p_end}
 
 {p 4 8}Cattaneo, M. D., B. Frandsen, and R. Titiunik. 2015.
-{browse "https://sites.google.com/site/rdpackages/rdlocrand/Cattaneo-Frandsen-Titiunik_2015_JCI.pdf":Randomization Inference in the Regression Discontinuity Design: An Application to Party Advantages in the U.S. Senate}.
+{browse "https://rdpackages.github.io/references/Cattaneo-Frandsen-Titiunik_2015_JCI.pdf":Randomization Inference in the Regression Discontinuity Design: An Application to Party Advantages in the U.S. Senate}.
 {it:Journal of Causal Inference} 3(1): 1-24.{p_end}
 
 {marker authors}{...}

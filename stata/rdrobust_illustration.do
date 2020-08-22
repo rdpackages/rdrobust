@@ -5,9 +5,9 @@
 ********************************************************************************
 ** hlp2winpdf, cdn(rdrobust) replace
 ** hlp2winpdf, cdn(rdbwselect) replace
-** hlp2winpdf, cdn(rdplot) replace  
+** hlp2winpdf, cdn(rdplot) replace
 ********************************************************************************
-** net install rdrobust, from(https://sites.google.com/site/rdpackages/rdrobust/stata) replace
+** net install rdrobust, from(https://raw.githubusercontent.com/rdpackages/rdrobust/master/stata) replace
 ********************************************************************************
 clear all
 set more off
