@@ -1,4 +1,4 @@
-******************************************************************************** 
+********************************************************************************
 ** RDROBUST Stata Package
 ** Do-file for RDPLOT Illustration
 ** Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell and Rocio Titiunik 

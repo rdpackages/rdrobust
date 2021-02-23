@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 8.0.4  2020-08-22}{...}
+{* *!version 8.1.0  2021-02-22}{...}
 {viewerjumpto "Syntax" "rdplot##syntax"}{...}
 {viewerjumpto "Description" "rdplot##description"}{...}
 {viewerjumpto "Options" "rdplot##options"}{...}
@@ -29,6 +29,7 @@
 {cmd:covs(}{it:covars}{cmd:)}
 {cmd:covs_eval(}{it:covars_eval}{cmd:)}
 {cmd:covs_drop(}{it:covsdropoption}{cmd:)}
+{cmd:masspoints(}{it:masspointsoption}{cmd:)}
 {cmd:ci(}{it:cilevel}{cmd:)}
 {it:shade}
 {cmd:graph_options(}{it:gphopts}{cmd:)}
@@ -89,6 +90,13 @@ Default is {cmd:scale(1 1)}.
 
 {p 4 8}{cmd:support(}{it:# #}{cmd:)} sets an optional extended support of the running variable to be used in the construction of the bins. Default is the sample range.
 
+{p 4 8}{cmd:masspoints(}{it:masspointsoption}{cmd:)} checks and controls for repeated observations in the running variable. 
+Options are:{p_end}
+{p 8 12}{opt off}  ignores the presence of mass points. {p_end}
+{p 8 12}{opt check}  looks for and reports the number of unique observations at each side of the cutoff.   {p_end}
+{p 8 12}{opt adjust}  sets {cmd:binselect(}{it:binmethod}{cmd:)} as polynomial regression when mass points are present. {p_end}
+{p 8 12} Default option is {cmd:masspoints(adjust)}.{p_end}
+
 {dlgtab:Polynomial Fit}
 
 {p 4 8}{cmd:p(}{it:#}{cmd:)} specifies the order of the (global) polynomial fit used to approximate the population conditional expectation functions for control and treated units.
@@ -106,7 +114,7 @@ Default is {cmd:kernel(uniform)} (i.e., equal/no weighting to all observations o
 
 {p 4 8}{cmd:covs_eval(}{it:covars_eval}{cmd:)} sets the evaluation points for the additional covariates, when included in the estimation. Options are: {opt 0} (default) and {opt mean}.
 
-{p 4 8}{cmd:covs_drop(}{it:covsdropoption}{cmd:)} specifies options to assess collinearity in covariates to be used for estimation and inference. Option {opt on} drops collinear additional covariates (default choice). Option {opt off} only checks collinear additional covariates but does not drop them.{p_end}
+{p 4 8}{cmd:covs_drop(}{it:covsdropoption}{cmd:)} assess collinearity in additional covariates used for estimation and inference. Options {opt pinv} (default choice) and {opt invsym} drops collinear additional covariates, differing only in the type of inverse function used. Option {opt off} only checks collinear additional covariates but does not drop them.{p_end}
 
 {dlgtab:Plot Options}
 

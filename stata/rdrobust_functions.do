@@ -1,4 +1,4 @@
-*!version 8.0.4  2020-08-22
+*!version 8.1.0  2021-02-22
    
 capture mata mata drop rdrobust_res()
 mata
@@ -93,11 +93,7 @@ real matrix rdrobust_bw(real matrix Y, real matrix X, real matrix T, real matrix
 	D_V = eY
 	R_V = J(n_V,o+1,.)
 	for (j=1; j<=(o+1); j++) R_V[.,j] = (eX:-c):^(j-1)
-	if (covs_drop_coll==0) {
-		invG_V = cholinv(quadcross(R_V,eW,R_V))
-	} else {
-		invG_V = invsym(quadcross(R_V,eW,R_V))
-	}
+	invG_V = cholinv(quadcross(R_V,eW,R_V))
 	e_v = J((o+1),1,0); e_v[nu+1]=1
 	s = 1
 	if (rows(T)>1) {
@@ -107,20 +103,17 @@ real matrix rdrobust_bw(real matrix Y, real matrix X, real matrix T, real matrix
 	}
 	if (rows(Z)>1) {
 		dZ = cols(Z)
-		eZ = Z[ind_V,]
-		D_V = D_V,eZ
-		U = quadcross(R_V:*eW,D_V)
-		ZWD  = quadcross(eZ,eW,D_V)
 		colsZ = (2+dT)::(2+dT+dZ-1)
-		UiGU =  quadcross(U[,colsZ],invG_V*U) 
-		ZWZ = ZWD[,colsZ] - UiGU[,colsZ] 
-		ZWY = ZWD[,1::1+dT] - UiGU[,1::1+dT] 
-		if (covs_drop_coll==0) {
-			gamma = cholinv(ZWZ)*ZWY
-			} else{
-			gamma = invsym(ZWZ)*ZWY
-			}
-			
+		eZ   = Z[ind_V,]
+		D_V  = D_V,eZ
+		U    = quadcross(R_V:*eW,D_V)
+		ZWD  = quadcross(eZ,eW,D_V)
+		UiGU = quadcross(U[,colsZ],invG_V*U) 
+		ZWZ  = ZWD[,colsZ] - UiGU[,colsZ] 
+		ZWY  = ZWD[,1::1+dT] - UiGU[,1::1+dT] 		
+		if (covs_drop_coll==0) gamma = cholinv(ZWZ)*ZWY
+		if (covs_drop_coll==1) gamma =  invsym(ZWZ)*ZWY
+		if (covs_drop_coll==2) gamma =    pinv(ZWZ)*ZWY
 		s = 1 \ -gamma[,1]
 	}
 	if (rows(C)>1) {
@@ -171,15 +164,7 @@ real matrix rdrobust_bw(real matrix Y, real matrix X, real matrix T, real matrix
 	D_B = eY
 	R_B = J(n_B,o_B+1,.)
 	for (j=1; j<=(o_B+1); j++) R_B[.,j] = (eX:-c):^(j-1)
-	
-	
-	if (covs_drop_coll==0) {
-		invG_B = cholinv(quadcross(R_B,eW,R_B))
-	} else{
-		invG_B = invsym(quadcross(R_B,eW,R_B))
-	}
-			
-			
+	invG_B = cholinv(quadcross(R_B,eW,R_B))
 	if (dT==1) {
 		eT = T[ind]
 		D_B = D_B,eT

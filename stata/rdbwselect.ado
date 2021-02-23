@@ -1,4 +1,4 @@
-*!version 8.0.4  2020-08-22
+*!version 8.1.0  2021-02-22
  
 capture program drop rdbwselect
 program define rdbwselect, eclass
@@ -79,7 +79,7 @@ program define rdbwselect, eclass
 	}
 
 	if ("`covs'"~="") {
-		qui ds `covs'
+		qui ds `covs', alpha
 		local covs_list = r(varlist)
 		local ncovs: word count `covs_list'	
 		foreach z in `covs_list' {
@@ -90,8 +90,12 @@ program define rdbwselect, eclass
 	
 	**** CHECK colinearity ******************************************
 	local covs_drop_coll = 0	
-	if ("`covs_drop'"=="") local covs_drop = "on"	
+	if ("`covs_drop'"=="") local covs_drop = "pinv"	
 	if ("`covs'"~="") {	
+		
+	if ("`covs_drop'"=="invsym")  local covs_drop_coll = 1
+	if ("`covs_drop'"=="pinv")    local covs_drop_coll = 2
+	
 		qui _rmcoll `covs_list'
 		local nocoll_controls_cat `r(varlist)'
 		local nocoll_controls ""
@@ -103,9 +107,10 @@ program define rdbwselect, eclass
 				}
 			}			
 		local covs_new `nocoll_controls'
-		qui ds `covs_new'
+		qui ds `covs_new', alpha
 		local covs_list_new = r(varlist)
 		local ncovs_new: word count `covs_list_new'
+		
 		if (`ncovs_new'<`ncovs') {
 			if ("`covs_drop'"=="off") {	
 				di as error  "{err}Multicollinearity issue detected in {cmd:covs}. Please rescale and/or remove redundant covariates, or add {cmd:covs_drop} option." 
@@ -114,10 +119,13 @@ program define rdbwselect, eclass
 			else {
 				local ncovs = "`ncovs_new'"
 				local covs_list = "`covs_list_new'"
-				local covs_drop_coll = 1
+				*local covs_drop_coll = 1
 			}	
 		}
 	}
+	
+	
+	
 	
 	
 	**** DEFAULTS ***************************************
@@ -219,10 +227,12 @@ program define rdbwselect, eclass
 		}
 	}	
 	
+
 	mata{
 	c = `c'
 	p = `p'
 	q = `q'
+	covs_drop_coll = `covs_drop_coll'
 	nnmatch =  strtoreal("`nnmatch'")
 		
 	Y = st_data(.,("`y'"), 0);	X = st_data(.,("`x'"), 0)
@@ -261,7 +271,7 @@ program define rdbwselect, eclass
 	}
 	
 	if ("`covs'"~="") {
-		Z   = st_data(.,tokens("`covs'"), 0)
+		Z   = st_data(.,tokens("`covs_list'"), 0)
 		dZ  = cols(Z)
 		Z_l = select(Z,ind_l);	Z_r = select(Z,ind_r)
 	}
@@ -316,6 +326,7 @@ program define rdbwselect, eclass
 	
 	*if ("`masspoints'"=="adjust") mN = M	
 	
+	
 	***********************************************************************
 	******** Computing bandwidth selector *********************************
 	***********************************************************************					
@@ -336,14 +347,20 @@ program define rdbwselect, eclass
 	}	
 		
 	c_bw_l = c_bw_r = c_bw
-					
-	*** Step 1: d_bw
-	C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw_l, h_B=range_l+1e-8, 0, "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, "`covs_drop_coll'")
-	C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw_r, h_B=range_r+1e-8, 0, "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, "`covs_drop_coll'")
 	
+	
+	*** Step 1: d_bw
+	C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw_l, h_B=range_l+1e-8, 0, "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll)
+	C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw_r, h_B=range_r+1e-8, 0, "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
+	
+	*printf("i=%g\n ",C_d_l[5])
+	*printf("i=%g\n ",C_d_r[5])
+		
+		
 	if (C_d_l[1]==. | C_d_l[2]==. | C_d_l[3]==. |C_d_r[1]==. | C_d_r[2]==. | C_d_r[3]==.) printf("{err}Invertibility problem in the computation of preliminary bandwidth. Try checking for mass points with option {cmd:masspoints(check)}.\n")  
 	if (C_d_l[1]==0 | C_d_l[2]==0 | C_d_r[1]==0 | C_d_r[2]==0)                            printf("{err}Not enough variability to compute the preliminary bandwidth. Try checking for mass points with option {cmd:masspoints(check)}.\n")  
-		
+	
+
 		
 	*** TWO
 	if  ("`bwselect'"=="msetwo" |  "`bwselect'"=="certwo" | "`bwselect'"=="msecomb2" | "`bwselect'"=="cercomb2"  | "`all'"!="")  {		
@@ -357,9 +374,9 @@ program define rdbwselect, eclass
 			d_bw_l = max((d_bw_l, bw_min_l))
 			d_bw_r = max((d_bw_r, bw_min_r))
 		}
-		C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_l, h_B=d_bw_l, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, "`covs_drop_coll'")
+		C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_l, h_B=d_bw_l, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll)
 		b_bw_l = (  (C_b_l[1]              /   (C_b_l[2]^2 + `scaleregul'*C_b_l[3]))  * (N/mN)     )^C_b_l[4]
-		C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_r, h_B=d_bw_r, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, "`covs_drop_coll'")
+		C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_r, h_B=d_bw_r, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 		b_bw_r = (  (C_b_r[1]              /   (C_b_r[2]^2 + `scaleregul'*C_b_r[3]))   * (N/mN)    )^C_b_l[4]
 		if  ("`bwrestrict'"=="on")  {	
 		b_bw_l = min((b_bw_l, range_l))
@@ -369,9 +386,9 @@ program define rdbwselect, eclass
 		*	b_bw_l = max((b_bw_l, bw_min_l))
 		*	b_bw_r = max((b_bw_r, bw_min_r))
 		*}
-		C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_l, h_B=b_bw_l, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, "`covs_drop_coll'")
+		C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_l, h_B=b_bw_l, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll)
 		h_bw_l = (  (C_h_l[1]              /   (C_h_l[2]^2 + `scaleregul'*C_h_l[3]))  * (N/mN)       )^C_h_l[4]
-		C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_r, h_B=b_bw_r, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, "`covs_drop_coll'")
+		C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_r, h_B=b_bw_r, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 		h_bw_r = (  (C_h_r[1]              /   (C_h_r[2]^2 + `scaleregul'*C_h_r[3]))  * (N/mN)       )^C_h_l[4]
 		
 		if  ("`bwrestrict'"=="on")  {	
@@ -389,13 +406,13 @@ program define rdbwselect, eclass
 		d_bw_s = ( ((C_d_l[1] + C_d_r[1])  /  (C_d_r[2] + C_d_l[2])^2)  * (N/mN)  )^C_d_l[4]
 		if  ("`bwrestrict'"=="on")  d_bw_s = min((d_bw_s, bw_max))
 		if (bwcheck > 0) d_bw_s = max((d_bw_s, bw_min_l, bw_min_r))		
-		C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_l, h_B=d_bw_s, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, "`covs_drop_coll'")
-		C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_r, h_B=d_bw_s, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, "`covs_drop_coll'")
+		C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_l, h_B=d_bw_s, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll)
+		C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_r, h_B=d_bw_s, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 		b_bw_s = ( ((C_b_l[1] + C_b_r[1])  /  ((C_b_r[2] + C_b_l[2])^2 + `scaleregul'*(C_b_r[3]+C_b_l[3])))  * (N/mN)  )^C_b_l[4]
 		if  ("`bwrestrict'"=="on")  b_bw_s = min((b_bw_s, bw_max))
 		*if ("`bwcheck'" != "0") b_bw_s = max((b_bw_s, bw_min_l, bw_min_r))		
-		C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_l, h_B=b_bw_s, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, "`covs_drop_coll'")
-		C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_r, h_B=b_bw_s, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, "`covs_drop_coll'")
+		C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_l, h_B=b_bw_s, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll)
+		C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_r, h_B=b_bw_s, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 		h_bw_s = ( ((C_h_l[1] + C_h_r[1])  /  ((C_h_r[2] + C_h_l[2])^2 + `scaleregul'*(C_h_r[3] + C_h_l[3])))  * (N/mN)  )^C_h_l[4]
 		if  ("`bwrestrict'"=="on")  h_bw_s = min((h_bw_s, bw_max))
 		*if ("`bwcheck'" != "0") h_bw_s = max((h_bw_s, bw_min_l, bw_min_r))		
@@ -406,18 +423,20 @@ program define rdbwselect, eclass
 		d_bw_d = ( ((C_d_l[1] + C_d_r[1])  /  (C_d_r[2] - C_d_l[2])^2)  * (N/mN)   )^C_d_l[4]
 		if  ("`bwrestrict'"=="on")  d_bw_d = min((d_bw_d, bw_max))
 		if (bwcheck > 0) d_bw_d = max((d_bw_d, bw_min_l, bw_min_r))		
-		C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_l, h_B=d_bw_d, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, "`covs_drop_coll'")
-		C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_r, h_B=d_bw_d, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, "`covs_drop_coll'")
+		C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_l, h_B=d_bw_d, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll)
+		C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_r, h_B=d_bw_d, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 		b_bw_d = ( ((C_b_l[1] + C_b_r[1])  /  ((C_b_r[2] - C_b_l[2])^2 + `scaleregul'*(C_b_r[3] + C_b_l[3])))  * (N/mN)    )^C_b_l[4]
 		if  ("`bwrestrict'"=="on")  b_bw_d = min((b_bw_d, bw_max))
 		*if ("`bwcheck'" != "0") b_bw_d = max((b_bw_d, bw_min_l, bw_min_r))		
-		C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_l, h_B=b_bw_d, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, "`covs_drop_coll'")
-		C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_r, h_B=b_bw_d, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, "`covs_drop_coll'")
+		C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_l, h_B=b_bw_d, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll)
+		C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_r, h_B=b_bw_d, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 		h_bw_d = ( ((C_h_l[1] + C_h_r[1])  /  ((C_h_r[2] - C_h_l[2])^2 + `scaleregul'*(C_h_r[3] + C_h_l[3])))  * (N/mN)   )^C_h_l[4]
 		if  ("`bwrestrict'"=="on")  h_bw_d = min((h_bw_d, bw_max))
 		
 		*if ("`bwcheck'" != "0") h_bw_d = max((h_bw_d, bw_min_l, bw_min_r))		
 	}	
+	
+	
 	
 	if (C_b_l[1]==0 | C_b_l[2]==0 | C_b_r[1]==0 | C_b_r[2]==0 |C_b_l[1]==. | C_b_l[2]==. | C_b_l[3]==. | C_b_r[1]==. | C_b_r[2]==. | C_b_r[3]==.) printf("{err}Not enough variability to compute the bias bandwidth (b). Try checking for mass points with option {cmd:masspoints(check)}. \n")  
 	if (C_h_l[1]==0 | C_h_l[2]==0 | C_h_r[1]==0 | C_h_r[2]==0 |C_h_l[1]==. | C_h_l[2]==. | C_h_l[3]==. | C_h_r[1]==. | C_h_r[2]==. | C_h_r[3]==.) printf("{err}Not enough variability to compute the loc. poly. bandwidth (h). Try checking for mass points with option {cmd:masspoints(check)}.\n") 
@@ -528,15 +547,15 @@ program define rdbwselect, eclass
 	}
 	disp ""
 
-	disp in smcl in gr "{ralign 18: Cutoff c = `c_orig'}"  _col(19) " {c |} " _col(21) in gr "Left of " in yellow "c"  _col(33) in gr "Right of " in yellow "c" _col(55) in gr "Number of obs = "  in yellow %10.0f N
+	disp in smcl in gr "{ralign 18: Cutoff c = `c_orig'}"  _col(19) " {c |} " _col(21) in gr "Left of " in yellow "c"  _col(33) in gr "Right of " in yellow "c" _col(55) in gr "Number of obs = "  in yellow %10.0f scalar(N)
 	disp in smcl in gr "{hline 19}{c +}{hline 22}"                                                                                                              _col(55) in gr "Kernel        = "  in yellow "{ralign 10:`kernel_type'}" 
-	disp in smcl in gr "{ralign 18:Number of obs}"         _col(19) " {c |} " _col(21) as result %9.0f N_l      _col(34) %9.0f  N_r                         _col(55) in gr "VCE method    = "  in yellow "{ralign 10:`vce_type'}" 
-	disp in smcl in gr "{ralign 18:Min of `x'}"            _col(19) " {c |} " _col(21) as result %9.3f x_l_min  _col(34) %9.3f  x_r_min  
-	disp in smcl in gr "{ralign 18:Max of `x'}"            _col(19) " {c |} " _col(21) as result %9.3f x_l_max  _col(34) %9.3f  x_r_max  
+	disp in smcl in gr "{ralign 18:Number of obs}"         _col(19) " {c |} " _col(21) as result %9.0f scalar(N_l)      _col(34) %9.0f  scalar(N_r)                         _col(55) in gr "VCE method    = "  in yellow "{ralign 10:`vce_type'}" 
+	disp in smcl in gr "{ralign 18:Min of `x'}"            _col(19) " {c |} " _col(21) as result %9.3f scalar(x_l_min)  _col(34) %9.3f  scalar(x_r_min)  
+	disp in smcl in gr "{ralign 18:Max of `x'}"            _col(19) " {c |} " _col(21) as result %9.3f scalar(x_l_max)  _col(34) %9.3f  scalar(x_r_max)  
 	disp in smcl in gr "{ralign 18:Order est. (p)}"        _col(19) " {c |} " _col(21) as result %9.0f `p'        _col(34) %9.0f  `p'                              
 	disp in smcl in gr "{ralign 18:Order bias (q)}"        _col(19) " {c |} " _col(21) as result %9.0f `q'        _col(34) %9.0f  `q'  
-	if ("`masspoints'"=="check" | masspoints_found==1) disp in smcl in gr "{ralign 18:Unique obs}"     _col(19) " {c |} " _col(21) as result %9.0f M_l           _col(34) %9.0f  M_r                    
-	if ("`cluster'"!="") disp in smcl in gr "{ralign 18:Number of clusters}" _col(19) " {c |} " _col(21) as result %9.0f g_l       _col(34) %9.0f  g_r                         
+	if ("`masspoints'"=="check" | masspoints_found==1) disp in smcl in gr "{ralign 18:Unique obs}"     _col(19) " {c |} " _col(21) as result %9.0f scalar(M_l)           _col(34) %9.0f  scalar(M_r)                    
+	if ("`cluster'"!="") disp in smcl in gr "{ralign 18:Number of clusters}" _col(19) " {c |} " _col(21) as result %9.0f scalar(g_l)       _col(34) %9.0f  scalar(g_r)                         
 				
 			
 	disp ""
@@ -548,39 +567,39 @@ program define rdbwselect, eclass
 	disp in smcl in gr "{hline 19}{c +}{hline 30}{c +}{hline 29}" 
 		
 	if  ("`bwselect'"=="mserd" | "`bwselect'"=="" | "`all'"!="" ) {
-		disp in smcl in gr "{ralign 18:mserd}"    _col(19) " {c |} " _col(22) as result %9.3f h_mserd  _col(41) %9.3f  h_mserd  in green _col(50) " {c |} " _col(51) as result %9.3f b_mserd  _col(71) %9.3f  b_mserd                                
+		disp in smcl in gr "{ralign 18:mserd}"    _col(19) " {c |} " _col(22) as result %9.3f scalar(h_mserd)  _col(41) %9.3f  scalar(h_mserd)  in green _col(50) " {c |} " _col(51) as result %9.3f scalar(b_mserd)  _col(71) %9.3f  scalar(b_mserd)                                
 	}
 	if  ("`bwselect'"=="msetwo"  | "`all'"!="")  {		
-		disp in smcl in gr "{ralign 18:msetwo}"   _col(19) " {c |} " _col(22) as result %9.3f h_msetwo_l _col(41) %9.3f  h_msetwo_r in green _col(50) " {c |} " _col(51) as result %9.3f b_msetwo_l           _col(71) %9.3f  b_msetwo_r                                
+		disp in smcl in gr "{ralign 18:msetwo}"   _col(19) " {c |} " _col(22) as result %9.3f scalar(h_msetwo_l) _col(41) %9.3f  scalar(h_msetwo_r) in green _col(50) " {c |} " _col(51) as result %9.3f scalar(b_msetwo_l)           _col(71) %9.3f  scalar(b_msetwo_r)                                
 	}
 	if  ("`bwselect'"=="msesum"  |  "`all'"!="")  {
-		disp in smcl in gr "{ralign 18:msesum}"   _col(19) " {c |} " _col(22) as result %9.3f h_msesum _col(41) %9.3f  h_msesum  in green _col(50) " {c |} " _col(51) as result %9.3f b_msesum           _col(71) %9.3f  b_msesum                             
+		disp in smcl in gr "{ralign 18:msesum}"   _col(19) " {c |} " _col(22) as result %9.3f scalar(h_msesum) _col(41) %9.3f  scalar(h_msesum)  in green _col(50) " {c |} " _col(51) as result %9.3f scalar(b_msesum)           _col(71) %9.3f  scalar(b_msesum)                             
 	}
 	if  ("`bwselect'"=="msecomb1" | "`all'"!="" ) {
-		disp in smcl in gr "{ralign 18:msecomb1}" _col(19) " {c |} " _col(22) as result %9.3f h_msecomb1 _col(41) %9.3f  h_msecomb1 in green _col(50) " {c |} " _col(51) as result %9.3f b_msecomb1           _col(71) %9.3f  b_msecomb1                                 
+		disp in smcl in gr "{ralign 18:msecomb1}" _col(19) " {c |} " _col(22) as result %9.3f scalar(h_msecomb1) _col(41) %9.3f  scalar(h_msecomb1) in green _col(50) " {c |} " _col(51) as result %9.3f scalar(b_msecomb1)           _col(71) %9.3f  scalar(b_msecomb1)                                 
 	}
 	if  ("`bwselect'"=="msecomb2" |  "`all'"!="" ) {
-		disp in smcl in gr "{ralign 18:msecomb2}" _col(19) " {c |} " _col(22) as result %9.3f h_msecomb2_l _col(41) %9.3f  h_msecomb2_r in green _col(50) " {c |} " _col(51) as result %9.3f b_msecomb2_l           _col(71) %9.3f  b_msecomb2_r                                  
+		disp in smcl in gr "{ralign 18:msecomb2}" _col(19) " {c |} " _col(22) as result %9.3f scalar(h_msecomb2_l) _col(41) %9.3f  scalar(h_msecomb2_r) in green _col(50) " {c |} " _col(51) as result %9.3f scalar(b_msecomb2_l)           _col(71) %9.3f  scalar(b_msecomb2_r)                                  
 	}
 	if  ("`all'"!="" ) disp in smcl in gr "{hline 19}{c +}{hline 30}{c +}{hline 29}"
 	if  ("`bwselect'"=="cerrd" | "`all'"!="" ){
-		disp in smcl in gr "{ralign 18:cerrd}"    _col(19) " {c |} " _col(22) as result %9.3f h_cerrd _col(41) %9.3f  h_cerrd in green _col(50) " {c |} " _col(51) as result %9.3f b_cerrd           _col(71) %9.3f  b_cerrd                                
+		disp in smcl in gr "{ralign 18:cerrd}"    _col(19) " {c |} " _col(22) as result %9.3f scalar(h_cerrd) _col(41) %9.3f  scalar(h_cerrd) in green _col(50) " {c |} " _col(51) as result %9.3f scalar(b_cerrd)           _col(71) %9.3f  scalar(b_cerrd)                                
 	}
 	if  ("`bwselect'"=="certwo" | "`all'"!="" ){
-		disp in smcl in gr "{ralign 18:certwo}"   _col(19) " {c |} " _col(22) as result %9.3f h_certwo_l _col(41) %9.3f  h_certwo_r in green _col(50) " {c |} " _col(51) as result %9.3f b_certwo_l           _col(71) %9.3f  b_certwo_r                                
+		disp in smcl in gr "{ralign 18:certwo}"   _col(19) " {c |} " _col(22) as result %9.3f scalar(h_certwo_l) _col(41) %9.3f  scalar(h_certwo_r) in green _col(50) " {c |} " _col(51) as result %9.3f scalar(b_certwo_l)           _col(71) %9.3f  scalar(b_certwo_r)                                
 	}
 	if  ("`bwselect'"=="cersum" | "`all'"!="" ){
-		disp in smcl in gr "{ralign 18:cersum}"   _col(19) " {c |} " _col(22) as result %9.3f h_cersum _col(41) %9.3f  h_cersum in green _col(50) " {c |} " _col(51) as result %9.3f b_cersum           _col(71) %9.3f  b_cersum                                
+		disp in smcl in gr "{ralign 18:cersum}"   _col(19) " {c |} " _col(22) as result %9.3f scalar(h_cersum) _col(41) %9.3f  scalar(h_cersum) in green _col(50) " {c |} " _col(51) as result %9.3f scalar(b_cersum)           _col(71) %9.3f  scalar(b_cersum)                                
 	}
 	if  ("`bwselect'"=="cercomb1" | "`all'"!="" ){
-		disp in smcl in gr "{ralign 18:cercomb1}" _col(19) " {c |} " _col(22) as result %9.3f h_cercomb1 _col(41) %9.3f  h_cercomb1 in green _col(50) " {c |} " _col(51) as result %9.3f b_cercomb1           _col(71) %9.3f  b_cercomb1                              
+		disp in smcl in gr "{ralign 18:cercomb1}" _col(19) " {c |} " _col(22) as result %9.3f scalar(h_cercomb1) _col(41) %9.3f  scalar(h_cercomb1) in green _col(50) " {c |} " _col(51) as result %9.3f scalar(b_cercomb1)           _col(71) %9.3f  scalar(b_cercomb1)                              
 	}
 	if  ("`bwselect'"=="cercomb2" | "`all'"!="" ){
-		disp in smcl in gr "{ralign 18:cercomb2}" _col(19) " {c |} " _col(22) as result %9.3f h_cercomb2_l _col(41) %9.3f  h_cercomb2_r in green _col(50) " {c |} " _col(51) as result %9.3f b_cercomb2_l           _col(71) %9.3f  b_cercomb2_r                              
+		disp in smcl in gr "{ralign 18:cercomb2}" _col(19) " {c |} " _col(22) as result %9.3f scalar(h_cercomb2_l) _col(41) %9.3f  scalar(h_cercomb2_r) in green _col(50) " {c |} " _col(51) as result %9.3f scalar(b_cercomb2_l)           _col(71) %9.3f  scalar(b_cercomb2_r)                              
 	}
 	disp in smcl in gr "{hline 19}{c BT}{hline 30}{c BT}{hline 29}" 
    	if ("`covs'"!="")        di "Covariate-adjusted estimates. Additional covariates included: `ncovs'"
-	if (`covs_drop_coll'==1) di "Variables dropped due to multicollinearity."
+*	if (`covs_drop_coll'>=1) di "Variables dropped due to multicollinearity."
 	if ("`masspoints'"=="check")  di "Running variable checked for mass points."  
 	if ("`masspoints'"=="adjust" &  masspoints_found==1) di "Estimates adjusted for mass points in the running variable."  	 	
 
@@ -591,8 +610,8 @@ program define rdbwselect, eclass
 
 	restore
 	ereturn clear
-	ereturn scalar N_l = N_l
-	ereturn scalar N_r = N_r
+	ereturn scalar N_l = scalar(N_l)
+	ereturn scalar N_r = scalar(N_r)
 	ereturn scalar c = `c'
 	ereturn scalar p = `p'
 	ereturn scalar q = `q'
@@ -607,52 +626,52 @@ program define rdbwselect, eclass
 	ereturn local cmd "rdbwselect"
 
 	if  ("`bwselect'"=="mserd" | "`bwselect'"=="" | "`all'"!="" ) {
-		ereturn scalar h_mserd = h_mserd
-		ereturn scalar b_mserd = b_mserd
+		ereturn scalar h_mserd = scalar(h_mserd)
+		ereturn scalar b_mserd = scalar(b_mserd)
 		}
 	if  ("`bwselect'"=="msesum"  |  "`all'"!="")  {
-		ereturn scalar h_msesum = h_msesum
-		ereturn scalar b_msesum = b_msesum
+		ereturn scalar h_msesum = scalar(h_msesum)
+		ereturn scalar b_msesum = scalar(b_msesum)
 		}
 	if  ("`bwselect'"=="msetwo"  | "`all'"!="")  {	
-		ereturn scalar h_msetwo_l = h_msetwo_l
-		ereturn scalar h_msetwo_r = h_msetwo_r
-		ereturn scalar b_msetwo_l = b_msetwo_l
-		ereturn scalar b_msetwo_r = b_msetwo_r
+		ereturn scalar h_msetwo_l = scalar(h_msetwo_l)
+		ereturn scalar h_msetwo_r = scalar(h_msetwo_r)
+		ereturn scalar b_msetwo_l = scalar(b_msetwo_l)
+		ereturn scalar b_msetwo_r = scalar(b_msetwo_r)
 		}
 	if  ("`bwselect'"=="msecomb1" | "`all'"!="" ) {
-		ereturn scalar h_msecomb1 = h_msecomb1
-		ereturn scalar b_msecomb1 = b_msecomb1
+		ereturn scalar h_msecomb1 = scalar(h_msecomb1)
+		ereturn scalar b_msecomb1 = scalar(b_msecomb1)
 		}
 	if  ("`bwselect'"=="msecomb2" | "`all'"!="" ) {
-		ereturn scalar h_msecomb2_l = h_msecomb2_l
-		ereturn scalar h_msecomb2_r = h_msecomb2_r
-		ereturn scalar b_msecomb2_l = b_msecomb2_l
-		ereturn scalar b_msecomb2_r = b_msecomb2_r
+		ereturn scalar h_msecomb2_l = scalar(h_msecomb2_l)
+		ereturn scalar h_msecomb2_r = scalar(h_msecomb2_r)
+		ereturn scalar b_msecomb2_l = scalar(b_msecomb2_l)
+		ereturn scalar b_msecomb2_r = scalar(b_msecomb2_r)
 		}
 	if  ("`bwselect'"=="cerrd" | "`all'"!="") {
-		ereturn scalar h_cerrd = h_cerrd
-		ereturn scalar b_cerrd = b_cerrd
+		ereturn scalar h_cerrd = scalar(h_cerrd)
+		ereturn scalar b_cerrd = scalar(b_cerrd)
 		}
 	if  ("`bwselect'"=="cersum" | "`all'"!="") {
-		ereturn scalar h_cersum = h_cersum
-		ereturn scalar b_cersum = b_cersum
+		ereturn scalar h_cersum = scalar(h_cersum)
+		ereturn scalar b_cersum = scalar(b_cersum)
 		}
 	if  ("`bwselect'"=="certwo" | "`all'"!="") {
-		ereturn scalar h_certwo_l = h_certwo_l
-		ereturn scalar h_certwo_r = h_certwo_r
-		ereturn scalar b_certwo_l = b_certwo_l
-		ereturn scalar b_certwo_r = b_certwo_r
+		ereturn scalar h_certwo_l = scalar(h_certwo_l)
+		ereturn scalar h_certwo_r = scalar(h_certwo_r)
+		ereturn scalar b_certwo_l = scalar(b_certwo_l)
+		ereturn scalar b_certwo_r = scalar(b_certwo_r)
 		}
 	if  ("`bwselect'"=="cercomb1" | "`all'"!="") {
-		ereturn scalar h_cercomb1 = h_cercomb1
-		ereturn scalar b_cercomb1 = b_cercomb1
+		ereturn scalar h_cercomb1 = scalar(h_cercomb1)
+		ereturn scalar b_cercomb1 = scalar(b_cercomb1)
 		}
 	if  ("`bwselect'"=="cercomb2" | "`all'"!="") { 
-		ereturn scalar h_cercomb2_l = h_cercomb2_l
-		ereturn scalar h_cercomb2_r = h_cercomb2_r
-		ereturn scalar b_cercomb2_l = b_cercomb2_l
-		ereturn scalar b_cercomb2_r = b_cercomb2_r
+		ereturn scalar h_cercomb2_l = scalar(h_cercomb2_l)
+		ereturn scalar h_cercomb2_r = scalar(h_cercomb2_r)
+		ereturn scalar b_cercomb2_l = scalar(b_cercomb2_l)
+		ereturn scalar b_cercomb2_r = scalar(b_cercomb2_r)
 	}
 	
 	mata mata clear 

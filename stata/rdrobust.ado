@@ -1,4 +1,4 @@
-*!version 8.0.4  2020-08-22
+*!version 8.1.0  2021-02-22
 
 capture program drop rdrobust 
 program define rdrobust, eclass
@@ -121,7 +121,7 @@ program define rdrobust, eclass
 	if ("`fuzzy'"~="")   qui drop if `fuzzyvar'==.
 	if ("`cluster'"!="") qui drop if `clustvar'==.
 	if ("`covs'"~="") {
-		qui ds `covs'
+		qui ds `covs', alpha
 		local covs_list = r(varlist)
 		local ncovs: word count `covs_list'	
 		foreach z in `covs_list' {
@@ -131,8 +131,12 @@ program define rdrobust, eclass
 		
 	**** CHECK colinearity ******************************************
 	local covs_drop_coll = 0	
-	if ("`covs_drop'"=="") local covs_drop = "on"	
+	if ("`covs_drop'"=="") local covs_drop = "pinv"	
 	if ("`covs'"~="") {	
+		
+	if ("`covs_drop'"=="invsym")  local covs_drop_coll = 1
+	if ("`covs_drop'"=="pinv")    local covs_drop_coll = 2
+	
 		qui _rmcoll `covs_list'
 		local nocoll_controls_cat `r(varlist)'
 		local nocoll_controls ""
@@ -144,9 +148,10 @@ program define rdrobust, eclass
 				}
 			}			
 		local covs_new `nocoll_controls'
-		qui ds `covs_new'
+		qui ds `covs_new', alpha
 		local covs_list_new = r(varlist)
 		local ncovs_new: word count `covs_list_new'
+		
 		if (`ncovs_new'<`ncovs') {
 			if ("`covs_drop'"=="off") {	
 				di as error  "{err}Multicollinearity issue detected in {cmd:covs}. Please rescale and/or remove redundant covariates, or add {cmd:covs_drop} option." 
@@ -155,12 +160,12 @@ program define rdrobust, eclass
 			else {
 				local ncovs = "`ncovs_new'"
 				local covs_list = "`covs_list_new'"
-				local covs_drop_coll = 1
+				*local covs_drop_coll = 1
 			}	
 		}
 	}
 	
-
+				
 	**** DEFAULTS ***************************************
 	if ("`masspoints'"=="") local masspoints = "adjust"
 	if ("`stdvars'"=="")    local stdvars    = "off"	
@@ -188,31 +193,20 @@ program define rdrobust, eclass
 			if (`N'<20){
 			 di as error  "{err}Not enough observations to perform bandwidth calculations"  
 			 di as error  "{err}Estimates computed using entire sample"  
-
-			 *exit 2001
+			 local bwselect= "Manual"
 			
 			qui su `x' if `x'<`c'
-			local Nl = r(N)
-			
-			local h = `Nl'
-			local b = `Nl'
-			local h_l = `Nl'
-			local h_r = `Nl'
-			local b_l = `Nl'
-			local b_r = `Nl'	
+			local range_l = abs(r(max)-r(min))
 			qui su `x' if `x'>=`c'
-			local Nr = r(N)
-			if (`Nr'>`Nl') {
-				local h   = `Nr'
-				local b   = `Nr'
-				local h_l = `Nr'
-				local h_r = `Nr'
-				local b_l = `Nr'
-				local b_r = `Nr'					
-			}
-		
-			local bwselect= "Manual"
+			local range_r = abs(r(max)-r(min))
+			local bw_range = max(`range_l',`range_r')
 			
+			local h   = `bw_range'
+			local b   = `bw_range'
+			local h_l = `bw_range'
+			local h_r = `bw_range'
+			local b_l = `bw_range'
+			local b_r = `bw_range'	
 			}
 			
 			if ("`kernel'"~="uni" & "`kernel'"~="uniform" & "`kernel'"~="tri" & "`kernel'"~="triangular" & "`kernel'"~="epa" & "`kernel'"~="epanechnikov" & "`kernel'"~="" ){
@@ -364,7 +358,6 @@ masspoints_found = 0
 			c = `c'/x_sd
 			BWp = min((1, (`x_iq'/x_sd)/1.349))
 		}		
-		
 		x_l_min = min(X_l);	x_l_max = max(X_l)
 		x_r_min = min(X_r);	x_r_max = max(X_r)
 	
@@ -374,7 +367,8 @@ masspoints_found = 0
 		
 		mN = `N'
 		bwcheck = `bwcheck'
-		
+		covs_drop_coll = `covs_drop_coll'
+
 		if ("`masspoints'"=="check" | "`masspoints'"=="adjust") {
 			X_uniq_l = sort(uniqrows(X_l),-1)
 			X_uniq_r = uniqrows(X_r)
@@ -406,12 +400,17 @@ masspoints_found = 0
 			bw_min_r = abs(X_uniq_r:-c)[bwcheck_r] + 1e-8
 			c_bw = max((c_bw, bw_min_l, bw_min_r))
 		}		
+		
 			
 		*** Step 1: d_bw
-		C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q'+1, nu=`q'+1, o_B=`q'+2, h_V=c_bw, h_B=range_l+1e-8, 0, "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, "`covs_drop_coll'")
-		C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q'+1, nu=`q'+1, o_B=`q'+2, h_V=c_bw, h_B=range_r+1e-8, 0, "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, "`covs_drop_coll'")
+		C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q'+1, nu=`q'+1, o_B=`q'+2, h_V=c_bw, h_B=range_l+1e-8, 0, "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll)
+		C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q'+1, nu=`q'+1, o_B=`q'+2, h_V=c_bw, h_B=range_r+1e-8, 0, "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 		if (C_d_l[1]==0 | C_d_l[2]==0 | C_d_r[1]==0 | C_d_r[2]==0 |C_d_l[1]==. | C_d_l[2]==. | C_d_l[3]==. |C_d_r[1]==. | C_d_r[2]==. | C_d_r[3]==.) printf("{err}Not enough variability to compute the preliminary bandwidth. Try checking for mass points with option {cmd:masspoints(check)}.\n")  
-					
+
+		*printf("i=%g\n ",C_d_l[5])
+		*printf("i=%g\n ",C_d_r[5])
+
+		
 		*** BW-TWO
 		if  ("`bwselect'"=="msetwo" |  "`bwselect'"=="certwo" | "`bwselect'"=="msecomb2" | "`bwselect'"=="cercomb2" )  {		
 			* Preliminar bw
@@ -426,18 +425,18 @@ masspoints_found = 0
 				d_bw_r = max((d_bw_r, bw_min_r))
 			}
 			* Bias bw
-			C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_l, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, "`covs_drop_coll'")
+			C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_l, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll)
 			b_bw_l = (  (C_b_l[1]              /   (C_b_l[2]^2 + `scaleregul'*C_b_l[3]))  * (`N'/mN)     )^C_b_l[4]
-			C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_r, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, "`covs_drop_coll'")
+			C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_r, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 			b_bw_r = (  (C_b_r[1]              /   (C_b_r[2]^2 + `scaleregul'*C_b_r[3]))   * (`N'/mN)    )^C_b_l[4]
 			if  ("`bwrestrict'"=="on") {
 			b_bw_l = min((b_bw_l, range_l))
 			b_bw_r = min((b_bw_r, range_r))
 			}
 			* Main bw
-			C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_l, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, "`covs_drop_coll'")
+			C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_l, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll)
 			h_bw_l = (  (C_h_l[1]              /   (C_h_l[2]^2 + `scaleregul'*C_h_l[3]))  * (`N'/mN)       )^C_h_l[4]
-			C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_r, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, "`covs_drop_coll'")
+			C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_r, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 			h_bw_r = (  (C_h_r[1]              /   (C_h_r[2]^2 + `scaleregul'*C_h_r[3]))  * (`N'/mN)       )^C_h_l[4]
 			if  ("`bwrestrict'"=="on") {
 			h_bw_l = min((h_bw_l, range_l))
@@ -452,13 +451,13 @@ masspoints_found = 0
 			if  ("`bwrestrict'"=="on")  d_bw_s = min((d_bw_s, bw_max))
 			if (bwcheck > 0) d_bw_s = max((d_bw_s, bw_min_l, bw_min_r))		
 			* Bias bw
-			C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_s, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, "`covs_drop_coll'")
-			C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_s, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, "`covs_drop_coll'")
+			C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_s, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll)
+			C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_s, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 			b_bw_s = ( ((C_b_l[1] + C_b_r[1])  /  ((C_b_r[2] + C_b_l[2])^2 + `scaleregul'*(C_b_r[3]+C_b_l[3])))  * (`N'/mN)  )^C_b_l[4]
 			if  ("`bwrestrict'"=="on") b_bw_s = min((b_bw_s, bw_max))
 			* Main bw
-			C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_s, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, "`covs_drop_coll'")
-			C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_s, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, "`covs_drop_coll'")
+			C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_s, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll)
+			C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_s, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 			h_bw_s = ( ((C_h_l[1] + C_h_r[1])  /  ((C_h_r[2] + C_h_l[2])^2 + `scaleregul'*(C_h_r[3] + C_h_l[3])))  * (`N'/mN)  )^C_h_l[4]			
 			if  ("`bwrestrict'"=="on") h_bw_s = min((h_bw_s, bw_max))
 		}
@@ -471,18 +470,20 @@ masspoints_found = 0
 			
 			if (bwcheck > 0) d_bw_d = max((d_bw_d, bw_min_l, bw_min_r))		
 			* Bias bw
-			C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_d, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, "`covs_drop_coll'")
-			C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_d, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, "`covs_drop_coll'")
+			C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_d, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll)
+			C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_d, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 			b_bw_d = ( ((C_b_l[1] + C_b_r[1])  /  ((C_b_r[2] - C_b_l[2])^2 + `scaleregul'*(C_b_r[3] + C_b_l[3])))  * (`N'/mN)    )^C_b_l[4]
 			if  ("`bwrestrict'"=="on") b_bw_d = min((b_bw_d, bw_max))
 			
 			* Main bw
-			C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_d, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, "`covs_drop_coll'")
-			C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_d, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, "`covs_drop_coll'")
+			C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_d, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll)
+			C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_d, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 			h_bw_d = ( ((C_h_l[1] + C_h_r[1])  /  ((C_h_r[2] - C_h_l[2])^2 + `scaleregul'*(C_h_r[3] + C_h_l[3])))  * (`N'/mN)   )^C_h_l[4]
 			if  ("`bwrestrict'"=="on") h_bw_d = min((h_bw_d, bw_max))
 			
 		}	
+		
+
 
 		if (C_b_l[1]==0 | C_b_l[2]==0 | C_b_r[1]==0 | C_b_r[2]==0 |C_b_l[1]==. | C_b_l[2]==. | C_b_l[3]==. | C_b_r[1]==. | C_b_r[2]==. | C_b_r[3]==.) printf("{err}Not enough variability to compute the bias bandwidth (b). Try checking for mass points with option {cmd:masspoints(check)}. \n")  
 		if (C_h_l[1]==0 | C_h_l[2]==0 | C_h_r[1]==0 | C_h_r[2]==0 |C_h_l[1]==. | C_h_l[2]==. | C_h_l[3]==. | C_h_r[1]==. | C_h_r[2]==. | C_h_r[3]==.) printf("{err}Not enough variability to compute the loc. poly. bandwidth (h). Try checking for mass points with option {cmd:masspoints(check)}.\n") 
@@ -536,10 +537,7 @@ masspoints_found = 0
 		range_l = range_l*x_sd
 		range_r = range_r*x_sd  
 		*****************************************************
-		*st_local("h_l", strofreal(h_l))
-		*st_local("h_r", strofreal(h_r))
-		*st_local("b_l", strofreal(b_l))
-		*st_local("b_r", strofreal(b_r))
+
 		
 		} /* close if for bw selector */
 	
@@ -596,16 +594,11 @@ masspoints_found = 0
 		************ Computing RD estimates ********************************************
 		********************************************************************************
 		L_l = quadcross(R_p_l:*W_h_l,u_l:^(`p'+1)); L_r = quadcross(R_p_r:*W_h_r,u_r:^(`p'+1)) 
-		if ("`covs_drop'"=="") {
 			invG_q_l  = cholinv(quadcross(R_q_l,W_b_l,R_q_l));	invG_q_r  = cholinv(quadcross(R_q_r,W_b_r,R_q_r))
 			invG_p_l  = cholinv(quadcross(R_p_l,W_h_l,R_p_l));	invG_p_r  = cholinv(quadcross(R_p_r,W_h_r,R_p_r)) 
-		} else{
-			invG_q_l  = invsym(quadcross(R_q_l,W_b_l,R_q_l));	invG_q_r  = invsym(quadcross(R_q_r,W_b_r,R_q_r))
-			invG_p_l  = invsym(quadcross(R_p_l,W_h_l,R_p_l));	invG_p_r  = invsym(quadcross(R_p_r,W_h_r,R_p_r)) 
-		}
 		
 		if (rank(invG_p_l)==. | rank(invG_p_r)==. | rank(invG_q_l)==. | rank(invG_q_r)==. ){
-			display("{err}Invertibility problem: check variability of running variable around cutoff. Try checking for mass points with option {cmd:masspoints(check)}.")
+		display("{err}Invertibility problem: check variability of running variable around cutoff. Try checking for mass points with option {cmd:masspoints(check)}.")
 			exit(1)
 		}
 		
@@ -616,15 +609,10 @@ masspoints_found = 0
 		D_l = eY_l; D_r = eY_r		
 		
 		if ("`fuzzy'"~="") {
-			*eT_l  = T_l[ind_l]; eT_r  = T_r[ind_r]
-			*D_l  = D_l,eT_l; D_r = D_r,eT_r
-			*if (variance(T_l)==0 | variance(T_r)==0 )	st_local("perf_comp","perf_comp")
-			
 			T    = st_data(.,("`fuzzyvar'"), 0);	dT = 1
 			T_l  = select(T,X:<`c');  eT_l  = T_l[ind_l]
 			T_r  = select(T,X:>=`c'); eT_r  = T_r[ind_r]
 			D_l  = D_l,eT_l; D_r = D_r,eT_r
-			*if (variance(T_l)==0 | variance(T_r)==0 )	st_local("perf_comp","perf_comp")				
 		}
 		
 		if ("`covs'"~="") {
@@ -686,12 +674,10 @@ masspoints_found = 0
 			ZWY_p_r = ZWD_p_r[,1::1+dT] - UiGU_p_r[,1::1+dT]     
 			ZWZ_p = ZWZ_p_r + ZWZ_p_l
 			ZWY_p = ZWY_p_r + ZWY_p_l
-			if ("`covs_drop'"=="") {
-				gamma_p = cholinv(ZWZ_p)*ZWY_p
-			} else {
-				gamma_p = invsym(ZWZ_p)*ZWY_p
-			}			
-			
+			if ("`covs_drop_coll'"=="0") gamma_p = cholinv(ZWZ_p)*ZWY_p
+			if ("`covs_drop_coll'"=="1") gamma_p =  invsym(ZWZ_p)*ZWY_p
+			if ("`covs_drop_coll'"=="2") gamma_p =    pinv(ZWZ_p)*ZWY_p
+	
 			s_Y = (1 \  -gamma_p[,1])
 			
 			if (dT==0) {
@@ -703,8 +689,7 @@ masspoints_found = 0
 				tau_Y_bc_r = `scalepar'*s_Y'*beta_bc_r[(`deriv'+1),]'				
 				bias_l = tau_Y_cl_l-tau_Y_bc_l
 				bias_r = tau_Y_cl_r-tau_Y_bc_r 				
-				*gamma_Y_l  = (s_Y'*beta_p_l')'
-				*gamma_Y_r  = (s_Y'*beta_p_r')'			
+
 			}
 			
 			if (dT>0) {
@@ -839,8 +824,8 @@ masspoints_found = 0
 	************************************************
 	********* OUTPUT TABLE *************************
 	************************************************
-	local rho_l = h_l/b_l
-	local rho_r = h_r/b_r
+	local rho_l = scalar(h_l)/scalar(b_l)
+	local rho_r = scalar(h_r)/scalar(b_r)
 	
 	disp ""
 	if "`fuzzy'"=="" {
@@ -869,17 +854,17 @@ masspoints_found = 0
 	}
 
 	disp ""
-	disp in smcl in gr "{ralign 18: Cutoff c = `c'}"        _col(19) " {c |} " _col(21) in gr "Left of " in yellow "c"  _col(33) in gr "Right of " in yellow "c"         _col(55) in gr "Number of obs = "  in yellow %10.0f N
+	disp in smcl in gr "{ralign 18: Cutoff c = `c'}"        _col(19) " {c |} " _col(21) in gr "Left of " in yellow "c"  _col(33) in gr "Right of " in yellow "c"         _col(55) in gr "Number of obs = "  in yellow %10.0f scalar(N)
 	disp in smcl in gr "{hline 19}{c +}{hline 22}"                                                                                                                       _col(55) in gr "BW type       = "  in yellow "{ralign 10:`bwselect'}" 
-	disp in smcl in gr "{ralign 18:Number of obs}"          _col(19) " {c |} " _col(21) as result %9.0f N_l             _col(34) %9.0f  N_r                              _col(55) in gr "Kernel        = "  in yellow "{ralign 10:`kernel_type'}" 
-	disp in smcl in gr "{ralign 18:Eff. Number of obs}"     _col(19) " {c |} " _col(21) as result %9.0f N_h_l           _col(34) %9.0f  N_h_r                            _col(55) in gr "VCE method    = "  in yellow "{ralign 10:`vce_type'}" 
+	disp in smcl in gr "{ralign 18:Number of obs}"          _col(19) " {c |} " _col(21) as result %9.0f scalar(N_l)             _col(34) %9.0f  scalar(N_r)                              _col(55) in gr "Kernel        = "  in yellow "{ralign 10:`kernel_type'}" 
+	disp in smcl in gr "{ralign 18:Eff. Number of obs}"     _col(19) " {c |} " _col(21) as result %9.0f scalar(N_h_l)           _col(34) %9.0f  scalar(N_h_r)                            _col(55) in gr "VCE method    = "  in yellow "{ralign 10:`vce_type'}" 
 	disp in smcl in gr "{ralign 18:Order est. (p)}"         _col(19) " {c |} " _col(21) as result %9.0f `p'             _col(34) %9.0f  `p'         
 	disp in smcl in gr "{ralign 18:Order bias (q)}"         _col(19) " {c |} " _col(21) as result %9.0f `q'             _col(34) %9.0f  `q'                              
-	disp in smcl in gr "{ralign 18:BW est. (h)}"            _col(19) " {c |} " _col(21) as result %9.3f h_l           _col(34) %9.3f  h_r                                   
-	disp in smcl in gr "{ralign 18:BW bias (b)}"            _col(19) " {c |} " _col(21) as result %9.3f b_l           _col(34) %9.3f  b_r
+	disp in smcl in gr "{ralign 18:BW est. (h)}"            _col(19) " {c |} " _col(21) as result %9.3f scalar(h_l)           _col(34) %9.3f  scalar(h_r)                                   
+	disp in smcl in gr "{ralign 18:BW bias (b)}"            _col(19) " {c |} " _col(21) as result %9.3f scalar(b_l)           _col(34) %9.3f  scalar(b_r)
 	disp in smcl in gr "{ralign 18:rho (h/b)}"              _col(19) " {c |} " _col(21) as result %9.3f `rho_l'         _col(34) %9.3f  `rho_r'
-	if ("`masspoints'"=="check" | masspoints_found==1) disp in smcl in gr "{ralign 18:Unique obs}"         _col(19) " {c |} " _col(21) as result %9.0f M_l           _col(34) %9.0f  M_r                    
-	if ("`cluster'"!="")                               disp in smcl in gr "{ralign 18:Number of clusters}" _col(19) " {c |} " _col(21) as result %9.0f g_l           _col(34) %9.0f  g_r                         
+	if ("`masspoints'"=="check" | masspoints_found==1) disp in smcl in gr "{ralign 18:Unique obs}"         _col(19) " {c |} " _col(21) as result %9.0f scalar(M_l)           _col(34) %9.0f  scalar(M_r)                    
+	if ("`cluster'"!="")                               disp in smcl in gr "{ralign 18:Number of clusters}" _col(19) " {c |} " _col(21) as result %9.0f scalar(g_l)           _col(34) %9.0f  scalar(g_r)                         
 	disp ""
 			
 	if ("`fuzzy'"~="") {
@@ -889,13 +874,13 @@ masspoints_found = 0
 		disp in smcl in gr "{hline 19}{c +}{hline 60}"
 		
 		if ("`all'"=="") {
-			disp in smcl in gr "{ralign 18:Conventional}"      _col(19) " {c |} " _col(22) in ye %7.0g tau_T_cl _col(33) %7.0g se_tau_T_cl _col(43) %5.4f tau_T_cl/se_tau_T_cl _col(52) %5.3f  2*normal(-abs(tau_T_cl/se_tau_T_cl))  _col(60) %8.0g  tau_T_cl - quant*se_tau_T_cl _col(73) %8.0g tau_T_cl + quant*se_tau_T_cl 
-			disp in smcl in gr "{ralign 18:Robust}"            _col(19) " {c |} " _col(22) in ye %7.0g "    -"  _col(33) %7.0g "    -"     _col(43) %5.4f tau_T_bc/se_tau_T_rb _col(52) %5.3f  2*normal(-abs(tau_T_bc/se_tau_T_rb))  _col(60) %8.0g  tau_T_bc - quant*se_tau_T_rb _col(73) %8.0g tau_T_bc + quant*se_tau_T_rb  
+			disp in smcl in gr "{ralign 18:Conventional}"      _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_T_cl) _col(33) %7.0g scalar(se_tau_T_cl) _col(43) %5.4f scalar(tau_T_cl/se_tau_T_cl) _col(52) %5.3f  scalar(2*normal(-abs(tau_T_cl/se_tau_T_cl)))  _col(60) %8.0g  scalar(tau_T_cl) - scalar(quant*se_tau_T_cl) _col(73) %8.0g scalar(tau_T_cl + quant*se_tau_T_cl) 
+			disp in smcl in gr "{ralign 18:Robust}"            _col(19) " {c |} " _col(22) in ye %7.0g "    -"  _col(33) %7.0g "    -"     _col(43) %5.4f scalar(tau_T_bc/se_tau_T_rb) _col(52) %5.3f  scalar(2*normal(-abs(tau_T_bc/se_tau_T_rb)))  _col(60) %8.0g  scalar(tau_T_bc - quant*se_tau_T_rb) _col(73) %8.0g scalar(tau_T_bc + quant*se_tau_T_rb) 
 		}
 		else {
-			disp in smcl in gr "{ralign 18:Conventional}"      _col(19) " {c |} " _col(22) in ye %7.0g tau_T_cl _col(33) %7.0g se_tau_T_cl _col(43) %5.4f tau_T_cl/se_tau_T_cl _col(52) %5.3f  2*normal(-abs(tau_T_cl/se_tau_T_cl)) _col(60) %8.0g  tau_T_cl - quant*se_tau_T_cl _col(73) %8.0g tau_T_cl + quant*se_tau_T_cl  
-			disp in smcl in gr "{ralign 18:Bias-corrected}"    _col(19) " {c |} " _col(22) in ye %7.0g tau_T_bc _col(33) %7.0g se_tau_T_cl _col(43) %5.4f tau_T_bc/se_tau_T_cl _col(52) %5.3f  2*normal(-abs(tau_T_bc/se_tau_T_cl)) _col(60) %8.0g  tau_T_bc - quant*se_tau_T_cl _col(73) %8.0g tau_T_bc + quant*se_tau_T_cl 
-			disp in smcl in gr "{ralign 18:Robust}"            _col(19) " {c |} " _col(22) in ye %7.0g tau_T_bc _col(33) %7.0g se_tau_T_rb _col(43) %5.4f tau_T_bc/se_tau_T_rb _col(52) %5.3f  2*normal(-abs(tau_T_bc/se_tau_T_rb)) _col(60) %8.0g  tau_T_bc - quant*se_tau_T_rb _col(73) %8.0g tau_T_bc + quant*se_tau_T_rb 
+			disp in smcl in gr "{ralign 18:Conventional}"      _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_T_cl) _col(33) %7.0g scalar(se_tau_T_cl) _col(43) %5.4f scalar(tau_T_cl/se_tau_T_cl) _col(52) %5.3f  scalar(2*normal(-abs(tau_T_cl/se_tau_T_cl))) _col(60) %8.0g  scalar(tau_T_cl - quant*se_tau_T_cl) _col(73) %8.0g scalar(tau_T_cl + quant*se_tau_T_cl)  
+			disp in smcl in gr "{ralign 18:Bias-corrected}"    _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_T_bc) _col(33) %7.0g scalar(se_tau_T_cl) _col(43) %5.4f scalar(tau_T_bc/se_tau_T_cl) _col(52) %5.3f  scalar(2*normal(-abs(tau_T_bc/se_tau_T_cl))) _col(60) %8.0g  scalar(tau_T_bc - quant*se_tau_T_cl) _col(73) %8.0g scalar(tau_T_bc + quant*se_tau_T_cl) 
+			disp in smcl in gr "{ralign 18:Robust}"            _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_T_bc) _col(33) %7.0g scalar(se_tau_T_rb) _col(43) %5.4f scalar(tau_T_bc/se_tau_T_rb) _col(52) %5.3f  scalar(2*normal(-abs(tau_T_bc/se_tau_T_rb))) _col(60) %8.0g  scalar(tau_T_bc - quant*se_tau_T_rb) _col(73) %8.0g scalar(tau_T_bc + quant*se_tau_T_rb) 
 		}
 			disp in smcl in gr "{hline 19}{c BT}{hline 60}"
 			disp ""
@@ -909,18 +894,18 @@ masspoints_found = 0
 	disp in smcl in gr "{hline 19}{c +}{hline 60}"
 
 	if ("`all'"=="") {
-		disp in smcl in gr "{ralign 18:Conventional}"   _col(19) " {c |} " _col(22) in ye %7.0g tau_cl    _col(33) %7.0g se_tau_cl  _col(43) %5.4f tau_cl/se_tau_cl _col(52) %5.3f  2*normal(-abs(tau_cl/se_tau_cl))  _col(60) %8.0g tau_cl - quant*se_tau_cl _col(73) %8.0g tau_cl + quant*se_tau_cl 
-		disp in smcl in gr "{ralign 18:Robust}"         _col(19) " {c |} " _col(22) in ye %7.0g "    -"   _col(33) %7.0g "    -"    _col(43) %5.4f tau_bc/se_tau_rb _col(52) %5.3f  2*normal(-abs(tau_bc/se_tau_rb))  _col(60) %8.0g tau_bc - quant*se_tau_rb _col(73) %8.0g tau_bc + quant*se_tau_rb  
+		disp in smcl in gr "{ralign 18:Conventional}"   _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_cl)    _col(33) %7.0g scalar(se_tau_cl)  _col(43) %5.4f scalar(tau_cl/se_tau_cl) _col(52) %5.3f  scalar(2*normal(-abs(tau_cl/se_tau_cl)))  _col(60) %8.0g scalar(tau_cl - quant*se_tau_cl) _col(73) %8.0g scalar(tau_cl + quant*se_tau_cl) 
+		disp in smcl in gr "{ralign 18:Robust}"         _col(19) " {c |} " _col(22) in ye %7.0g "    -"   _col(33) %7.0g "    -"    _col(43) %5.4f scalar(tau_bc/se_tau_rb) _col(52) %5.3f  scalar(2*normal(-abs(tau_bc/se_tau_rb)))  _col(60) %8.0g scalar(tau_bc - quant*se_tau_rb) _col(73) %8.0g scalar(tau_bc + quant*se_tau_rb) 
 	}
 	else {
-		disp in smcl in gr "{ralign 18:Conventional}"   _col(19) " {c |} " _col(22) in ye %7.0g tau_cl    _col(33) %7.0g se_tau_cl _col(43) %5.4f tau_cl/se_tau_cl _col(52) %5.3f  2*normal(-abs(tau_cl/se_tau_cl)) _col(60) %8.0g  tau_cl - quant*se_tau_cl _col(73) %8.0g tau_cl + quant*se_tau_cl  
-		disp in smcl in gr "{ralign 18:Bias-corrected}" _col(19) " {c |} " _col(22) in ye %7.0g tau_bc    _col(33) %7.0g se_tau_cl _col(43) %5.4f tau_bc/se_tau_cl _col(52) %5.3f  2*normal(-abs(tau_bc/se_tau_cl)) _col(60) %8.0g  tau_bc - quant*se_tau_cl _col(73) %8.0g tau_bc + quant*se_tau_cl  
-		disp in smcl in gr "{ralign 18:Robust}"         _col(19) " {c |} " _col(22) in ye %7.0g tau_bc    _col(33) %7.0g se_tau_rb _col(43) %5.4f tau_bc/se_tau_rb _col(52) %5.3f  2*normal(-abs(tau_bc/se_tau_rb)) _col(60) %8.0g  tau_bc - quant*se_tau_rb _col(73) %8.0g tau_bc + quant*se_tau_rb  
+		disp in smcl in gr "{ralign 18:Conventional}"   _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_cl)    _col(33) %7.0g scalar(se_tau_cl) _col(43) %5.4f scalar(tau_cl/se_tau_cl) _col(52) %5.3f  scalar(2*normal(-abs(tau_cl/se_tau_cl))) _col(60) %8.0g  scalar(tau_cl - quant*se_tau_cl) _col(73) %8.0g scalar(tau_cl + quant*se_tau_cl)  
+		disp in smcl in gr "{ralign 18:Bias-corrected}" _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_bc)    _col(33) %7.0g scalar(se_tau_cl) _col(43) %5.4f scalar(tau_bc/se_tau_cl) _col(52) %5.3f  scalar(2*normal(-abs(tau_bc/se_tau_cl))) _col(60) %8.0g  scalar(tau_bc - quant*se_tau_cl) _col(73) %8.0g scalar(tau_bc + quant*se_tau_cl)  
+		disp in smcl in gr "{ralign 18:Robust}"         _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_bc)    _col(33) %7.0g scalar(se_tau_rb) _col(43) %5.4f scalar(tau_bc/se_tau_rb) _col(52) %5.3f  scalar(2*normal(-abs(tau_bc/se_tau_rb))) _col(60) %8.0g  scalar(tau_bc - quant*se_tau_rb) _col(73) %8.0g scalar(tau_bc + quant*se_tau_rb)  
 	}
 		disp in smcl in gr "{hline 19}{c BT}{hline 60}"
 
 	if ("`covs'"!="")        di "Covariate-adjusted estimates. Additional covariates included: `ncovs'"
-	if (`covs_drop_coll'==1) di "Variables dropped due to multicollinearity."
+*	if (`covs_drop_coll'>=1) di "Variables dropped due to multicollinearity."
 	if ("`cluster'"!="")     di "Std. Err. adjusted for clusters in " "`clustvar'"
 	if ("`scalepar'"!="1")   di "Scale parameter: " `scalepar' 
 	if ("`scaleregul'"!="1") di "Scale regularization: " `scaleregul'
@@ -928,16 +913,16 @@ masspoints_found = 0
 	if ("`masspoints'"=="adjust" & masspoints_found==1) di "Estimates adjusted for mass points in the running variable."  	
 	
 	if ("`nowarnings'"!="") {
-		if (h_l>=`range_l' | h_r>=`range_r') disp in red "WARNING: bandwidth {it:h} greater than the range of the data."
-		if (b_l>=`range_l' | b_r>=`range_r') disp in red "WARNING: bandwidth {it:b} greater than the range of the data."
-		if (N_h_l<20 | N_h_r<20) 				 disp in red "WARNING: bandwidth {it:h} too low."
-		if (N_b_l<20 | N_b_r<20) 				 disp in red "WARNING: bandwidth {it:b} too low."
+		if (scalar(h_l)>=`range_l' | scalar(h_r)>=`range_r') disp in red "WARNING: bandwidth {it:h} greater than the range of the data."
+		if (scalar(b_l)>=`range_l' | scalar(b_r)>=`range_r') disp in red "WARNING: bandwidth {it:b} greater than the range of the data."
+		if (scalar(N_h_l)<20 | scalar(N_h_r)<20) 				 disp in red "WARNING: bandwidth {it:h} too low."
+		if (scalar(N_b_l)<20 | scalar(N_b_r)<20) 				 disp in red "WARNING: bandwidth {it:b} too low."
 		if ("`sharpbw'"~="")   					 disp in red "WARNING: bandwidths automatically computed for sharp RD estimation."
 		if ("`perf_comp'"~="")   				 disp in red "WARNING: bandwidths automatically computed for sharp RD estimation because perfect compliance was detected on at least one side of the threshold."
 	}
 	
-	local ci_l_rb = round(tau_bc - quant*se_tau_rb,0.001)
-	local ci_r_rb = round(tau_bc + quant*se_tau_rb,0.001)
+	local ci_l_rb = round(scalar(tau_bc - quant*se_tau_rb),0.001)
+	local ci_r_rb = round(scalar(tau_bc + quant*se_tau_rb),0.001)
 
 	matrix rownames V = RD_Estimate
 	matrix colnames V = RD_Estimate
@@ -956,48 +941,48 @@ masspoints_found = 0
 
 	ereturn clear
 	cap ereturn post b V, esample(`touse')
-	ereturn scalar N = N
-	ereturn scalar N_l = N_l
-	ereturn scalar N_r = N_r
-	ereturn scalar N_h_l = N_h_l
-	ereturn scalar N_h_r = N_h_r
-	ereturn scalar N_b_l = N_b_l
-	ereturn scalar N_b_r = N_b_r
+	ereturn scalar N = `N'
+	ereturn scalar N_l = scalar(N_l)
+	ereturn scalar N_r = scalar(N_r)
+	ereturn scalar N_h_l = scalar(N_h_l)
+	ereturn scalar N_h_r = scalar(N_h_r)
+	ereturn scalar N_b_l = scalar(N_b_l)
+	ereturn scalar N_b_r = scalar(N_b_r)
 	ereturn scalar c = `c'
 	ereturn scalar p = `p'
 	ereturn scalar q = `q'
-	ereturn scalar h_l = h_l
-	ereturn scalar h_r = h_r
-	ereturn scalar b_l = b_l
-	ereturn scalar b_r = b_r
+	ereturn scalar h_l = scalar(h_l)
+	ereturn scalar h_r = scalar(h_r)
+	ereturn scalar b_l = scalar(b_l)
+	ereturn scalar b_r = scalar(b_r)
 	ereturn scalar level = `level'
-	ereturn scalar tau_cl   = tau_cl
-	ereturn scalar tau_bc   = tau_bc
-	ereturn scalar tau_cl_l = tau_Y_cl_l
-	ereturn scalar tau_cl_r = tau_Y_cl_r
-	ereturn scalar tau_bc_l = tau_Y_bc_l
-	ereturn scalar tau_bc_r = tau_Y_bc_r
-	ereturn scalar bias_l = bias_l
-	ereturn scalar bias_r = bias_r
-	ereturn scalar se_tau_cl = se_tau_cl
-	ereturn scalar se_tau_rb = se_tau_rb
-	ereturn scalar ci_l_cl = tau_cl - quant*se_tau_cl
-	ereturn scalar ci_r_cl = tau_cl + quant*se_tau_cl
-	ereturn scalar pv_cl = 2*normal(-abs(tau_cl/se_tau_cl))
-	ereturn scalar ci_l_rb = tau_bc - quant*se_tau_rb
-	ereturn scalar ci_r_rb = tau_bc + quant*se_tau_rb
-	ereturn scalar pv_rb = 2*normal(-abs(tau_bc/se_tau_rb))
+	ereturn scalar tau_cl   = scalar(tau_cl)
+	ereturn scalar tau_bc   = scalar(tau_bc)
+	ereturn scalar tau_cl_l = scalar(tau_Y_cl_l)
+	ereturn scalar tau_cl_r = scalar(tau_Y_cl_r)
+	ereturn scalar tau_bc_l = scalar(tau_Y_bc_l)
+	ereturn scalar tau_bc_r = scalar(tau_Y_bc_r)
+	ereturn scalar bias_l = scalar(bias_l)
+	ereturn scalar bias_r = scalar(bias_r)
+	ereturn scalar se_tau_cl = scalar(se_tau_cl)
+	ereturn scalar se_tau_rb = scalar(se_tau_rb)
+	ereturn scalar ci_l_cl = scalar(tau_cl - quant*se_tau_cl)
+	ereturn scalar ci_r_cl = scalar(tau_cl + quant*se_tau_cl)
+	ereturn scalar pv_cl = scalar(2*normal(-abs(tau_cl/se_tau_cl)))
+	ereturn scalar ci_l_rb = scalar(tau_bc - quant*se_tau_rb)
+	ereturn scalar ci_r_rb = scalar(tau_bc + quant*se_tau_rb)
+	ereturn scalar pv_rb = scalar(2*normal(-abs(tau_bc/se_tau_rb)))
 	
 	if ("`fuzzy'"!="") {
-		ereturn scalar tau_T_cl  = tau_T_cl
-		ereturn scalar tau_T_bc  = tau_T_bc
-		ereturn scalar se_tau_T_cl   = se_tau_T_cl
-		ereturn scalar se_tau_T_rb   = se_tau_T_rb
+		ereturn scalar tau_T_cl  = scalar(tau_T_cl)
+		ereturn scalar tau_T_bc  = scalar(tau_T_bc)
+		ereturn scalar se_tau_T_cl   = scalar(se_tau_T_cl)
+		ereturn scalar se_tau_T_rb   = scalar(se_tau_T_rb)
 		
-		ereturn scalar tau_T_cl_l = tau_T_cl_l
-		ereturn scalar tau_T_cl_r = tau_T_cl_r
-		ereturn scalar tau_T_bc_l = tau_T_bc_l
-		ereturn scalar tau_T_bc_r = tau_T_bc_r
+		ereturn scalar tau_T_cl_l = scalar(tau_T_cl_l)
+		ereturn scalar tau_T_cl_r = scalar(tau_T_cl_r)
+		ereturn scalar tau_T_bc_l = scalar(tau_T_bc_l)
+		ereturn scalar tau_T_bc_r = scalar(tau_T_bc_r)
 	}
 	
 	ereturn matrix beta_p_r = beta_p_r

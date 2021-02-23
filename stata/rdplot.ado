@@ -1,8 +1,8 @@
-*!version 8.0.4  2020-08-22
+*!version 8.1.0  2021-02-22
 
 capture program drop rdplot
 program define rdplot, eclass
-	syntax anything [if] [, c(real 0) p(integer 4) nbins(string) covs(string) covs_eval(string) covs_drop(string) binselect(string) scale(string) kernel(string) weights(string) h(string) k(integer 4) support(string) genvars hide ci(real 0) shade graph_options(string)  nochecks *]
+	syntax anything [if] [, c(real 0) p(integer 4) nbins(string) covs(string) covs_eval(string) covs_drop(string)  binselect(string) scale(string) kernel(string) weights(string) h(string) k(integer 4) support(string) masspoints(string) genvars hide ci(real 0) shade graph_options(string) nochecks  *]
 
 	marksample touse
 	tokenize "`anything'"
@@ -85,9 +85,13 @@ program define rdplot, eclass
 	}
 		
 	**** CHECK colinearity ******************************************
-	local covs_drop_coll = 0
-	if ("`covs_drop'"=="") local covs_drop = "on"	
+	local covs_drop_coll = 0	
+	if ("`covs_drop'"=="") local covs_drop = "pinv"	
 	if ("`covs'"~="") {	
+		
+	if ("`covs_drop'"=="invsym")  local covs_drop_coll = 1
+	if ("`covs_drop'"=="pinv")    local covs_drop_coll = 2
+	
 		qui _rmcoll `covs_list'
 		local nocoll_controls_cat `r(varlist)'
 		local nocoll_controls ""
@@ -99,9 +103,10 @@ program define rdplot, eclass
 				}
 			}			
 		local covs_new `nocoll_controls'
-		qui ds `covs_new'
+		qui ds `covs_new', alpha
 		local covs_list_new = r(varlist)
 		local ncovs_new: word count `covs_list_new'
+		
 		if (`ncovs_new'<`ncovs') {
 			if ("`covs_drop'"=="off") {	
 				di as error  "{err}Multicollinearity issue detected in {cmd:covs}. Please rescale and/or remove redundant covariates, or add {cmd:covs_drop} option." 
@@ -110,13 +115,21 @@ program define rdplot, eclass
 			else {
 				local ncovs = "`ncovs_new'"
 				local covs_list = "`covs_list_new'"
-				local covs_drop_coll = 1
+				*local covs_drop_coll = 1
 			}	
 		}
 	}
 	
-	******************************************
-
+	
+	
+		
+	**** DEFAULTS ***************************************
+	if ("`masspoints'"=="") local masspoints = "adjust"
+	if ("`covs_eval'"=="")  local covs_eval = "mean"
+	*****************************************************************
+	
+	
+	
 	qui su `x'	
 	local N = r(N)
 	local x_min = r(min)
@@ -192,6 +205,7 @@ program define rdplot, eclass
 		}
 	}
 
+
 	*******************************
 	****** Start MATA *************
 	*******************************
@@ -207,11 +221,41 @@ program define rdplot, eclass
 		h_l     = strtoreal("`h_l'");     h_r     = strtoreal("`h_r'")
 		nbins_l = strtoreal("`nbins_l'"); nbins_r = strtoreal("`nbins_r'")
 		scale_l = strtoreal("`scale_l'"); scale_r = strtoreal("`scale_r'")
-		
+				
 		y = st_data(.,("`y'"), 0);	x = st_data(.,("`x'"), 0)
 		x_l = select(x,x:<c);	x_r = select(x,x:>=c)
 		y_l = select(y,x:<c);	y_r = select(y,x:>=c)
-			
+				
+		*** Mass points check ********************************************
+		masspoints_found = 0
+		if ("`masspoints'"=="check" | "`masspoints'"=="adjust") {
+			X_uniq_l = sort(uniqrows(x_l),-1)
+			X_uniq_r = uniqrows(x_r)
+			M_l = length(X_uniq_l)
+			M_r = length(X_uniq_r)
+			M = M_l + M_r
+			st_numscalar("M_l", M_l); st_numscalar("M_r", M_r)
+			mass_l = 1-M_l/n_l
+			mass_r = 1-M_r/n_r				
+			if (mass_l>=0.1 | mass_r>=0.1){
+				masspoints_found = 1
+				display("{err}Mass points detected in the running variable.")
+				if ("`masspoints'"=="adjust") {
+					if ("`binselect'"=="es")    st_local("binselect","espr") 
+					if ("`binselect'"=="esmv")  st_local("binselect","esmvpr") 
+					if ("`binselect'"=="qs")    st_local("binselect","qspr") 
+					if ("`binselect'"=="qsmv")  st_local("binselect","qsmvpr") 				
+				}
+				if ("`masspoints'"=="check") display("{err}Try using option {cmd:masspoints(adjust)}.")
+
+			}				
+		}	
+		******************************************************************************************
+	
+	}
+	
+	mata{
+	
 		*if ("`hide'"=="" | "`genvars'"!="" ){
 		
 		************************************************************	
@@ -237,13 +281,9 @@ program define rdplot, eclass
 		}			
 
 		
-		if ("`covs_drop'"=="") {
 			gamma_p1_l = cholinv(cross(rp_l,wh_l,rp_l))*cross(rp_l, wh_l, y_l)	
 			gamma_p1_r = cholinv(cross(rp_r,wh_r,rp_r))*cross(rp_r, wh_r, y_r)
-		} else {
-			gamma_p1_l = invsym(cross(rp_l,wh_l,rp_l))*cross(rp_l, wh_l, y_l)	
-			gamma_p1_r = invsym(cross(rp_r,wh_r,rp_r))*cross(rp_r, wh_r, y_r)
-		}
+
 		
 
 		} else {
@@ -267,13 +307,9 @@ program define rdplot, eclass
 		
 		L_l = quadcross(R_p_l:*W_h_l,u_l:^(`p'+1)); L_r = quadcross(R_p_r:*W_h_r,u_r:^(`p'+1)) 
 		
-		if ("`covs_drop'"=="") {
-			invG_p_l  = cholinv(quadcross(R_p_l,W_h_l,R_p_l));	
-			invG_p_r  = cholinv(quadcross(R_p_r,W_h_r,R_p_r)) 
-		} else {		
-			invG_p_l  = invsym(quadcross(R_p_l,W_h_l,R_p_l));	
-			invG_p_r  = invsym(quadcross(R_p_r,W_h_r,R_p_r)) 
-		}
+
+		invG_p_l  = cholinv(quadcross(R_p_l,W_h_l,R_p_l));	
+		invG_p_r  = cholinv(quadcross(R_p_r,W_h_r,R_p_r)) 
 		
 		Z    = st_data(.,tokens("`covs'"), 0); dZ = cols(Z)
 		Z_l  = select(Z,X:<`c');	eZ_l = Z_l[ind_l,]
@@ -296,12 +332,12 @@ program define rdplot, eclass
 		ZWY_p_r = ZWD_p_r[,1] - UiGU_p_r[,1]     
 		ZWZ_p = ZWZ_p_r + ZWZ_p_l
 		ZWY_p = ZWY_p_r + ZWY_p_l
-		if ("`covs_drop'"=="") {
-			gamma_p = cholinv(ZWZ_p)*ZWY_p
-		} else {
-			gamma_p = invsym(ZWZ_p)*ZWY_p
-		}
-		
+				
+		if ("`covs_drop_coll'"=="0") gamma_p = cholinv(ZWZ_p)*ZWY_p
+		if ("`covs_drop_coll'"=="1") gamma_p =  invsym(ZWZ_p)*ZWY_p
+		if ("`covs_drop_coll'"=="2") gamma_p =    pinv(ZWZ_p)*ZWY_p
+			
+			
 		s_Y = (1 \  -gamma_p[,1])
 		gamma_p1_l  = (s_Y'*beta_p_l')'
 		gamma_p1_r  = (s_Y'*beta_p_r')'		
@@ -322,7 +358,7 @@ program define rdplot, eclass
 		}	
 		
 		gammaZ = 0		
-		if ("`covs_eval'"=="mean") gammaZ = mean(Z)*gamma_p
+		if ("`covs_eval'"=="mean" & "`covs'"!="") gammaZ = mean(Z)*gamma_p
 				
 		*yhat_x = (R_p_l*gamma_p1_l  \ R_p_r*gamma_p1_r ) :+ gammaZ
 		*resid_yz = y-Z*gamma_p
@@ -499,6 +535,7 @@ program define rdplot, eclass
 	st_matrix("J_qs_chk_mv", J_qs_chk_mv)
 	}
 	
+
 	********************************************************
 	**** Generate id and rdplot vars ***********************
 	********************************************************	
