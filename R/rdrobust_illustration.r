@@ -5,7 +5,6 @@
 ###########################################################################
 ### Clear R environment
 rm(list=ls(all=TRUE))
-setwd("C:/Users/scalonico/Dropbox/2018/rdrobust/R")
 
 ### Install R library
 ### NOTE: depending on your system, you may need to do it as root
@@ -50,8 +49,8 @@ summary(rdrobust(y=vote, x=margin, h=16.79369, b=27.43745))
 
 ## rdplot to show rdrobust estimate
 est <- rdrobust(y=vote, x=margin)
-rdplot(y=vote, x=margin, subset=-est$h_l<= margin & margin <= est$h_r,
-       binselect="esmv", kernel="triangular", h=c(est$h_l, est$h_r), p=1,
+rdplot(y=vote, x=margin, subset=-est$bws[1,1]<= margin & margin <= est$bws[1,2],
+       binselect="esmv", kernel="triangular", h=c(est$bws[1,1], est$bws[1,2]), p=1,
        title="RD Plot: U.S. Senate Election Data", 
        y.label="Vote Share in Election at time t+2",
        x.label="Vote Share in Election at time t")
