@@ -59,7 +59,9 @@ rdplot(y=vote, x=margin, subset=-est$bws[1,1]<= margin & margin <= est$bws[1,2],
 ## rdrobust with covariates within the same window (i.e., using same bandwidths)
 est1 <- rdrobust(y=vote, x=margin)
 len1 <- est1$ci[3,2] - est1$ci[3,1]
-est2 <- rdrobust(y=vote, x=margin, covs=cbind(class,termshouse,termssenate), h=c(est$h_l,est$h_r), b=c(est$b_l, est$b_r))
+est2 <- rdrobust(y=vote, x=margin, covs=cbind(class,termshouse,termssenate), 
+                 h = c(est$bws[1,1], est$bws[1,2]), 
+                 b = c(est$bws[2,1], est$bws[2,2]))
 len2 <- est2$ci[3,2] - est2$ci[3,1]
 paste("CI length change: ", round((len2/len1-1)*100,2), "%")
                                    
