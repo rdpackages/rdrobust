@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 8.1.0  2021-02-22}{...}
+{* *!version 8.2.0  2021-05-18}{...}
 {viewerjumpto "Syntax" "rdbwselect##syntax"}{...}
 {viewerjumpto "Description" "rdbwselect##description"}{...}
 {viewerjumpto "Options" "rdbwselect##options"}{...}

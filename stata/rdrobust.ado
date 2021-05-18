@@ -1,4 +1,4 @@
-*!version 8.1.0  2021-02-22
+*!version 8.2.0  2021-05-18
 
 capture program drop rdrobust 
 program define rdrobust, eclass
@@ -798,7 +798,7 @@ masspoints_found = 0
 		st_numscalar("tau_Y_cl_r", tau_Y_cl_r); st_numscalar("tau_Y_cl_l", tau_Y_cl_l)
 		st_numscalar("tau_Y_bc_r", tau_Y_bc_r);	st_numscalar("tau_Y_bc_l", tau_Y_bc_l)
 		st_numscalar("bias_l", bias_l);  st_numscalar("bias_r", bias_r)
-		st_matrix("beta_p_r", beta_p_r); st_matrix("beta_p_l", beta_p_l)
+		st_matrix("beta_p_r", beta_p_r[,1]); st_matrix("beta_p_l", beta_p_l[,1])
 		st_matrix("beta_q_r", beta_q_r); st_matrix("beta_q_l", beta_q_l)
 		st_numscalar("g_l",  g_l);       st_numscalar("g_r",   g_r)
 		st_matrix("b", (tau_cl))

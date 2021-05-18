@@ -1,8 +1,8 @@
-*!version 8.1.0  2021-02-22
+*!version 8.2.0  2021-05-18
 
 capture program drop rdplot
 program define rdplot, eclass
-	syntax anything [if] [, c(real 0) p(integer 4) nbins(string) covs(string) covs_eval(string) covs_drop(string)  binselect(string) scale(string) kernel(string) weights(string) h(string) k(integer 4) support(string) masspoints(string) genvars hide ci(real 0) shade graph_options(string) nochecks  *]
+	syntax anything [if] [, c(real 0) p(integer 4) nbins(string) covs(string) covs_eval(string) covs_drop(string)  binselect(string) scale(string) kernel(string) weights(string) h(string) support(string) masspoints(string) genvars hide ci(real 0) shade graph_options(string) nochecks  *]
 
 	marksample touse
 	tokenize "`anything'"
@@ -194,11 +194,7 @@ program define rdplot, eclass
 			exit 411
 		}
 			
-		if ("`k'"<="0"){
-			di as error  "{err}{cmd:k()} should be a positive integer"  
-			exit 411
-		}
-		
+	
 		if (`n'<20){
 			 di as error "{err}Not enough observations to perform bin calculations"  
 			 exit 2001
@@ -213,7 +209,6 @@ program define rdplot, eclass
 		n_l=`n_l'
 		n_r=`n_r'
 		p=`p'
-		k=`k'
 		n=`n'
 		c=`c'
 		x_min = `x_min'
@@ -223,8 +218,9 @@ program define rdplot, eclass
 		scale_l = strtoreal("`scale_l'"); scale_r = strtoreal("`scale_r'")
 				
 		y = st_data(.,("`y'"), 0);	x = st_data(.,("`x'"), 0)
-		x_l = select(x,x:<c);	x_r = select(x,x:>=c)
-		y_l = select(y,x:<c);	y_r = select(y,x:>=c)
+		ind_l = selectindex(x:<c); ind_r = selectindex(x:>=c)			
+		x_l = x[ind_l];	x_r = x[ind_r]
+		y_l = y[ind_l];	y_r = y[ind_r]
 				
 		*** Mass points check ********************************************
 		masspoints_found = 0
@@ -261,9 +257,6 @@ program define rdplot, eclass
 		************************************************************	
 		************ Polynomial curve (order = p) ******************
 		************************************************************
-		
-		if ("`covs'"=="") {
-		
 		rp_l = J(n_l,(p+1),.)
 		rp_r = J(n_r,(p+1),.)
 		for (j=1; j<=(p+1); j++) {
@@ -271,76 +264,51 @@ program define rdplot, eclass
 			rp_r[.,j] = (x_r:-c):^(j-1)
 		}
 
-		wh_l = rdrobust_kweight(x_l,c,h_l,"`kernel'")
-		wh_r = rdrobust_kweight(x_r,c,h_r,"`kernel'")
+		wh_l = rdrobust_kweight(x_l,c,h_l+1e-8,"`kernel'")
+		wh_r = rdrobust_kweight(x_r,c,h_r+1e-8,"`kernel'")
 		
 		if ("`weights'"~="") {
 			fw = st_data(.,("`weights'"), 0)
-			fw_l = select(fw,x:<c);	fw_r = select(fw,x:>=c)
+			fw_l = fw[ind_l];	fw_r = fw[ind_r]
 			wh_l = fw_l:*wh_l;	wh_r = fw_r:*wh_r
-		}			
+		}	
+		
+		invG_p_l  = cholinv(cross(rp_l, wh_l, rp_l))
+		invG_p_r  = cholinv(cross(rp_r, wh_r, rp_r))
+		
+		if ("`covs'"=="") {	
+			gamma_p1_l = invG_p_l*cross(rp_l, wh_l, y_l)	
+			gamma_p1_r = invG_p_r*cross(rp_r, wh_r, y_r)
 
-		
-			gamma_p1_l = cholinv(cross(rp_l,wh_l,rp_l))*cross(rp_l, wh_l, y_l)	
-			gamma_p1_r = cholinv(cross(rp_r,wh_r,rp_r))*cross(rp_r, wh_r, y_r)
-
-		
-
-		} else {
-		
-		Y = st_data(.,("`y'"), 0);	X = st_data(.,("`x'"), 0)
-		X_l = select(X,X:<`c');	X_r = select(X,X:>=`c')
-		Y_l = select(Y,X:<`c');	Y_r = select(Y,X:>=`c')
-		h_l = strtoreal("`h_l'"); h_r = strtoreal("`h_r'")
-		w_h_l = rdrobust_kweight(X_l,`c',h_l,"`kernel'");	w_h_r = rdrobust_kweight(X_r,`c',h_r,"`kernel'")
-		ind_l = selectindex(w_h_l:> 0);	ind_r = selectindex(w_h_r:> 0)
-	
-		eY_l  = Y_l[ind_l];	eY_r  = Y_r[ind_r]
-		eX_l  = X_l[ind_l];	eX_r  = X_r[ind_r]
-		W_h_l = w_h_l[ind_l];	W_h_r = w_h_r[ind_r]
-	
-		u_l = (eX_l:-`c')/h_l;	u_r = (eX_r:-`c')/h_r;
-		R_p_l = J(length(ind_l),(`p'+1),.); R_p_r = J(length(ind_r),(`p'+1),.)
-		for (j=1; j<=(`p'+1); j++)  {
-			R_p_l[.,j] = (eX_l:-`c'):^(j-1);  R_p_r[.,j] = (eX_r:-`c'):^(j-1)
-		}
-		
-		L_l = quadcross(R_p_l:*W_h_l,u_l:^(`p'+1)); L_r = quadcross(R_p_r:*W_h_r,u_r:^(`p'+1)) 
-		
-
-		invG_p_l  = cholinv(quadcross(R_p_l,W_h_l,R_p_l));	
-		invG_p_r  = cholinv(quadcross(R_p_r,W_h_r,R_p_r)) 
-		
-		Z    = st_data(.,tokens("`covs'"), 0); dZ = cols(Z)
-		Z_l  = select(Z,X:<`c');	eZ_l = Z_l[ind_l,]
-		Z_r  = select(Z,X:>=`c');	eZ_r = Z_r[ind_r,]
-		D_l  = eY_l,eZ_l; D_r = eY_r,eZ_r
-		U_p_l = quadcross(R_p_l:*W_h_l,D_l); U_p_r = quadcross(R_p_r:*W_h_r,D_r)
-		
-		beta_p_l = invG_p_l*quadcross(R_p_l:*W_h_l,D_l) 
-		beta_p_r = invG_p_r*quadcross(R_p_r:*W_h_r,D_r)
-		
-		ZWD_p_l  = quadcross(eZ_l,W_h_l,D_l)
-		ZWD_p_r  = quadcross(eZ_r,W_h_r,D_r)
-		colsZ = (2)::(2+dZ-1)
+		} else {		
+			z    = st_data(.,tokens("`covs'"), 0); dZ = cols(z)
+			z_l  = z[ind_l,];	z_r  = z[ind_r,] 
+			d_l  = y_l,z_l; d_r = y_r,z_r
+			U_p_l = quadcross(rp_l:*wh_l,d_l); U_p_r = quadcross(rp_r:*wh_r,d_r)
 			
-		UiGU_p_l =  quadcross(U_p_l[,colsZ],invG_p_l*U_p_l) 
-		UiGU_p_r =  quadcross(U_p_r[,colsZ],invG_p_r*U_p_r) 
-		ZWZ_p_l = ZWD_p_l[,colsZ] - UiGU_p_l[,colsZ] 
-		ZWZ_p_r = ZWD_p_r[,colsZ] - UiGU_p_r[,colsZ]     
-		ZWY_p_l = ZWD_p_l[,1] - UiGU_p_l[,1] 
-		ZWY_p_r = ZWD_p_r[,1] - UiGU_p_r[,1]     
-		ZWZ_p = ZWZ_p_r + ZWZ_p_l
-		ZWY_p = ZWY_p_r + ZWY_p_l
+			beta_p_l = invG_p_l*quadcross(rp_l:*wh_l,d_l) 
+			beta_p_r = invG_p_r*quadcross(rp_r:*wh_r,d_r)
+			
+			ZWD_p_l  = quadcross(z_l,wh_l,d_l)
+			ZWD_p_r  = quadcross(z_r,wh_r,d_r)
+			colsZ = (2)::(2+dZ-1)
 				
-		if ("`covs_drop_coll'"=="0") gamma_p = cholinv(ZWZ_p)*ZWY_p
-		if ("`covs_drop_coll'"=="1") gamma_p =  invsym(ZWZ_p)*ZWY_p
-		if ("`covs_drop_coll'"=="2") gamma_p =    pinv(ZWZ_p)*ZWY_p
-			
-			
-		s_Y = (1 \  -gamma_p[,1])
-		gamma_p1_l  = (s_Y'*beta_p_l')'
-		gamma_p1_r  = (s_Y'*beta_p_r')'		
+			UiGU_p_l =  quadcross(U_p_l[,colsZ],invG_p_l*U_p_l) 
+			UiGU_p_r =  quadcross(U_p_r[,colsZ],invG_p_r*U_p_r) 
+			ZWZ_p_l = ZWD_p_l[,colsZ] - UiGU_p_l[,colsZ] 
+			ZWZ_p_r = ZWD_p_r[,colsZ] - UiGU_p_r[,colsZ]     
+			ZWY_p_l = ZWD_p_l[,1] - UiGU_p_l[,1] 
+			ZWY_p_r = ZWD_p_r[,1] - UiGU_p_r[,1]     
+			ZWZ_p = ZWZ_p_r + ZWZ_p_l
+			ZWY_p = ZWY_p_r + ZWY_p_l
+					
+			if ("`covs_drop_coll'"=="0") gamma_p = cholinv(ZWZ_p)*ZWY_p
+			if ("`covs_drop_coll'"=="1") gamma_p =  invsym(ZWZ_p)*ZWY_p
+			if ("`covs_drop_coll'"=="2") gamma_p =    pinv(ZWZ_p)*ZWY_p			
+				
+			s_Y = (1 \  -gamma_p[,1])
+			gamma_p1_l  = (s_Y'*beta_p_l')'
+			gamma_p1_r  = (s_Y'*beta_p_r')'		
 		}
 		
 		st_matrix("gamma_p1_l", gamma_p1_l)
@@ -358,7 +326,7 @@ program define rdplot, eclass
 		}	
 		
 		gammaZ = 0		
-		if ("`covs_eval'"=="mean" & "`covs'"!="") gammaZ = mean(Z)*gamma_p
+		if ("`covs_eval'"=="mean" & "`covs'"!="") gammaZ = mean(z)*gamma_p
 				
 		*yhat_x = (R_p_l*gamma_p1_l  \ R_p_r*gamma_p1_r ) :+ gammaZ
 		*resid_yz = y-Z*gamma_p
@@ -371,17 +339,48 @@ program define rdplot, eclass
 		*******************************************************
 		**** Optimal Bins (using polynomial order k) **********
 		*******************************************************
+		k = 4
 		rk_l = J(n_l,(k+1),.)
 		rk_r = J(n_r,(k+1),.)
 		for (j=1; j<=(k+1); j++) {
 			rk_l[.,j] = x_l:^(j-1)
 			rk_r[.,j] = x_r:^(j-1)
 		}
-		gamma_k1_l = invsym(cross(rk_l,rk_l))*cross(rk_l,y_l)		
-		gamma_k2_l = invsym(cross(rk_l,rk_l))*cross(rk_l,y_l:^2)	
-		gamma_k1_r = invsym(cross(rk_r,rk_r))*cross(rk_r,y_r)		
-		gamma_k2_r = invsym(cross(rk_r,rk_r))*cross(rk_r,y_r:^2)
-			
+		
+		invG_k_l = cholinv(cross(rk_l,rk_l))
+		invG_k_r = cholinv(cross(rk_r,rk_r))
+
+		if (det(invG_k_l)==. | det(invG_k_r)==.) {
+			k = 3
+			rk_l = J(n_l,(k+1),.)
+			rk_r = J(n_r,(k+1),.)
+			for (j=1; j<=(k+1); j++) {
+				rk_l[.,j] = x_l:^(j-1)
+				rk_r[.,j] = x_r:^(j-1)
+			}
+			invG_k_l = cholinv(cross(rk_l,rk_l))
+			invG_k_r = cholinv(cross(rk_r,rk_r))			
+		}
+		
+		if (det(invG_k_l)==. | det(invG_k_r)==.) {
+			k = 2
+			rk_l = J(n_l,(k+1),.)
+			rk_r = J(n_r,(k+1),.)
+			for (j=1; j<=(k+1); j++) {
+				rk_l[.,j] = x_l:^(j-1)
+				rk_r[.,j] = x_r:^(j-1)
+			}
+			invG_k_l = cholinv(cross(rk_l,rk_l))
+			invG_k_r = cholinv(cross(rk_r,rk_r))			
+		}
+		
+		gamma_k1_l = invG_k_l*cross(rk_l,y_l)		
+		gamma_k2_l = invG_k_l*cross(rk_l,y_l:^2)	
+		gamma_k1_r = invG_k_r*cross(rk_r,y_r)		
+		gamma_k2_r = invG_k_r*cross(rk_r,y_r:^2)
+		
+		
+		
 		*** Bias w/sample
 		mu0_k1_l = rk_l*gamma_k1_l
 		mu0_k1_r = rk_r*gamma_k1_r
@@ -697,6 +696,23 @@ if  ("`covs_eval'"=="mean") {
 	ereturn matrix coef_r = gamma_p1_r
 	ereturn local binselect = "`binselect'"
 
+	****** polynomial equation for plots ******************
+	mat coef_l = e(coef_l)
+	mat coef_r = e(coef_r)
+	local eq_l = "y = coef_l[1, 1]*(x-$c)^0 " 
+	local eq_r = "y = coef_r[1, 1]*(x-$c)^0 " 
+
+	forvalues i = 1(1)`p' {
+		local tt_l  = "+ coef_l[`i'+1, 1]*(x-$c)^`i'"
+		local tt_r  = "+ coef_r[`i'+1, 1]*(x-$c)^`i'"
+		local eq_l = "  `eq_l'  `tt_l'"
+		local eq_r = "  `eq_r'  `tt_r'"
+	} 
+	
+	ereturn local eq_l = "`eq_l'"
+	ereturn local eq_r = "`eq_r'"
+	******************************************************
+	
 	if ("`kernel'"=="epanechnikov" | "`kernel'"=="epa") local kernel_type = "Epanechnikov"
 	else if ("`kernel'"=="uniform" | "`kernel'"=="uni") local kernel_type = "Uniform"
 	else  local kernel_type = "Triangular"
