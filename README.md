@@ -1,6 +1,6 @@
 # RDROBUST
 
-The `rdrobust` package provides Stata and R implementations of statistical inference and graphical procedures for Regression Discontinuity designs employing local polynomial and partitioning methods. It provides point estimators, confidence intervals estimators, bandwidth selectors, automatic RD plots, and many other features.
+The `rdrobust` package provides Python, R and Stata implementations of statistical inference and graphical procedures for Regression Discontinuity designs employing local polynomial and partitioning methods. It provides point estimators, confidence intervals estimators, bandwidth selectors, automatic RD plots, and many other features.
 
 This work was supported in part by the National Science Foundation through grants [SES-1357561](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1357561), [SES-1459931](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1459931), [SES-1947805](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1947805) and [SES-2019432](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2019432).
 
@@ -16,16 +16,16 @@ This package was first released in Spring 2014, and had two major upgrades in Fa
 
 - _Winter 2020 new features include_: (i) discrete running variable checks and adjustments; (ii) bandwidth selection adjustments for too few mass points in and/or overshooting of the support of the running variable; (iii) RD Plots with additional covariates plotted at their mean (previously the package set additional covariates at zero); (iv) automatic removal of co-linear additional covariates; (v) turn on/off standardization of variables (which may lead to small numerical/rounding discrepancies with prior versions); and (vi) rdplot output using ggplot2 in R.
 
-## Stata Implementation
+## Python Implementation
 
-To install/update in Stata type:
+To install/update in Python type:
 ```
-net install rdrobust, from(https://raw.githubusercontent.com/rdpackages/rdrobust/master/stata) replace
+pip install rdrobust
 ```
 
-- Help: [rdrobust](stata/rdrobust.pdf), [rdbwselect](stata/rdbwselect.pdf), [rdplot](stata/rdplot.pdf).
+- Help: [PYPI repository](https://test.pypi.org/project/rdrobust/).
 
-- Replication: [do-file](stata/rdrobust_illustration.do), [rdplot illustration](stata/rdplot_illustration.do), [senate data](stata/rdrobust_senate.dta).
+- Replication: [py-script](Python/rdrobust_illustration.py), [rdplot illustration](Python/rdplot_illustration.py), [senate data](Python/rdrobust_senate.csv).
 
 ## R Implementation
 
@@ -37,6 +37,17 @@ install.packages('rdrobust')
 - Help: [R Manual](https://cran.r-project.org/web/packages/rdrobust/rdrobust.pdf), [CRAN repository](https://cran.r-project.org/package=rdrobust).
 
 - Replication: [R-script](R/rdrobust_illustration.r), [rdplot illustration](R/rdplot_illustration.R), [senate data](R/rdrobust_senate.csv).
+
+## Stata Implementation
+
+To install/update in Stata type:
+```
+net install rdrobust, from(https://raw.githubusercontent.com/rdpackages/rdrobust/master/stata) replace
+```
+
+- Help: [rdrobust](stata/rdrobust.pdf), [rdbwselect](stata/rdbwselect.pdf), [rdplot](stata/rdplot.pdf).
+
+- Replication: [do-file](stata/rdrobust_illustration.do), [rdplot illustration](stata/rdplot_illustration.do), [senate data](stata/rdrobust_senate.dta).
 
 ## References
 
