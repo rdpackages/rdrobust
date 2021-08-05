@@ -8,6 +8,10 @@ This work was supported in part by the National Science Foundation through grant
 
 https://rdpackages.github.io/rdrobust
 
+## Queries and Requests
+
+Please email: [rdpackages@googlegroups.com](mailto:rdpackages@googlegroups.com)
+
 ## Major Upgrades
 
 This package was first released in Spring 2014, and had two major upgrades in Fall 2016 and in Winter 2020.
@@ -48,6 +52,7 @@ net install rdrobust, from(https://raw.githubusercontent.com/rdpackages/rdrobust
 - Help: [rdrobust](stata/rdrobust.pdf), [rdbwselect](stata/rdbwselect.pdf), [rdplot](stata/rdplot.pdf).
 
 - Replication: [do-file](stata/rdrobust_illustration.do), [rdplot illustration](stata/rdplot_illustration.do), [senate data](stata/rdrobust_senate.dta).
+
 
 ## References
 
