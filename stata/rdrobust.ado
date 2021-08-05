@@ -117,15 +117,15 @@ program define rdrobust, eclass
 	}
 	
 	**** DROP MISSINGS **********************************************
-	qui drop if `y'==. | `x'==.
-	if ("`fuzzy'"~="")   qui drop if `fuzzyvar'==.
-	if ("`cluster'"!="") qui drop if `clustvar'==.
+	qui drop if mi(`y') | mi(`x')
+	if ("`fuzzy'"~="")   qui drop if mi(`fuzzyvar')
+	if ("`cluster'"!="") qui drop if mi(`clustvar')
 	if ("`covs'"~="") {
 		qui ds `covs', alpha
 		local covs_list = r(varlist)
 		local ncovs: word count `covs_list'	
 		foreach z in `covs_list' {
-			qui drop if `z'==.
+			qui drop if mi(`z')
 		}
 	}		
 		
