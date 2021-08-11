@@ -1,4 +1,4 @@
-*!version 8.2.0  2021-05-18
+*!version 8.3.0  2021-08-10
 
 capture program drop rdplot
 program define rdplot, eclass
@@ -74,13 +74,13 @@ program define rdplot, eclass
 	*****************************************************************
 	**** DROP MISSINGS ******************************************
 	*****************************************************************
-	qui drop if `y'==. | `x'==.	
+	qui drop if mi(`y') | mi(`x')	
 	if ("`covs'"~="") {
 		qui ds `covs'
 		local covs_list = r(varlist)
 		local ncovs: word count `covs_list'	
 		foreach z in `covs_list' {
-			qui drop if `z'==.
+			qui drop if mi(`z')
 		}
 	}
 		
@@ -432,14 +432,25 @@ program define rdplot, eclass
 	  mu1_i_hat_l = drk_i_l*(gamma_k1_l[2::(k+1)])
 	  mu1_i_hat_r = drk_i_r*(gamma_k1_r[2::(k+1)])
 	  
+	  var_y_l = variance(y_l)
+	  var_y_r = variance(y_r)
+	  
+	  
 	  sigma2_hat_l_bar = mu2_i_hat_l - mu0_i_hat_l:^2
 	  sigma2_hat_r_bar = mu2_i_hat_r - mu0_i_hat_r:^2
-
+	  
+	  ind_s2_l = selectindex(sigma2_hat_l_bar:<0)
+	  ind_s2_r = selectindex(sigma2_hat_r_bar:<0)
+	  sigma2_hat_l_bar[ind_s2_l] = 0*ind_s2_l :+ var_y_l 
+  	  sigma2_hat_r_bar[ind_s2_r] = 0*ind_s2_r :+ var_y_r  
+	  
 	  sigma2_hat_l = mu2_hat_l - mu0_hat_l:^2
 	  sigma2_hat_r = mu2_hat_r - mu0_hat_r:^2
 	  
-	  var_y_l = variance(y_l)
-	  var_y_r = variance(y_r)
+	  ind_s2_l = selectindex(sigma2_hat_l:<0)
+	  ind_s2_r = selectindex(sigma2_hat_r:<0)
+	  sigma2_hat_l[ind_s2_l] = 0*ind_s2_l :+ var_y_l 
+  	  sigma2_hat_r[ind_s2_r] = 0*ind_s2_r :+ var_y_r
 
 	  B_es_hat_dw = (((c-x_min)^2/(12*n))*sum(mu1_hat_l:^2),((x_max-c)^2/(12*n))*sum(mu1_hat_r:^2))
 	  V_es_hat_dw = ((0.5/(c-x_min))*sum(dxi_l:*dyi_l:^2),(0.5/(x_max-c))*sum(dxi_r:*dyi_r:^2))
