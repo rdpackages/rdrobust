@@ -1,0 +1,15 @@
+README.md
+pyproject.toml
+setup.cfg
+src/rdrobust/__init__.py
+src/rdrobust/funs.py
+src/rdrobust/rdbwselect.py
+src/rdrobust/rdplot.py
+src/rdrobust/rdrobust.py
+src/rdrobust.egg-info/PKG-INFO
+src/rdrobust.egg-info/SOURCES.txt
+src/rdrobust.egg-info/dependency_links.txt
+src/rdrobust.egg-info/requires.txt
+src/rdrobust.egg-info/top_level.txt
+test/test_minimal.py
+test/test_suite.py
