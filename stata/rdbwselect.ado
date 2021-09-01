@@ -1,4 +1,4 @@
-*!version 8.3.0  2021-08-10
+*!version 8.4.0  2021-08-30
  
 capture program drop rdbwselect
 program define rdbwselect, eclass
@@ -87,6 +87,11 @@ program define rdbwselect, eclass
 		}
 	}
 
+	if ("`weights'"~="") {
+	    qui drop if mi(`weights')
+		qui drop if `weights'<=0
+	}
+	
 	
 	**** CHECK colinearity ******************************************
 	local covs_drop_coll = 0	

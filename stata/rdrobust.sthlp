@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 8.3.0  2021-08-10}{...}
+{* *!version 8.4.0  2021-08-30}{...}
 {viewerjumpto "Syntax" "rdrobust##syntax"}{...}
 {viewerjumpto "Description" "rdrobust##description"}{...}
 {viewerjumpto "Options" "rdrobust##options"}{...}

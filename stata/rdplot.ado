@@ -1,4 +1,4 @@
-*!version 8.3.0  2021-08-10
+*!version 8.4.0  2021-08-30
 
 capture program drop rdplot
 program define rdplot, eclass
@@ -82,6 +82,12 @@ program define rdplot, eclass
 		foreach z in `covs_list' {
 			qui drop if mi(`z')
 		}
+	}
+	
+	
+	if ("`weights'"~="") {
+	    qui drop if mi(`weights')
+		qui drop if `weights'<=0
 	}
 		
 	**** CHECK colinearity ******************************************
