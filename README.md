@@ -27,7 +27,7 @@ To install/update in Python type:
 pip install rdrobust
 ```
 
-- Help: [PYPI repository](https://test.pypi.org/project/rdrobust/).
+- Help: [PYPI repository](https://pypi.org/project/rdrobust/).
 
 - Replication: [py-script](Python/rdrobust_illustration.py), [rdplot illustration](Python/rdplot_illustration.py), [senate data](Python/rdrobust_senate.csv).
 
