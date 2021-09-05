@@ -217,7 +217,6 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     '''
     
     # Tidy the Input and remove NAN
-    
     x = np.array(x).reshape(-1,1)
     y = np.array(y).reshape(-1,1)
     if subset is not None:
@@ -229,12 +228,19 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     if covs is not None:       
         covs = np.array(covs).reshape(len(covs),-1)  
         if subset is not None: covs = covs[subset,:]
-        na_ok = na_ok & complete_cases(covs) 
+        na_ok = na_ok & complete_cases(covs)
+    
+    if weights is not None:
+        weights = np.array(weights).reshape(-1,1)
+        if subset is not None:
+            weights = weights[subset]
+        na_ok = na_ok & complete_cases(weights) & weights>=0
         
     x = x[na_ok]
     y = y[na_ok]    
     
     if covs is not None: covs = covs[na_ok,:]
+    if weights is not None: weights = weights[na_ok]
     
     x_min = np.min(x)  
     x_max = np.max(x)
@@ -276,11 +282,7 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
         ci =  95
         flag_no_ci = True
     
-    if weights is not None:
-        weights = np.array(weights).reshape(-1,1)
-        if subset is not None:
-            weights = weights[subset]
-        na_ok = na_ok & complete_cases(weights)
+   
     
     kernel_type = "Uniform"
     if kernel=="epanechnikov" or kernel=="epa": kernel_type = "Epanechnikov"
