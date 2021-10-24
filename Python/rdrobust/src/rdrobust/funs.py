@@ -26,7 +26,7 @@ class rdrobust_output:
         self.pv = pv
         self.ci = ci
         self.beta_p_l = beta_p_l
-        self.beta_p_l = beta_p_r
+        self.beta_p_r = beta_p_r
         self.V_cl_l = V_cl_l
         self.V_cl_r = V_cl_r
         self.V_rb_l = V_rb_l
