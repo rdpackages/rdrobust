@@ -470,19 +470,19 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
 			res_b_r = rdrobust_res(eX_r, eY_r, eT_r, eZ_r, predicts_q_r, hii_r, vce, nnmatch, edups_r, edupsid_r, q+1)
   }
 			                       
-	V_Y_cl_l = invG_p_l%*%rdrobust_vce(dT+dZ, s_Y, R_p_l*W_h_l, res_h_l, eC_l)%*%invG_p_l
-	V_Y_cl_r = invG_p_r%*%rdrobust_vce(dT+dZ, s_Y, R_p_r*W_h_r, res_h_r, eC_r)%*%invG_p_r
-	V_Y_rb_l = invG_p_l%*%rdrobust_vce(dT+dZ, s_Y, Q_q_l,       res_b_l, eC_l)%*%invG_p_l
-	V_Y_rb_r = invG_p_r%*%rdrobust_vce(dT+dZ, s_Y, Q_q_r,       res_b_r, eC_r)%*%invG_p_r
+	V_Y_cl_l = invG_p_l%*%rdrobust_vce(dT+dZ, s_Y, as.matrix(R_p_l*W_h_l), res_h_l, eC_l)%*%invG_p_l
+	V_Y_cl_r = invG_p_r%*%rdrobust_vce(dT+dZ, s_Y, as.matrix(R_p_r*W_h_r), res_h_r, eC_r)%*%invG_p_r
+	V_Y_rb_l = invG_p_l%*%rdrobust_vce(dT+dZ, s_Y, as.matrix(Q_q_l),       res_b_l, eC_l)%*%invG_p_l
+	V_Y_rb_r = invG_p_r%*%rdrobust_vce(dT+dZ, s_Y, as.matrix(Q_q_r),       res_b_r, eC_r)%*%invG_p_r
 	V_tau_cl = scalepar^2*factorial(deriv)^2*(V_Y_cl_l+V_Y_cl_r)[deriv+1,deriv+1]
 	V_tau_rb = scalepar^2*factorial(deriv)^2*(V_Y_rb_l+V_Y_rb_r)[deriv+1,deriv+1]
 	se_tau_cl = sqrt(V_tau_cl);	se_tau_rb = sqrt(V_tau_rb)
 
 	if (!is.null(fuzzy)) {
-		V_T_cl_l = invG_p_l%*%rdrobust_vce(dT+dZ, sV_T, R_p_l*W_h_l, res_h_l, eC_l)%*%invG_p_l
-		V_T_cl_r = invG_p_r%*%rdrobust_vce(dT+dZ, sV_T, R_p_r*W_h_r, res_h_r, eC_r)%*%invG_p_r
-		V_T_rb_l = invG_p_l%*%rdrobust_vce(dT+dZ, sV_T, Q_q_l, res_b_l, eC_l)%*%invG_p_l
-		V_T_rb_r = invG_p_r%*%rdrobust_vce(dT+dZ, sV_T, Q_q_r, res_b_r, eC_r)%*%invG_p_r
+		V_T_cl_l = invG_p_l%*%rdrobust_vce(dT+dZ, sV_T, as.matrix(R_p_l*W_h_l), res_h_l, eC_l)%*%invG_p_l
+		V_T_cl_r = invG_p_r%*%rdrobust_vce(dT+dZ, sV_T, as.matrix(R_p_r*W_h_r), res_h_r, eC_r)%*%invG_p_r
+		V_T_rb_l = invG_p_l%*%rdrobust_vce(dT+dZ, sV_T, as.matrix(Q_q_l), res_b_l, eC_l)%*%invG_p_l
+		V_T_rb_r = invG_p_r%*%rdrobust_vce(dT+dZ, sV_T, as.matrix(Q_q_r), res_b_r, eC_r)%*%invG_p_r
 		V_T_cl = factorial(deriv)^2*(V_T_cl_l+V_T_cl_r)[deriv+1,deriv+1]
 		V_T_rb = factorial(deriv)^2*(V_T_rb_l+V_T_rb_r)[deriv+1,deriv+1]
 		se_tau_T_cl = sqrt(V_T_cl);	se_tau_T_rb = sqrt(V_T_rb)
