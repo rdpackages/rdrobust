@@ -15,6 +15,8 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   if (is.null(c)) c <- 0
   
   # p
+  if (is.null(p) & !is.null(deriv)) {p = deriv+1}
+  
   if (length(p) == 0) {
     flag_no_p <- TRUE
     p <- 1

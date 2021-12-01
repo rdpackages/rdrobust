@@ -1,8 +1,8 @@
-*!version 8.4.0  2021-08-30
- 
+*!version 8.4.1  2021-11-30
+
 capture program drop rdbwselect
 program define rdbwselect, eclass
-	syntax anything [if] [in] [, c(real 0) fuzzy(string) deriv(real 0) p(real 1) q(real 0) covs(string) covs_drop(string) kernel(string) weights(string) bwselect(string) vce(string) scaleregul(real 1) all nochecks masspoints(string) bwcheck(real 0) bwrestrict(string) stdvars(string)]
+	syntax anything [if] [in] [, c(real 0) fuzzy(string) deriv(real 0) p(string) q(real 0) covs(string) covs_drop(string) kernel(string) weights(string) bwselect(string) vce(string) scaleregul(real 1) all nochecks masspoints(string) bwcheck(real 0) bwrestrict(string) stdvars(string)]
 
 	marksample touse
 	preserve
@@ -145,8 +145,9 @@ program define rdbwselect, eclass
 			local N = r(N)
 			local x_iq = r(p75)-r(p25)
 			local x_sd = r(sd)
-						
-			if ("`deriv'">"0" & "`p'"=="1" & "`q'"=="0") local p = (`deriv'+1)
+			
+			if ("`deriv'">"0" & "`p'"=="" & "`q'"=="0")  local p = (`deriv'+1)
+			if ("`p'"=="") local p = 1
 			if ("`q'"=="0")                              local q = (`p'+1)
 			
 			**************************** BEGIN ERROR CHECKING ************************************************

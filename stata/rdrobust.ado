@@ -1,8 +1,8 @@
-*!version 8.4.0  2021-08-30
+*!version 8.4.1  2021-11-30
 
 capture program drop rdrobust 
 program define rdrobust, eclass
-	syntax anything [if] [in] [, c(real 0) fuzzy(string) deriv(real 0) p(real 1) q(real 0) h(string) b(string) rho(real 0) covs(string) covs_drop(string) kernel(string) weights(string) bwselect(string) vce(string) level(real 95) all scalepar(real 1) scaleregul(real 1) nochecks masspoints(string) bwcheck(real 0) bwrestrict(string) stdvars(string)]
+	syntax anything [if] [in] [, c(real 0) fuzzy(string) deriv(real 0) p(string) q(real 0) h(string) b(string) rho(real 0) covs(string) covs_drop(string) kernel(string) weights(string) bwselect(string) vce(string) level(real 95) all scalepar(real 1) scaleregul(real 1) nochecks masspoints(string) bwcheck(real 0) bwrestrict(string) stdvars(string)]
 	*disp in yellow "Preparing data." 
 	marksample touse
 	preserve
@@ -184,7 +184,8 @@ program define rdrobust, eclass
 	local x_iq = r(p75)-r(p25)
 	local x_sd = r(sd)
 
-	if ("`deriv'">"0" & "`p'"=="1" & "`q'"=="0") local p = `deriv'+1
+	if ("`deriv'">"0" & "`p'"=="" & "`q'"=="0") local p = `deriv'+1
+	if ("`p'"=="")  local p = 1
 	if ("`q'"=="0") local q = `p'+1
 
 	**************************** BEGIN ERROR CHECKING ************************************************
