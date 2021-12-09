@@ -210,18 +210,16 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
         
         if c is None: c = 0
         
-        if p is None:
-            p = 1
+        if p is None and deriv is not None: p = deriv + 1
+        if p is None: p = 1
         elif not np.isscalar(p) or p not in range(21):
             raise Exception('Polynomial order p incorrectly specified.')
           
-        if q is None:
-            q = p + 1
+        if q is None: q = p + 1
         elif not np.isscalar(q) or q not in range(21) or q<p:
             raise Exception('Polynomial order (for bias correction) q incorrectly specified')
         
-        if deriv is None:
-            deriv = 0
+        if deriv is None: deriv = 0
         elif deriv not in range(21) or deriv>p:
             raise Exception('Derivative order incorrectly specified')
         
