@@ -374,8 +374,8 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
     dups_r = np.zeros(N_r).astype(int)
     dupsid_r = np.zeros(N_r).astype(int)
     if vce == "nn":
-        for i in range(N_l): dups_l[i]=sum(X_l==X_l[i])
-        for i in range(N_r): dups_r[i]=sum(X_r==X_r[i])
+        dups_l = num_duplicates(X_l)
+        dups_r = num_duplicates(X_r)
         i = 0
         while i < N_l:
             dupsid_l[i:int(i+dups_l[i])] = np.arange(1,int(dups_l[i]+1))

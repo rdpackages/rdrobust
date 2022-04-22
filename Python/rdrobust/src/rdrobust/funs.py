@@ -498,4 +498,8 @@ def rdrobust_bw (Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale,
     
     return V, B, R, rate;
 
+def num_duplicates(x):
+    x = x.reshape(-1)
+    vals, counts = np.unique(x, return_counts=True)
+    return counts[np.searchsorted(vals, x)];
 

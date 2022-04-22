@@ -476,8 +476,8 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
     edups_r = np.zeros(eN_r).astype(int)
     edupsid_r = np.zeros(eN_r).astype(int)
     if vce=="nn":
-        for i in range(eN_l): edups_l[i] = sum(eX_l==eX_l[i])
-        for i in range(eN_r): edups_r[i] = sum(eX_r==eX_r[i])
+        edups_l = num_duplicates(eX_l)
+        edups_r = num_duplicates(eX_r)
         i = 0
         while i < eN_l:
             edupsid_l[i:(i+edups_l[i])] = np.arange(1,edups_l[i]+1)
