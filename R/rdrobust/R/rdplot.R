@@ -5,7 +5,10 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
                   hide = FALSE, ci = NULL, shade = FALSE, 
                   title = NULL, x.label = NULL, y.label = NULL, x.lim = NULL, y.lim = NULL, 
                   col.dots = NULL, col.lines = NULL) {
-
+  
+  ############################################################################################
+  #start_time <- Sys.time()
+  ############################################################################################
   if (!is.null(subset)) {
     x <- x[subset]
     y <- y[subset]
@@ -22,7 +25,6 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
     na.ok <- na.ok & complete.cases(weights) & weights>=0
   } 
   
-  
   x <- x[na.ok]
   y <- y[na.ok]
   
@@ -30,8 +32,9 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
   if (!is.null(weights)) weights = as.matrix(weights[na.ok])  
   
   x_min = min(x);	x_max = max(x)
-	x_l = x[x<c]; x_r = x[x>=c]	
-  y_l = y[x<c];	y_r = y[x>=c]
+  ind_l = x<c;  ind_r = x>=c
+  x_l = x[ind_l]; x_r = x[ind_r]	
+  y_l = y[ind_l];	y_r = y[ind_r]
 	
 	if (!is.null(support)) {
 	  support_l = support[1]
@@ -77,7 +80,6 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
     }
   }
   
-  
   flag_no_ci <- FALSE
   if (is.null(ci)) {
     ci<- 95
@@ -86,14 +88,11 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
   
   kernel_type = "Uniform"
   if (kernel=="epanechnikov" | kernel=="epa") kernel_type = "Epanechnikov"
-  if (kernel=="triangular" | kernel=="tri") kernel_type = "Triangular"
-  
+  if (kernel=="triangular"   | kernel=="tri") kernel_type = "Triangular"
   
   ### Mass Points
   if (is.null(masspoints)) masspoints=FALSE
-  mN = n
-  M_l = n_l
-  M_r = n_r
+  mN = n;  M_l = n_l;  M_r = n_r
   if (masspoints=="check" | masspoints=="adjust") {
     X_uniq_l = sort(unique(x_l), decreasing=TRUE)
     X_uniq_r = unique(x_r)
@@ -113,9 +112,6 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
       }
     }
   }				
-  
-  
-  
   
   ############## COLLINEARITY
   covs_drop_coll=dZ=0
@@ -141,8 +137,7 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
     }
   }
   
-  
-  #####********************* ERRORS
+  #####  ERRORS
   exit=0
 	if (c<=x_min | c>=x_max){
 		print("c should be set within the range of x")
@@ -178,32 +173,37 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
 
 	if (exit>0) stop()
 	
+	############################################################################################
+	#cat(paste("Stop 1: Preps     -> ",  Sys.time()-start_time,"\n", sep=""))
+	#start_time <- Sys.time()
+	############################################################################################
+	
+	
 	###################################################################
 	### Polynomial curve (order = p) ##################################
 	###################################################################
-	R_p_l = matrix(NA,n_l,p+1);  R_p_r = matrix(NA,n_r,p+1)
-	for (j in 1:(p+1)) {
-	  R_p_l[,j] = (x_l-c)^(j-1)
-	  R_p_r[,j] = (x_r-c)^(j-1)
-	}
-	
-	W_h_l = rdrobust_kweight(x_l,c,h_l,kernel)
-	W_h_r = rdrobust_kweight(x_r,c,h_r,kernel)
+	W_h_l = rdrobust_kweight(x_l, c, h_l, kernel)
+	W_h_r = rdrobust_kweight(x_r, c, h_r, kernel)
 	
 	n_h_l = sum(W_h_l>0)
 	n_h_r = sum(W_h_r>0)
 	
 	if (!is.null(weights)) {
-	  fw_l=weights[x<c];  fw_r=weights[x>=c]
-	  W_h_l = fw_l*W_h_l;	W_h_r = fw_r*W_h_r
+	  fw_l = weights[ind_l];  W_h_l = fw_l*W_h_l
+	  fw_r = weights[ind_r];	W_h_r = fw_r*W_h_r
 	}
-	invG_p_l  = qrXXinv((sqrt(W_h_l)*R_p_l));	invG_p_r  = qrXXinv((sqrt(W_h_r)*R_p_r))
+
+	R_p_l = outer(x_l-c, Y=0:p, FUN = "^")
+	R_p_r = outer(x_r-c, Y=0:p, FUN = "^")	
+	invG_p_l  = qrXXinv((sqrt(W_h_l)*R_p_l))	
+	invG_p_r  = qrXXinv((sqrt(W_h_r)*R_p_r))
 	
+	gamma_p = NULL
 	if (is.null(covs)) {
 	  gamma_p1_l = invG_p_l%*%crossprod(R_p_l*W_h_l, y_l)	
     gamma_p1_r = invG_p_r%*%crossprod(R_p_r*W_h_r, y_r)
   } else {
-	  z_l  = covs[x<c,]; z_r  = covs[x>=c,]	
+	  z_l  = covs[ind_l,]; z_r  = covs[ind_r,]	
 	  D_l  = cbind(y_l,z_l); D_r = cbind(y_r,z_r)
 	  U_p_l = crossprod(R_p_l*W_h_l,D_l); U_p_r = crossprod(R_p_r*W_h_r,D_r)
 	  beta_p_l = invG_p_l%*%crossprod(R_p_l*W_h_l,D_l); beta_p_r = invG_p_r%*%crossprod(R_p_r*W_h_r,D_r); 
@@ -227,18 +227,17 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
 	  gamma_p1_r = t(s_Y%*%t(beta_p_r))
 	}
 	
+	
 	###############################################
 	### Preparte data for polynomial curve plot ###
 	###############################################
-	
+
 	nplot = 500
-	x_plot_l = seq(c-h_l, c, length.out =nplot)
-	x_plot_r = seq(c, c+h_r, length.out =nplot)
-	rplot_l = matrix(NA,nplot,p+1);  rplot_r = matrix(NA,nplot,p+1)
-	for (j in 1:(p+1)) {
-	  rplot_l[,j] = (x_plot_l-c)^(j-1)
-	  rplot_r[,j] = (x_plot_r-c)^(j-1)
-	}
+	x_plot_l = seq(c-h_l, c, length.out = nplot)
+	x_plot_r = seq(c, c+h_r, length.out = nplot)
+	
+	rplot_l = outer(x_plot_l-c, Y = 0:p, FUN = "^")
+	rplot_r = outer(x_plot_r-c, Y = 0:p, FUN = "^")
 	
 	y_hat_l = rplot_l%*%gamma_p1_l
 	y_hat_r = rplot_r%*%gamma_p1_r
@@ -249,40 +248,34 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
 	  y_hat_r = rplot_r%*%gamma_p1_r + c(gammaZ)
 	}
 	
-  ###############################################
+	
+	############################################################################################
+	#cat(paste("Stop 2: Polynomial fit -> ",  Sys.time()-start_time,"\n", sep=""))
+	#start_time <- Sys.time()
+	############################################################################################
+	###############################################
   ### Optimal Bins (using polynomial order k) ###
 	###############################################
 	k=4
-  rk_l = matrix(NA,n_l,(k+1))
-  rk_r = matrix(NA,n_r,(k+1))
-  for (j in 1:(k+1)) {
-    rk_l[,j] = x_l^(j-1)
-    rk_r[,j] = x_r^(j-1)
-  }
+  
+  rk_l = outer(x_l, Y = 0:k, FUN = "^")
+  rk_r = outer(x_r, Y = 0:k, FUN = "^")
   
   invG_k_l = try(qrXXinv(rk_l),silent=TRUE)
   invG_k_r = try(qrXXinv(rk_r),silent=TRUE)
   
   if (class(invG_k_l)[1] == "try-error" | class(invG_k_r)[1] == "try-error") {
     k = 3
-    rk_l = matrix(NA,n_l,(k+1))
-    rk_r = matrix(NA,n_r,(k+1))
-    for (j in 1:(k+1)) {
-      rk_l[,j] = x_l^(j-1)
-      rk_r[,j] = x_r^(j-1)
-    }
+    rk_l = outer(x_l, Y = 0:k, FUN = "^")
+    rk_r = outer(x_r, Y = 0:k, FUN = "^")
     invG_k_l = try(qrXXinv(rk_l),silent=TRUE)
     invG_k_r = try(qrXXinv(rk_r),silent=TRUE)		
   }
   
   if (class(invG_k_l)[1] == "try-error" | class(invG_k_r)[1] == "try-error") {
     k = 2
-    rk_l = matrix(NA,n_l,(k+1))
-    rk_r = matrix(NA,n_r,(k+1))
-    for (j in 1:(k+1)) {
-      rk_l[,j] = x_l^(j-1)
-      rk_r[,j] = x_r^(j-1)
-    }
+    rk_l = outer(x_l, Y = 0:k, FUN = "^")
+    rk_r = outer(x_r, Y = 0:k, FUN = "^")
     invG_k_l = qrXXinv(rk_l)
     invG_k_r = qrXXinv(rk_r)		
   }
@@ -291,7 +284,6 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
   gamma_k2_l = invG_k_l%*%crossprod(rk_l, y_l^2)
   gamma_k1_r = invG_k_r%*%crossprod(rk_r, y_r)  
   gamma_k2_r = invG_k_r%*%crossprod(rk_r, y_r^2)
-  
   
   ### Bias w/sample
   mu0_k1_l = rk_l%*%gamma_k1_l
@@ -304,18 +296,16 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
     drk_l[,j] = j*x_l^(j-1)
     drk_r[,j] = j*x_r^(j-1)
   }
-                     
+  
   ind_l = order(x_l); ind_r = order(x_r)
   x_i_l = x_l[ind_l]; y_i_l = y_l[ind_l]
   x_i_r = x_r[ind_r]; y_i_r = y_r[ind_r]
-                       
-  dxi_l=(x_i_l[2:length(x_i_l)]-x_i_l[1:(length(x_i_l)-1)])
-  dxi_r=(x_i_r[2:length(x_i_r)]-x_i_r[1:(length(x_i_r)-1)])
-  dyi_l=(y_i_l[2:length(y_i_l)]-y_i_l[1:(length(y_i_l)-1)])
-  dyi_r=(y_i_r[2:length(y_i_r)]-y_i_r[1:(length(y_i_r)-1)])
-                       
-  x_bar_i_l = (x_i_l[2:length(x_i_l)]+x_i_l[1:(length(x_i_l)-1)])/2
-  x_bar_i_r = (x_i_r[2:length(x_i_r)]+x_i_r[1:(length(x_i_r)-1)])/2
+
+  dxi_l=(x_i_l[2:n_l]-x_i_l[1:(n_l-1)]); dyi_l=(y_i_l[2:n_l]-y_i_l[1:(n_l-1)])
+  dxi_r=(x_i_r[2:n_r]-x_i_r[1:(n_r-1)]); dyi_r=(y_i_r[2:n_r]-y_i_r[1:(n_r-1)])
+                
+  x_bar_i_l = (x_i_l[2:n_l] + x_i_l[1:(n_l-1)]) /2
+  x_bar_i_r = (x_i_r[2:n_r] + x_i_r[1:(n_r-1)]) /2
                        
   drk_i_l = matrix(NA,n_l-1,k);	rk_i_l  = matrix(NA,n_l-1,(k+1))
   drk_i_r = matrix(NA,n_r-1,k);	rk_i_r  = matrix(NA,n_r-1,(k+1))
@@ -366,26 +356,23 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
   sigma2_hat_l[ind_s2_l] = var_y_l 
   sigma2_hat_r[ind_s2_r] = var_y_r  
   
-  
-  J.fun = function(B,V) {ceiling((((2*B)/V)*n)^(1/3))}
-
-  
   B_es_hat_dw = c( ((c-x_min)^2/(12*n))*sum(mu1_hat_l^2),((x_max-c)^2/(12*n))*sum(mu1_hat_r^2))
   V_es_hat_dw = c((0.5/(c-x_min))*sum(dxi_l*dyi_l^2),(0.5/(x_max-c))*sum(dxi_r*dyi_r^2))
   V_es_chk_dw = c((1/(c-x_min))*sum(dxi_l*sigma2_hat_l_bar),(1/(x_max-c))*sum(dxi_r*sigma2_hat_r_bar))
-  J_es_hat_dw = J.fun(B_es_hat_dw, V_es_hat_dw)
-  J_es_chk_dw = J.fun(B_es_hat_dw, V_es_chk_dw)
+  J_es_hat_dw = J.fun(B_es_hat_dw, V_es_hat_dw, n)
+  J_es_chk_dw = J.fun(B_es_hat_dw, V_es_chk_dw, n)
   
   B_qs_hat_dw = c((n_l^2/(24*n))*sum(dxi_l^2*mu1_i_hat_l^2), (n_r^2/(24*n))*sum(dxi_r^2*mu1_i_hat_r^2))
   V_qs_hat_dw = c((1/(2*n_l))*sum(dyi_l^2),(1/(2*n_r))*sum(dyi_r^2))
   V_qs_chk_dw = c((1/n_l)*sum(sigma2_hat_l), (1/n_r)*sum(sigma2_hat_r))
-  J_qs_hat_dw = J.fun(B_qs_hat_dw, V_qs_hat_dw)
-  J_qs_chk_dw = J.fun(B_qs_hat_dw, V_qs_chk_dw)
+  J_qs_hat_dw = J.fun(B_qs_hat_dw, V_qs_hat_dw, n)
+  J_qs_chk_dw = J.fun(B_qs_hat_dw, V_qs_chk_dw, n)
   
   J_es_hat_mv  = c(ceiling((var_y_l/V_es_hat_dw[1])*(n/log(n)^2)), ceiling((var_y_r/V_es_hat_dw[2])*(n/log(n)^2)))
   J_es_chk_mv  = c(ceiling((var_y_l/V_es_chk_dw[1])*(n/log(n)^2)), ceiling((var_y_r/V_es_chk_dw[2])*(n/log(n)^2)))
   J_qs_hat_mv  = c(ceiling((var_y_l/V_qs_hat_dw[1])*(n/log(n)^2)), ceiling((var_y_r/V_qs_hat_dw[2])*(n/log(n)^2)))
   J_qs_chk_mv  = c(ceiling((var_y_l/V_qs_chk_dw[1])*(n/log(n)^2)), ceiling((var_y_r/V_qs_chk_dw[2])*(n/log(n)^2)))
+  
   
   #########################################################
   if (binselect=="es") {
@@ -467,81 +454,115 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
   rscale_l = J_star_l / J_IMSE[1]
   rscale_r = J_star_r / J_IMSE[2]
   
-  bin_x_l = rep(0,length(x_l)); bin_x_r = rep(0,length(x_r))
+  ############################################################################################
+  #cat(paste("Stop 3: Optimal Bins   -> ",  Sys.time()-start_time,"\n", sep=""))
+  #start_time <- Sys.time()
+  ############################################################################################
+  
   jump_l  = range_l/J_star_l;jump_r = range_r/J_star_r;
   
   if (meth=="es") {
     jumps_l=seq(x_min,c,jump_l)
     jumps_r=seq(c,x_max,jump_r)
-    #binselect_type="Evenly-Spaced"
   }   else if (meth=="qs") {
     jumps_l=quantile(x_l,probs=seq(0,1,1/J_star_l))
     jumps_r=quantile(x_r,probs=seq(0,1,1/J_star_r))
-   # binselect_type="Quantile-Spaced"
   }
-  
-  for (k in 1:(J_star_l-1)) bin_x_l[x_l>=jumps_l[k] & x_l<jumps_l[k+1]] = -J_star_l+k-1 
-	bin_x_l[x_l>=jumps_l[(J_star_l)]] = -1
-  for (k in 1:(J_star_r-1)) bin_x_r[x_r>=jumps_r[k] & x_r<jumps_r[k+1]] = k 
-	bin_x_r[x_r>=jumps_r[(J_star_r)]] = J_star_r
-  
-  rdplot_mean_bin_l=rdplot_mean_x_l=rdplot_mean_y_l=rep(0,J_star_l)
-	rdplot_mean_bin_r=rdplot_mean_x_r=rdplot_mean_y_r=rep(0,J_star_r)
+
+	bin_x_l = findInterval(x_l, jumps_l,  rightmost.closed=TRUE) - J_star_l-1
+	bin_x_r = findInterval(x_r, jumps_r,  rightmost.closed=TRUE) 
+	
+	############################################################################################
+	#cat(paste("Stop 4a: Loop bins     -> ",  Sys.time()-start_time,"\n", sep=""))
+	#start_time <- Sys.time()
+	############################################################################################
+
+	rdplot_l = aggregate(cbind(y_l,x_l), list(bin_x_l), FUN=mean)
+	rdplot_r = aggregate(cbind(y_r,x_r), list(bin_x_r), FUN=mean)
+	
+	rdplot_bin_l       =  rdplot_l[,1]
+	rdplot_mean_y_l    =  rdplot_l[,2]
+	rdplot_mean_x_l    =  rdplot_l[,3]
+	
+	rdplot_bin_r       =  rdplot_r[,1]
+	rdplot_mean_y_r    =  rdplot_r[,2]
+	rdplot_mean_x_r    =  rdplot_r[,3]
 
 	if (!is.null(covs) & covs_eval=="mean") {
 	  covs_model_l = lm(y_l~ z_l + factor(bin_x_l)) 
 	  covs_model_r = lm(y_r~ z_r + factor(bin_x_r)) 
 	  yhatZ_l = predict(covs_model_l)
 	  yhatZ_r = predict(covs_model_r)
+	  rdplot_mean_y_l = aggregate(yhatZ_l, list(bin_x_l), FUN=mean)[,2]
+	  rdplot_mean_y_r = aggregate(yhatZ_r, list(bin_x_r), FUN=mean)[,2]
+	}
+	
+	t_ind_l = 1:J_star_l
+	t_ind_r = 1:J_star_r
+	rdplot_mean_bin_l = rowMeans(cbind(matrix(jumps_l[t_ind_l]),matrix(jumps_l[(t_ind_l+1)])))
+	rdplot_mean_bin_r = rowMeans(cbind(matrix(jumps_r[t_ind_r]),matrix(jumps_r[(t_ind_r+1)])))
 
-	}
+	rdplot_mean_bin_l = rdplot_mean_bin_l[rev(-rdplot_bin_l)]
+	rdplot_mean_bin_r = rdplot_mean_bin_r[rdplot_bin_r]
 	
-
-	for (k in 1:(J_star_l)) {
-	  rdplot_mean_bin_l[k]    = mean(c(jumps_l[k],jumps_l[k+1]))
-	  rdplot_mean_x_l[k]      = mean(x_l[bin_x_l==-k])
-	  rdplot_mean_y_l[k]      = mean(y_l[bin_x_l==-k])
-	  if (!is.null(covs) & covs_eval=="mean") rdplot_mean_y_l[k] = mean(yhatZ_l[bin_x_l==-k])
-	}
-	
-	rdplot_mean_y_l = rev(rdplot_mean_y_l)
-	rdplot_mean_x_l = rev(rdplot_mean_x_l)
-	
-	for (k in 1:(J_star_r)) {
-	  rdplot_mean_bin_r[k]  = mean(c(jumps_r[k],jumps_r[k+1]))
-	  rdplot_mean_x_r[k]    = mean(x_r[bin_x_r==k])
-	  rdplot_mean_y_r[k]    = mean(y_r[bin_x_r==k]) 
-	  if (!is.null(covs) & covs_eval=="mean") rdplot_mean_y_r[k] = mean(yhatZ_r[bin_x_r==k])
-	}
-	
-	rdplot_mean_bin_l[J_star_l]=mean(c(jumps_l[J_star_l],c))
-	rdplot_mean_bin_r[J_star_r]=mean(c(jumps_r[J_star_r],x_max))
-  
-  bin_x = c(bin_x_l,bin_x_r)
+	bin_x = c(bin_x_l,bin_x_r)
   rdplot_mean_bin = c(rdplot_mean_bin_l, rdplot_mean_bin_r)
   rdplot_mean_x   = c(rdplot_mean_x_l,   rdplot_mean_x_r)
 	rdplot_mean_y   = c(rdplot_mean_y_l,   rdplot_mean_y_r)
 	
-	rdplot_sd_y_l=rdplot_N_l=rdplot_sd_y_r=rdplot_N_r=0
-	for (j in 1:(J_star_l)) {
-	  rdplot_sd_y_l[j] =     sd(y_l[bin_x_l==-j])
-	  rdplot_N_l[j]    = length(y_l[bin_x_l==-j])
-	}
 	
-	for (j in 1:(J_star_r)) {
-	  rdplot_sd_y_r[j] =     sd(y_r[bin_x_r==j])
-	  rdplot_N_r[j]    = length(y_r[bin_x_r==j])
-	}
+	############################################################################################
+	#cat(paste("Stop 4b: Loop bins     -> ",  Sys.time()-start_time,"\n", sep=""))
+	#start_time <- Sys.time()
+	############################################################################################
+	rdplot_N_l    = aggregate(y_l, list(-bin_x_l), FUN=length)[,2]
+	rdplot_N_r    = aggregate(y_r, list(bin_x_r),  FUN=length)[,2]
+	rdplot_sd_y_l = aggregate(y_l, list(-bin_x_l), FUN=sd)[,2]
+	rdplot_sd_y_r = aggregate(y_r, list(bin_x_r),  FUN=sd)[,2]
 	
-	rdplot_sd_y_l[is.na(rdplot_sd_y_l)]=0
-	rdplot_sd_y_r[is.na(rdplot_sd_y_r)]=0
-	rdplot_sd_y=c(rev(rdplot_sd_y_l),rdplot_sd_y_r)
-	rdplot_N=c(rev(rdplot_N_l),rdplot_N_r)
+	rdplot_N = c(rev(rdplot_N_l),rdplot_N_r)
+	
 	quant = -qt((1-(ci/100))/2,pmax(rdplot_N-1,1))
+	
+	rdplot_sd_y_l[is.na(rdplot_sd_y_l)] =0
+	rdplot_sd_y_r[is.na(rdplot_sd_y_r)] =0
+	
+	rdplot_sd_y = c(rev(rdplot_sd_y_l),rdplot_sd_y_r)
 	rdplot_se_y <- rdplot_sd_y/sqrt(rdplot_N)
+	
 	rdplot_cil_bin = rdplot_mean_y - quant*rdplot_se_y
 	rdplot_cir_bin = rdplot_mean_y + quant*rdplot_se_y
+	
 	temp_plot =NULL
+	
+	rdplot_min_bin_l = jumps_l[1:J_star_l]
+	rdplot_max_bin_l = jumps_l[2:(J_star_l+1)]
+	
+	rdplot_min_bin_r = jumps_r[1:J_star_r]
+	rdplot_max_bin_r = jumps_r[2:(J_star_r+1)]
+	
+	bin_length_l = rdplot_max_bin_l - rdplot_min_bin_l
+	bin_length_r = rdplot_max_bin_r - rdplot_min_bin_r
+	
+	bin_avg_l = mean(bin_length_l)
+	bin_avg_r = mean(bin_length_r)
+	
+	bin_med_l = median(bin_length_l)
+	bin_med_r = median(bin_length_r)
+	
+	rdplot_min_bin = c(rdplot_min_bin_l[rev(-rdplot_bin_l)], rdplot_min_bin_r[rdplot_bin_r])
+	rdplot_max_bin = c(rdplot_max_bin_l[rev(-rdplot_bin_l)], rdplot_max_bin_r[rdplot_bin_r])
+	bin_length     = c(bin_length_l, bin_length_r)
+	bin_avg        = c(bin_avg_l, bin_avg_r)
+	bin_med        = c(bin_med_l, bin_avg_r)
+	
+	vars_bins = data.frame("rdplot_mean_bin"=rdplot_mean_bin,"rdplot_mean_x"=rdplot_mean_x, "rdplot_mean_y"=rdplot_mean_y, "rdplot_min_bin"=rdplot_min_bin, "rdplot_max_bin"=rdplot_max_bin, "rdplot_se_y"=rdplot_se_y, "rdplot_N"=rdplot_N, "rdplot_ci_l"=rdplot_cil_bin, "rdplot_ci_r"=rdplot_cir_bin)
+	vars_poly = data.frame("rdplot_x"= c(x_plot_l, x_plot_r), "rdplot_y"= c(y_hat_l, y_hat_r))
+	
+	############################################################################################
+	#cat(paste("Stop 4d: Loop bins     -> ",  Sys.time()-start_time,"\n", sep=""))
+	#start_time <- Sys.time()
+	############################################################################################
 	
   if (hide=="FALSE") {
   
@@ -578,27 +599,20 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
     print(temp_plot)
     }
 
-  	cutoffs = c(jumps_l,jumps_r[2:length(jumps_r)])
-	  rdplot_min_bin = cutoffs[1:(length(cutoffs)-1)]
-  	rdplot_max_bin = cutoffs[2:length(cutoffs)]
-	
-  	bin_length = rdplot_max_bin-rdplot_min_bin
-  	bin_avg_l =   mean(bin_length[1:J_star_l])
-  	bin_med_l = median(bin_length[1:J_star_l])
-  	
-  	bin_avg_r =   mean(bin_length[(J_star_l+1):length(bin_length)])
-  	bin_med_r = median(bin_length[(J_star_l+1):length(bin_length)])
- 
-  	vars_bins = data.frame("rdplot_mean_bin"=rdplot_mean_bin,"rdplot_mean_x"=rdplot_mean_x, "rdplot_mean_y"=rdplot_mean_y, "rdplot_min_bin"=rdplot_min_bin, "rdplot_max_bin"=rdplot_max_bin, "rdplot_se_y"=rdplot_se_y, "rdplot_N"=rdplot_N, "rdplot_ci_l"=rdplot_cil_bin, "rdplot_ci_r"=rdplot_cir_bin)
-    vars_poly = data.frame("rdplot_x"= c(x_plot_l, x_plot_r), "rdplot_y"= c(y_hat_l, y_hat_r))
-    
+      
+    ############################################################################################
+    #cat(paste("Stop 5: Plot      -> ",  Sys.time()-start_time,"\n", sep=""))
+    #start_time <- Sys.time()
+    ############################################################################################
     coef = cbind(gamma_p1_l,gamma_p1_r)
     colnames(coef)=c("Left","Right")
+    
     out=list(coef=coef, rdplot=temp_plot, vars_bins=vars_bins, vars_poly=vars_poly,
              J=c(J_star_l,J_star_r), J_IMSE=J_IMSE, J_MV=J_MV, 
              scale=c(scale_l,scale_r), rscale=c(rscale_l,rscale_r),
              bin_avg=c(bin_avg_l,bin_avg_r), bin_med=c(bin_med_l,bin_med_r),
-             p=p, c=c, h=c(h_l,h_r), N=c(n_l,n_r), N_h=c(n_h_l,n_h_r), binselect=binselect_type, kernel=kernel_type)
+             p=p, c=c, h=c(h_l,h_r), N=c(n_l,n_r), N_h=c(n_h_l,n_h_r), 
+             binselect=binselect_type, kernel=kernel_type, coef_covs=gamma_p)
     
     out$call <- match.call()
     class(out) <- "rdplot"

@@ -133,14 +133,14 @@ rdrobust_bw = function(Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale, vce, nn
   }
   beta_V = invG_V%*%crossprod(R_V*eW,D_V)	
   if (is.null(Z) & !is.null(T)) {	
-    tau_Y = factorial(nu)*beta_V[nu+1,1]
-    tau_T = factorial(nu)*beta_V[nu+1,2]
+    tau_Y = c(factorial(nu)*beta_V[nu+1,1])
+    tau_T = c(factorial(nu)*beta_V[nu+1,2])
     s = c(1/tau_T , -(tau_Y/tau_T^2))
   }
   if (!is.null(Z) & !is.null(T)) {	
     s_T = c(1 , -gamma[,2])
-    tau_Y = factorial(nu)*t(s)%*%  c(beta_V[nu+1,1],beta_V[nu+1,colsZ])
-    tau_T = factorial(nu)*t(s_T)%*%c(beta_V[nu+1,2],beta_V[nu+1,colsZ])
+    tau_Y = c(factorial(nu)*t(s)%*%  c(beta_V[nu+1,1],beta_V[nu+1,colsZ]))
+    tau_T = c(factorial(nu)*t(s_T)%*%c(beta_V[nu+1,2],beta_V[nu+1,colsZ]))
     s = c(1/tau_T , -(tau_Y/tau_T^2) , -(1/tau_T)*gamma[,1] + (tau_Y/tau_T^2)*gamma[,2])
   }	
   dups_V=dupsid_V=predicts_V=0
@@ -153,10 +153,11 @@ rdrobust_bw = function(Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale, vce, nn
   if (vce=="hc0" | vce=="hc1" | vce=="hc2" | vce=="hc3") {
     predicts_V=R_V%*%beta_V
     if (vce=="hc2" | vce=="hc3") {
-      hii=matrix(NA,n_V,1)	
-      for (i in 1:n_V) {
-        hii[i] = R_V[i,]%*%invG_V%*%(R_V*eW)[i,]
-      }
+      #hii=matrix(NA,n_V,1)	
+      #for (i in 1:n_V) {
+      #  hii[i] = R_V[i,]%*%invG_V%*%(R_V*eW)[i,]
+      #}
+      hii = rowSums((R_V%*%invG_V)*(R_V*eW))
     }
   }	
         res_V = rdrobust_res(eX, eY, eT, eZ, predicts_V, hii, vce, nnmatch, dups_V, dupsid_V, o+1)
@@ -201,10 +202,11 @@ rdrobust_bw = function(Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale, vce, nn
         if (vce=="hc0" | vce=="hc1" | vce=="hc2" | vce=="hc3") {
           predicts_B=R_B%*%beta_B
           if (vce=="hc2" | vce=="hc3") {
-            hii=matrix(NA,n_B,1)	
-            for (i in 1:n_B) {
-            hii[i] = R_B[i,]%*%invG_B%*%(R_B*eW)[i,]
-    				}
+            #hii=matrix(NA,n_B,1)	
+            #for (i in 1:n_B) {
+            #hii[i] = R_B[i,]%*%invG_B%*%(R_B*eW)[i,]
+    				#}
+            hii = rowSums((R_B%*%invG_B)*(R_B*eW))
   		  	}
 		    }	
 		res_B = rdrobust_res(eX, eY, eT, eZ, predicts_B, hii, vce, nnmatch, dups_B, dupsid_B,o_B+1)
@@ -246,7 +248,8 @@ rdrobust_vce = function(d, s, RX, res, C) {
         ind=C==clusters[i]
         Xi = RX[ind,,drop=FALSE]
         ri = res[ind,,drop=FALSE]
-        M = M + crossprod(t(crossprod(Xi,ri)),t(crossprod(Xi,ri)))
+        Xr = t(crossprod(Xi,ri))
+        M = M + crossprod(Xr,Xr)
       }
     }
     else {
@@ -254,20 +257,19 @@ rdrobust_vce = function(d, s, RX, res, C) {
         ind=C==clusters[i]
         Xi = RX[ind,,drop=FALSE]
         ri = res[ind,,drop=FALSE]
+        MHolder = matrix(0,1+d,k)
         for (l in 1:(1+d)) {	
-          for (j in 1:(1+d)) {
-            M = M + crossprod(t(crossprod(Xi,s[l]*ri[,l])),t(crossprod(Xi,s[j]*ri[,j])))
-          }	
-        }					
+          MHolder[l,] = t(crossprod(Xi,s[l]*ri[,l]))
+        }	
+        summedvalues = t(colSums(MHolder))
+        M = M + crossprod(summedvalues,summedvalues)
       }
     }
   }
-return(w*M)		
+  return(w*M)		
 }
 
-  
-
-
+J.fun = function(B,V,n) {ceiling((((2*B)/V)*n)^(1/3))}
 
 
 

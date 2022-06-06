@@ -126,6 +126,7 @@ Default is \code{vce=nn}.}
   \item{bias}{estimated bias for the local-polynomial RD estimator below and above the cutoff.}
   \item{beta_p_l}{conventional p-order local-polynomial estimates to the left of the cutoff.}
   \item{beta_p_r}{conventional p-order local-polynomial estimates to the right of the cutoff.}
+  \item{beta_covs}{coefficients of the additional covariates, only returned when \code{covs()} are used.}
   \item{V_cl_l}{conventional variance-covariance matrix estimated below the cutoff.}
   \item{V_cl_r}{conventional variance-covariance matrix estimated above the cutoff.}
   \item{V_rb_l}{robust variance-covariance matrix estimated below the cutoff.}

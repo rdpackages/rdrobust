@@ -21,7 +21,7 @@ For more details, and related Stata and R packages useful for analysis of RD des
               scaleregul = 1, sharpbw = FALSE, 
               all = NULL, subset = NULL, 
               masspoints = "adjust", bwcheck = NULL,
-              bwrestrict = TRUE, stdvars = FALSE, prchk=TRUE)}
+              bwrestrict = TRUE, stdvars = FALSE)}
 \arguments{
   \item{y}{is the dependent variable.}
   \item{x}{is the running variable (a.k.a. score or forcing variable).}
@@ -93,7 +93,6 @@ Default is \code{vce=nn}.}
       \item{bwrestrict}{if \code{TRUE}, computed bandwidths are restricted to lie within the range of \code{x}; default is \code{bwrestrict = TRUE}.}
       
       \item{stdvars}{if \code{TRUE}, \code{x} and \code{y} are standardized before computing the bandwidths; default is \code{stdvars = FALSE}.}
-      \item{prchk}{internal check function.}
 }
 \value{
   \item{N}{vector with sample sizes to the left and to the righst of the cutoff.}

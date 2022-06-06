@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 8.4.1  2021-11-30}{...}
+{* *!version 9.0.0  2022-06-06}{...}
 {viewerjumpto "Syntax" "rdrobust##syntax"}{...}
 {viewerjumpto "Description" "rdrobust##description"}{...}
 {viewerjumpto "Options" "rdrobust##options"}{...}
@@ -246,6 +246,7 @@ Default is {cmd:level(95)}.{p_end}
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:e(beta_p_r)}}conventional p-order local-polynomial estimates to the right of the cutoff{p_end}
 {synopt:{cmd:e(beta_p_l)}}conventional p-order local-polynomial estimates to the left of the cutoff{p_end}
+{synopt:{cmd:e(beta_covs)}}coefficients of the additional covariates, only returned when {cmd:covs()} are used{p_end}
 {synopt:{cmd:e(V_cl_r)}}conventional variance-covariance matrix to the right of the cutoff{p_end}
 {synopt:{cmd:e(V_cl_l)}}conventional variance-covariance matrix to the left of the cutoff{p_end}
 {synopt:{cmd:e(V_rb_r)}}robust variance-covariance matrix to the right of the cutoff{p_end}

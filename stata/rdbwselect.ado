@@ -1,4 +1,4 @@
-*!version 8.4.1  2021-11-30
+*!version 9.0.0  2022-06-06
 
 capture program drop rdbwselect
 program define rdbwselect, eclass
@@ -74,8 +74,6 @@ program define rdbwselect, eclass
 	if ("`cluster'"!="") qui drop if mi(`clustvar')
 	if ("`fuzzy'"~="") {
 		qui drop if mi(`fuzzyvar')
-		*qui su `fuzzyvar'
-		*qui replace `fuzzyvar' = `fuzzyvar'/r(sd)
 	}
 
 	if ("`covs'"~="") {
@@ -128,11 +126,7 @@ program define rdbwselect, eclass
 			}	
 		}
 	}
-	
-	
-	
-	
-	
+		
 	**** DEFAULTS ***************************************
 	if ("`masspoints'"=="") local masspoints = "adjust"
 	if ("`stdvars'"=="")    local stdvars    = "off"	
@@ -330,9 +324,7 @@ program define rdbwselect, eclass
 		}				
 	}
 	
-	*if ("`masspoints'"=="adjust") mN = M	
-	
-	
+
 	***********************************************************************
 	******** Computing bandwidth selector *********************************
 	***********************************************************************					
@@ -359,22 +351,16 @@ program define rdbwselect, eclass
 	C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw_l, h_B=range_l+1e-8, 0, "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll)
 	C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw_r, h_B=range_r+1e-8, 0, "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 	
-	*printf("i=%g\n ",C_d_l[5])
-	*printf("i=%g\n ",C_d_r[5])
-		
-		
 	if (C_d_l[1]==. | C_d_l[2]==. | C_d_l[3]==. |C_d_r[1]==. | C_d_r[2]==. | C_d_r[3]==.) printf("{err}Invertibility problem in the computation of preliminary bandwidth. Try checking for mass points with option {cmd:masspoints(check)}.\n")  
 	if (C_d_l[1]==0 | C_d_l[2]==0 | C_d_r[1]==0 | C_d_r[2]==0)                            printf("{err}Not enough variability to compute the preliminary bandwidth. Try checking for mass points with option {cmd:masspoints(check)}.\n")  
-	
-
-		
+			
 	*** TWO
 	if  ("`bwselect'"=="msetwo" |  "`bwselect'"=="certwo" | "`bwselect'"=="msecomb2" | "`bwselect'"=="cercomb2"  | "`all'"!="")  {		
 		d_bw_l = (  (C_d_l[1]              /   C_d_l[2]^2)    * (N/mN)         )^C_d_l[4] 
 		d_bw_r = (  (C_d_r[1]              /   C_d_r[2]^2)    * (N/mN)         )^C_d_l[4]
 		if  ("`bwrestrict'"=="on")  {		
-		d_bw_l = min((d_bw_l, range_l))
-		d_bw_r = min((d_bw_r, range_r))
+			d_bw_l = min((d_bw_l, range_l))
+			d_bw_r = min((d_bw_r, range_r))
 		}
 		if (bwcheck > 0) {
 			d_bw_l = max((d_bw_l, bw_min_l))
@@ -385,26 +371,20 @@ program define rdbwselect, eclass
 		C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_r, h_B=d_bw_r, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 		b_bw_r = (  (C_b_r[1]              /   (C_b_r[2]^2 + `scaleregul'*C_b_r[3]))   * (N/mN)    )^C_b_l[4]
 		if  ("`bwrestrict'"=="on")  {	
-		b_bw_l = min((b_bw_l, range_l))
-		b_bw_r = min((b_bw_r, range_r))
+			b_bw_l = min((b_bw_l, range_l))
+			b_bw_r = min((b_bw_r, range_r))
 		}
-		*if ("`bwcheck'" != "0") {
-		*	b_bw_l = max((b_bw_l, bw_min_l))
-		*	b_bw_r = max((b_bw_r, bw_min_r))
-		*}
+
 		C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_l, h_B=b_bw_l, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll)
 		h_bw_l = (  (C_h_l[1]              /   (C_h_l[2]^2 + `scaleregul'*C_h_l[3]))  * (N/mN)       )^C_h_l[4]
 		C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_r, h_B=b_bw_r, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 		h_bw_r = (  (C_h_r[1]              /   (C_h_r[2]^2 + `scaleregul'*C_h_r[3]))  * (N/mN)       )^C_h_l[4]
 		
 		if  ("`bwrestrict'"=="on")  {	
-		h_bw_l = min((h_bw_l, range_l))
-		h_bw_r = min((h_bw_r, range_r))
+			h_bw_l = min((h_bw_l, range_l))
+			h_bw_r = min((h_bw_r, range_r))
 		}
-		*if ("`bwcheck'" != "0") {
-		*	h_bw_l = max((h_bw_l, bw_min_l))
-		*	h_bw_r = max((h_bw_r, bw_min_r))
-		*}		
+
 	}
 	
 	*** SUM
@@ -416,12 +396,10 @@ program define rdbwselect, eclass
 		C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_r, h_B=d_bw_s, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 		b_bw_s = ( ((C_b_l[1] + C_b_r[1])  /  ((C_b_r[2] + C_b_l[2])^2 + `scaleregul'*(C_b_r[3]+C_b_l[3])))  * (N/mN)  )^C_b_l[4]
 		if  ("`bwrestrict'"=="on")  b_bw_s = min((b_bw_s, bw_max))
-		*if ("`bwcheck'" != "0") b_bw_s = max((b_bw_s, bw_min_l, bw_min_r))		
 		C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_l, h_B=b_bw_s, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll)
 		C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_r, h_B=b_bw_s, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 		h_bw_s = ( ((C_h_l[1] + C_h_r[1])  /  ((C_h_r[2] + C_h_l[2])^2 + `scaleregul'*(C_h_r[3] + C_h_l[3])))  * (N/mN)  )^C_h_l[4]
 		if  ("`bwrestrict'"=="on")  h_bw_s = min((h_bw_s, bw_max))
-		*if ("`bwcheck'" != "0") h_bw_s = max((h_bw_s, bw_min_l, bw_min_r))		
 	}
 	
 	*** RD
@@ -433,13 +411,11 @@ program define rdbwselect, eclass
 		C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_r, h_B=d_bw_d, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 		b_bw_d = ( ((C_b_l[1] + C_b_r[1])  /  ((C_b_r[2] - C_b_l[2])^2 + `scaleregul'*(C_b_r[3] + C_b_l[3])))  * (N/mN)    )^C_b_l[4]
 		if  ("`bwrestrict'"=="on")  b_bw_d = min((b_bw_d, bw_max))
-		*if ("`bwcheck'" != "0") b_bw_d = max((b_bw_d, bw_min_l, bw_min_r))		
 		C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_l, h_B=b_bw_d, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll)
 		C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_r, h_B=b_bw_d, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 		h_bw_d = ( ((C_h_l[1] + C_h_r[1])  /  ((C_h_r[2] - C_h_l[2])^2 + `scaleregul'*(C_h_r[3] + C_h_l[3])))  * (N/mN)   )^C_h_l[4]
 		if  ("`bwrestrict'"=="on")  h_bw_d = min((h_bw_d, bw_max))
 		
-		*if ("`bwcheck'" != "0") h_bw_d = max((h_bw_d, bw_min_l, bw_min_r))		
 	}	
 	
 	

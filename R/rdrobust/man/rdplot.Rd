@@ -90,6 +90,7 @@ If not specified, the bandwidths are chosen to span the full support of the data
   \item{J_IMSE}{IMSE optimal number of bins to the left and right of the cutoff.}
   \item{J_MV}{Mimicking variance number of bins to the left and right of the cutoff.}
   \item{coef}{matrix containing the coefficients of the \eqn{p^{th}} order global polynomial estimated both sides of the cutoff.}
+  \item{coef_covs}{coefficients of the additional covariates, only returned when \code{covs()} are used.}
   \item{scale}{selected scale value.}
   \item{rscale}{implicit scale value.}
   \item{bin_avg}{average bin length.}

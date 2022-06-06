@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 8.4.1  2021-11-30}{...}
+{* *!version 9.0.0  2022-06-06}{...}
 {viewerjumpto "Syntax" "rdplot##syntax"}{...}
 {viewerjumpto "Description" "rdplot##description"}{...}
 {viewerjumpto "Options" "rdplot##options"}{...}
@@ -177,6 +177,7 @@ Default is {cmd:kernel(uniform)} (i.e., equal/no weighting to all observations o
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:e(coef_l)}}coefficients of the {it:p}-th order polynomial estimated to the left of the cutoff{p_end}
 {synopt:{cmd:e(coef_r)}}coefficients of the {it:p}-th order polynomial estimated to the right of the cutoff{p_end}
+{synopt:{cmd:e(coef_covs)}}coefficients of the additional covariates, only returned when {cmd:covs()} are used{p_end}
 
 
 {marker references}{...}

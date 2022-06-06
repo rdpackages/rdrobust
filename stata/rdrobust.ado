@@ -1,4 +1,4 @@
-*!version 8.4.1  2021-11-30
+*!version 9.0.0  2022-06-06
 
 capture program drop rdrobust 
 program define rdrobust, eclass
@@ -183,7 +183,7 @@ program define rdrobust, eclass
 	local x_max = r(max)
 	local x_iq = r(p75)-r(p25)
 	local x_sd = r(sd)
-
+	
 	if ("`deriv'">"0" & "`p'"=="" & "`q'"=="0") local p = `deriv'+1
 	if ("`p'"=="")  local p = 1
 	if ("`q'"=="0") local q = `p'+1
@@ -194,8 +194,7 @@ program define rdrobust, eclass
 			 di as error  "{err}{cmd:c()} should be set within the range of `x'"  
 			 exit 125
 			}
-			
-			
+						
 			if (`N'<20){
 			 di as error  "{err}Not enough observations to perform bandwidth calculations"  
 			 di as error  "{err}Estimates computed using entire sample"  
@@ -391,13 +390,12 @@ masspoints_found = 0
 				if ("`masspoints'"=="check") display("{err}Try using option {cmd:masspoints(adjust)}.")
 			}				
 		}	
-		
-		
+				
 		c_bw = `C_c'*BWp*mN^(-1/5)
 		if ("`masspoints'"=="adjust") c_bw = `C_c'*BWp*M^(-1/5)
 		if  ("`bwrestrict'"=="on") {
-		bw_max = max((range_l,range_r))
-		c_bw = min((c_bw, bw_max))
+			bw_max = max((range_l,range_r))
+			c_bw = min((c_bw, bw_max))
 		}
 		if (bwcheck > 0) {
 			bwcheck_l = min((bwcheck, M_l))
@@ -412,11 +410,7 @@ masspoints_found = 0
 		C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q'+1, nu=`q'+1, o_B=`q'+2, h_V=c_bw, h_B=range_l+1e-8, 0, "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll)
 		C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q'+1, nu=`q'+1, o_B=`q'+2, h_V=c_bw, h_B=range_r+1e-8, 0, "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll)
 		if (C_d_l[1]==0 | C_d_l[2]==0 | C_d_r[1]==0 | C_d_r[2]==0 |C_d_l[1]==. | C_d_l[2]==. | C_d_l[3]==. |C_d_r[1]==. | C_d_r[2]==. | C_d_r[3]==.) printf("{err}Not enough variability to compute the preliminary bandwidth. Try checking for mass points with option {cmd:masspoints(check)}.\n")  
-
-		*printf("i=%g\n ",C_d_l[5])
-		*printf("i=%g\n ",C_d_r[5])
-
-		
+	
 		*** BW-TWO
 		if  ("`bwselect'"=="msetwo" |  "`bwselect'"=="certwo" | "`bwselect'"=="msecomb2" | "`bwselect'"=="cercomb2" )  {		
 			* Preliminar bw
@@ -571,7 +565,6 @@ masspoints_found = 0
 		
 		if (N_h_l<10 | N_h_r<10 | N_b_l<10 | N_b_r<10){
 		 display("{err}Estimates might be unreliable due to low number of effective observations.")
-		 *exit(1)
 		}
 		
 		ind_l = ind_b_l; ind_r = ind_b_r
@@ -647,8 +640,9 @@ masspoints_found = 0
 				tau_Y_cl_r = `scalepar'*factorial(`deriv')*beta_p_r[(`deriv'+1),1]
 				tau_Y_bc_l = `scalepar'*factorial(`deriv')*beta_bc_l[(`deriv'+1),1]
 				tau_Y_bc_r = `scalepar'*factorial(`deriv')*beta_bc_r[(`deriv'+1),1]				
-				bias_l = tau_Y_cl_l-tau_Y_bc_l
-				bias_r = tau_Y_cl_r-tau_Y_bc_r 		
+				bias_l = tau_Y_cl_l - tau_Y_bc_l
+				bias_r = tau_Y_cl_r - tau_Y_bc_r 		
+				
 				if (dT>0) {
 					tau_T_cl =  factorial(`deriv')*beta_p[(`deriv'+1),2]
 					tau_T_bc = 	factorial(`deriv')*beta_bc[(`deriv'+1),2]
@@ -669,6 +663,7 @@ masspoints_found = 0
 		}
 		
 		if (dZ>0) {	
+			
 			ZWD_p_l  = quadcross(eZ_l,W_h_l,D_l)
 			ZWD_p_r  = quadcross(eZ_r,W_h_r,D_r)
 			colsZ = (2+dT)::(2+dT+dZ-1)
@@ -694,28 +689,28 @@ masspoints_found = 0
 				tau_Y_bc_l = `scalepar'*s_Y'*beta_bc_l[(`deriv'+1),]'
 				tau_Y_bc_r = `scalepar'*s_Y'*beta_bc_r[(`deriv'+1),]'				
 				bias_l = tau_Y_cl_l-tau_Y_bc_l
-				bias_r = tau_Y_cl_r-tau_Y_bc_r 				
-
+				bias_r = tau_Y_cl_r-tau_Y_bc_r 		
 			}
 			
 			if (dT>0) {
 					s_T  = 1 \ -gamma_p[,2]
 					sV_T = (0 \ 1 \ -gamma_p[,2] )
-					tau_Y_cl = `scalepar'*factorial(`deriv')*s_Y'*vec((beta_p[(`deriv'+1),1],beta_p[(`deriv'+1),colsZ]))
-					tau_T_cl = factorial(`deriv')*s_T'*vec((beta_p[(`deriv'+1),2],beta_p[(`deriv'+1),colsZ]))
-					tau_Y_bc = `scalepar'*factorial(`deriv')*s_Y'*vec((beta_bc[(`deriv'+1),1],beta_bc[(`deriv'+1),colsZ]))
-					tau_T_bc = factorial(`deriv')*s_T'*vec((beta_bc[(`deriv'+1),2],beta_bc[(`deriv'+1),colsZ]))
-			
+					tau_Y_cl   = `scalepar'*factorial(`deriv')*s_Y'*vec((beta_p[  (`deriv'+1),1], beta_p[  (`deriv'+1),colsZ]))
 					tau_Y_cl_l = `scalepar'*factorial(`deriv')*s_Y'*vec((beta_p_l[(`deriv'+1),1], beta_p_l[(`deriv'+1),colsZ]))
-					tau_Y_cl_r = `scalepar'*factorial(`deriv')*s_Y'*vec((beta_p_r[(`deriv'+1),2], beta_p_r[(`deriv'+1),colsZ]))
-					tau_Y_bc_l = `scalepar'*factorial(`deriv')*s_Y'*vec((beta_bc_l[(`deriv'+1),1],beta_bc_l[(`deriv'+1),colsZ]))
-					tau_Y_bc_r = `scalepar'*factorial(`deriv')*s_Y'*vec((beta_bc_r[(`deriv'+1),2],beta_bc_r[(`deriv'+1),colsZ]))
+					tau_Y_cl_r = `scalepar'*factorial(`deriv')*s_Y'*vec((beta_p_r[(`deriv'+1),1], beta_p_r[(`deriv'+1),colsZ]))
+			
+					tau_Y_bc   = `scalepar'*factorial(`deriv')*s_Y'*vec((beta_bc[  (`deriv'+1),1], beta_bc[  (`deriv'+1),colsZ]))
+					tau_Y_bc_l = `scalepar'*factorial(`deriv')*s_Y'*vec((beta_bc_l[(`deriv'+1),1], beta_bc_l[(`deriv'+1),colsZ]))
+					tau_Y_bc_r = `scalepar'*factorial(`deriv')*s_Y'*vec((beta_bc_r[(`deriv'+1),1], beta_bc_r[(`deriv'+1),colsZ]))
 					
-					tau_T_cl_l = factorial(`deriv')*s_T'*vec((beta_p_l[(`deriv'+1),1], beta_p_l[(`deriv'+1),colsZ]))
+					
+					tau_T_cl   = factorial(`deriv')*s_T'*vec((beta_p[  (`deriv'+1),2], beta_p[  (`deriv'+1),colsZ]))
+					tau_T_cl_l = factorial(`deriv')*s_T'*vec((beta_p_l[(`deriv'+1),2], beta_p_l[(`deriv'+1),colsZ]))
 					tau_T_cl_r = factorial(`deriv')*s_T'*vec((beta_p_r[(`deriv'+1),2], beta_p_r[(`deriv'+1),colsZ]))
-					tau_T_bc_l = factorial(`deriv')*s_T'*vec((beta_bc_l[(`deriv'+1),1],beta_bc_l[(`deriv'+1),colsZ]))
-					tau_T_bc_r = factorial(`deriv')*s_T'*vec((beta_bc_r[(`deriv'+1),2],beta_bc_r[(`deriv'+1),colsZ]))
 					
+					tau_T_bc =   factorial(`deriv')*s_T'*vec((beta_bc[  (`deriv'+1),2], beta_bc[  (`deriv'+1),colsZ]))
+					tau_T_bc_l = factorial(`deriv')*s_T'*vec((beta_bc_l[(`deriv'+1),2], beta_bc_l[(`deriv'+1),colsZ]))
+					tau_T_bc_r = factorial(`deriv')*s_T'*vec((beta_bc_r[(`deriv'+1),2], beta_bc_r[(`deriv'+1),colsZ]))
 					
 					B_F = tau_Y_cl-tau_Y_bc \ tau_T_cl-tau_T_bc
 					s_Y = 1/tau_T_cl \ -(tau_Y_cl/tau_T_cl^2)
@@ -741,16 +736,12 @@ masspoints_found = 0
 			predicts_p_r=R_p_r*beta_p_r
 			predicts_q_l=R_q_l*beta_q_l
 			predicts_q_r=R_q_r*beta_q_r
+			
 			if ("`vce_select'"=="hc2" | "`vce_select'"=="hc3") {
-				hii_l=J(eN_l,1,.)	
-					for (i=1; i<=eN_l; i++) {
-						hii_l[i] = R_p_l[i,]*invG_p_l*(R_p_l:*W_h_l)[i,]'
-				}
-				hii_r=J(eN_r,1,.)	
-					for (i=1; i<=eN_r; i++) {
-						hii_r[i] = R_p_r[i,]*invG_p_r*(R_p_r:*W_h_r)[i,]'
-				}
+				hii_l = rowsum((R_p_l*invG_p_l):*(R_p_l:*W_h_l))
+				hii_r = rowsum((R_p_r*invG_p_r):*(R_p_r:*W_h_r))
 			}
+			
 		}
 			
 		res_h_l = rdrobust_res(eX_l, eY_l, eT_l, eZ_l, predicts_p_l, hii_l, "`vce_select'", `nnmatch', edups_l, edupsid_l, `p'+1)
@@ -799,10 +790,13 @@ masspoints_found = 0
 		st_numscalar("quant", -invnormal(abs((1-(`level'/100))/2)))
 		st_numscalar("N_h_l", N_h_l);	st_numscalar("N_b_l", N_b_l)
 		st_numscalar("N_h_r", N_h_r);	st_numscalar("N_b_r", N_b_r)
+		
 		st_numscalar("tau_cl", tau_cl); st_numscalar("se_tau_cl", se_tau_cl)
 		st_numscalar("tau_bc", tau_bc);	st_numscalar("se_tau_rb", se_tau_rb)
+		
 		st_numscalar("tau_Y_cl_r", tau_Y_cl_r); st_numscalar("tau_Y_cl_l", tau_Y_cl_l)
 		st_numscalar("tau_Y_bc_r", tau_Y_bc_r);	st_numscalar("tau_Y_bc_l", tau_Y_bc_l)
+		
 		st_numscalar("bias_l", bias_l);  st_numscalar("bias_r", bias_r)
 		st_matrix("beta_p_r", beta_p_r[,1]); st_matrix("beta_p_l", beta_p_l[,1])
 		st_matrix("beta_q_r", beta_q_r); st_matrix("beta_q_l", beta_q_l)
@@ -818,6 +812,11 @@ masspoints_found = 0
 			st_matrix("V", (V_tau_cl,0,0 \ 0,V_tau_cl,0 \0,0,V_tau_rb))
 		}		
 		
+		if ("`covs'"!="") {
+			st_matrix("gamma_p", gamma_p)
+		}
+					
+					
 		if ("`fuzzy'"!="") {
 			st_numscalar("tau_T_cl", tau_T_cl); st_numscalar("se_tau_T_cl", se_tau_T_cl)
 			st_numscalar("tau_T_bc", tau_T_bc);	st_numscalar("se_tau_T_rb", se_tau_T_rb)	
@@ -837,25 +836,25 @@ masspoints_found = 0
 	if "`fuzzy'"=="" {
 		if ("`covs'"=="") {
 			if      ("`deriv'"=="0") disp "Sharp RD estimates using local polynomial regression." 
-			else if ("`deriv'"=="1") disp "Sharp kink RD estimates using local polynomial regression."	
+			else if ("`deriv'"=="1") disp "Sharp Kink RD estimates using local polynomial regression."	
 			else                     disp "Sharp RD estimates using local polynomial regression. Derivative of order " `deriv' "."	
 		}
 		else {
-			if      ("`deriv'"=="0") disp "Covariate-adjusted sharp RD estimates using local polynomial regression." 
-			else if ("`deriv'"=="1") disp "Covariate-adjusted sharp kink RD estimates using local polynomial regression."	
-			else                     disp "Covariate-adjusted sharp RD estimates using local polynomial regression. Derivative of order " `deriv' "."	
+			if      ("`deriv'"=="0") disp "Covariate-adjusted Sharp RD estimates using local polynomial regression." 
+			else if ("`deriv'"=="1") disp "Covariate-adjusted Sharp Kink RD estimates using local polynomial regression."	
+			else                     disp "Covariate-adjusted Sharp RD estimates using local polynomial regression. Derivative of order " `deriv' "."	
 		}
 	}
 	else {
 		if ("`covs'"=="") {
 			if      ("`deriv'"=="0") disp "Fuzzy RD estimates using local polynomial regression." 
-			else if ("`deriv'"=="1") disp "Fuzzy kink RD estimates using local polynomial regression."	
+			else if ("`deriv'"=="1") disp "Fuzzy Kink RD estimates using local polynomial regression."	
 			else                     disp "Fuzzy RD estimates using local polynomial regression. Derivative of order " `deriv' "."	
 		}
 		else {
-			if      ("`deriv'"=="0") disp "Covariate-adjusted sharp RD estimates using local polynomial regression." 
-			else if ("`deriv'"=="1") disp "Covariate-adjusted sharp kink RD estimates using local polynomial regression."	
-			else                     disp "Covariate-adjusted sharp RD estimates using local polynomial regression. Derivative of order " `deriv' "."			
+			if      ("`deriv'"=="0") disp "Covariate-adjusted Fuzzy RD estimates using local polynomial regression." 
+			else if ("`deriv'"=="1") disp "Covariate-adjusted Fuzzy Kink RD estimates using local polynomial regression."	
+			else                     disp "Covariate-adjusted Fuzzy RD estimates using local polynomial regression. Derivative of order " `deriv' "."			
 		}
 	}
 
@@ -993,6 +992,10 @@ masspoints_found = 0
 	
 	ereturn matrix beta_p_r = beta_p_r
 	ereturn matrix beta_p_l = beta_p_l
+	
+	if ("`covs'"!="") {
+		ereturn matrix beta_covs = gamma_p
+	}
 	
 	ereturn matrix V_cl_l = V_Y_cl_l 
 	ereturn matrix V_cl_r = V_Y_cl_r 

@@ -4,11 +4,7 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
                       vce = "nn", cluster = NULL, 
                       nnmatch = 3,  scaleregul = 1, sharpbw = FALSE,  
                       all = NULL, subset = NULL, masspoints = "adjust",
-                      bwcheck = NULL, bwrestrict=TRUE, stdvars=FALSE, prchk=TRUE){
-  
-
-  
-  if (prchk==TRUE) {
+                      bwcheck = NULL, bwrestrict=TRUE, stdvars=FALSE){
   
   if (!is.null(subset)) { 
     x <- x[subset]
@@ -90,11 +86,7 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
     if (!is.null(weights)) weights = weights[order_x,,drop=FALSE]
   }
   
-  
-  }
-  
   ### reescaling
-  
   x_iq = quantile(x,.75,type=2) - quantile(x,.25,type=2)
   BWp = min(c(sd(x),x_iq/1.349))
   
@@ -119,11 +111,7 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
   x_min=min(x);  x_max=max(x)
   N = N_r + N_l
 
-  
-
-  
-    M_l = N_l
-    M_r = N_r
+  M_l = N_l;  M_r = N_r
     
   if (masspoints=="check" | masspoints=="adjust") {
     X_uniq_l = sort(unique(X_l), decreasing=TRUE)
@@ -143,10 +131,8 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
   covs_drop_coll=dZ=0
   if (covs_drop == TRUE) covs_drop_coll = 1 
     
-  if(prchk==TRUE) {
-  
-  ############## COLLINEARITY
 
+  ############## COLLINEARITY
   if (!is.null(covs)) {
     covs.names = colnames(covs)
     if (is.null(covs.names)) {
@@ -224,7 +210,7 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
     
     if (exit>0) stop()
     
-  }
+  
   
   
   if (kernel=="epanechnikov" | kernel=="epa") {
@@ -247,33 +233,18 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
     if (vce=="nncluster") 	vce_type = "NNcluster"
     
   #***********************************************************************
-  Z_l=Z_r=T_l=T_r=C_l=C_r=Cind_l=Cind_r=g_l=g_r=NULL
+  Z_l=Z_r=T_l=T_r=C_l=C_r=g_l=g_r=NULL
 
-  dups_l = dupsid_l = matrix(0,N_l,1)
-  dups_r = dupsid_r = matrix(0,N_r,1)
-  
   if (vce=="nn") {
-    for (i in 1:N_l) {
-      dups_l[i]=sum(X_l==X_l[i])
-    }
-    for (i in 1:N_r) {
-      dups_r[i]=sum(X_r==X_r[i])
-    }
-    i=1
-    while (i<=N_l) {
-      dupsid_l[i:(i+dups_l[i]-1)] = 1:dups_l[i]
-      i = i+dups_l[i]
-    }
-    i=1
-    while (i<=N_r) {
-      dupsid_r[i:(i+dups_r[i]-1)]=1:dups_r[i]
-      i=i+dups_r[i]
-    }
+    nn_l = rep(1,N_l);  nn_r = rep(1,N_r)
+    dups_l   = ave(nn_l, X_l, FUN = sum); dupsid_l = ave(nn_l, X_l, FUN = cumsum)
+    dups_r   = ave(nn_r, X_r, FUN = sum); dupsid_r = ave(nn_r, X_r, FUN = cumsum)
   } 
   
   if (!is.null(covs)) {
     Z_l  = covs[x<c,,drop=FALSE];  Z_r  = covs[x>=c,,drop=FALSE]
   }
+  
   perf_comp=FALSE
   if (!is.null(fuzzy)) {
     T_l  = fuzzy[x<c,,drop=FALSE];  T_r  = fuzzy[x>=c,,drop=FALSE]; 
@@ -287,12 +258,14 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
     C_l  = cluster[x<c,,drop=FALSE]; C_r= cluster[x>=c,,drop=FALSE]
     g_l = length(unique(C_l));	g_r = length(unique(C_r))
   }
+  
   fw_l = fw_r = 0 
   if (!is.null(weights)) {
     fw_l=weights[x<c];  fw_r=weights[x>=c]
   }                                                                           
-    #***********************************************************************
+
   
+  ######################################################################
     c_bw = C_c*BWp*N^(-1/5)
     if (masspoints=="adjust") c_bw = C_c*BWp*M^(-1/5)
     
@@ -313,12 +286,12 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
       bw.adj <- 1
     }
     
-    #*** Step 1: d_bw
+    
+    ### Step 1: d_bw
     C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw, h_B=range_l, 0, vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol)
     C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw, h_B=range_r, 0, vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol)
-    #if (C_d_l$V==. | C_d_l$B==. | C_d_l$R==. | C_d_r$V==. | C_d_r$B==. | C_d_r$R==. |C_d_l$V==0 | C_d_l$B==0 | C_d_r$V==0 | C_d_r$B==0) display("Not enough variability to compute the preliminary bandwidt. Try checking for mass points with option masspoints=check.")  
-
-    #*** TWO
+    
+    ### TWO
     if  (bwselect=="msetwo" |  bwselect=="certwo" | bwselect=="msecomb2" | bwselect=="cercomb2"  | all=="TRUE")  {		
       d_bw_l = c((  C_d_l$V              /   C_d_l$B^2             )^C_d_l$rate)
       d_bw_r = c((  C_d_r$V              /   C_d_r$B^2             )^C_d_l$rate)
@@ -351,7 +324,7 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
       
     }
   
-#  *** SUM
+  ### SUM
   if  (bwselect=="msesum" | bwselect=="cersum" |  bwselect=="msecomb1" | bwselect=="msecomb2" |  bwselect=="cercomb1" | bwselect=="cercomb2"  |  all=="TRUE")  {
     d_bw_s = c(( (C_d_l$V + C_d_r$V)  /  (C_d_r$B + C_d_l$B)^2 )^C_d_l$rate)
     if (isTRUE(bwrestrict)) {
@@ -373,7 +346,7 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
     }
 }
 
-    # *** RD
+    ### RD
 if  (bwselect=="mserd" | bwselect=="cerrd" | bwselect=="msecomb1" | bwselect=="msecomb2" | bwselect=="cercomb1" | bwselect=="cercomb2" | bwselect=="" | all=="TRUE" ) {
   d_bw_d = c(( (C_d_l$V + C_d_r$V)  /  (C_d_r$B - C_d_l$B)^2 )^C_d_l$rate)
   if (isTRUE(bwrestrict)) {
@@ -392,10 +365,7 @@ if  (bwselect=="mserd" | bwselect=="cerrd" | bwselect=="msecomb1" | bwselect=="m
   if (isTRUE(bwrestrict)) {
   h_bw_d <- min(h_bw_d, bw_max)
   }
-  
 }	
-  #if (C_b_l$V==0 | C_b_l$B==0 | C_b_r$V==0 | C_b_r$B==0 | C_b_l$V==. | C_b_l$B==. | C_b_l$R==. | C_b_r$V==. | C_b_r$B==. | C_b_r$R==.) printf("{err}Not enough variability to compute the bias bandwidth (b). Try checking for mass points with option masspoints=check." )  
-  #if (C_h_l$V==0 | C_b_l$B==0 | C_h_r$V==0 | C_h_r$B==0 | C_h_l$V==. | C_h_l$B==. | C_h_l$R==. | C_h_r$V==. | C_h_r$B==. | C_h_r$R==.) printf("{err}Not enough variability to compute the loc. poly. bandwidth (h). Try checking for mass points with option masspoints=check." )  
 
 if  (bwselect=="mserd" | bwselect=="cerrd" | bwselect=="msecomb1" | bwselect=="msecomb2" | bwselect=="cercomb1" | bwselect=="cercomb2" | bwselect=="" | all=="TRUE" ) {
   h_mserd = x_sd*h_bw_d

@@ -1,5 +1,5 @@
 ******************************************************************************** 
-** RDROBUST Stata Package
+** RDROBUST Stata Package 
 ** Do-file for Empirical Illustration 
 ** Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell and Rocio Titiunik 
 ********************************************************************************

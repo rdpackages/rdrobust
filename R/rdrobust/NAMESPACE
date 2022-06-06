@@ -12,7 +12,7 @@ S3method(print,rdplot)
 S3method(summary,rdplot)
 import(ggplot2)
 import(MASS)
-importFrom("stats", "lm", "predict")
+importFrom("stats", "lm", "predict", "ave", "aggregate")
 importFrom("utils", "capture.output")
 importFrom("graphics", "abline", "arrows", "lines", "plot", "polygon")
 importFrom("stats", "IQR", "complete.cases", "integrate", "median",

@@ -1,4 +1,4 @@
-*!version 8.4.1  2021-11-30
+*!version 9.0.0  2022-06-06
 
 capture program drop rdplot
 program define rdplot, eclass
@@ -71,9 +71,9 @@ program define rdplot, eclass
 	sort `x', stable
 	qui keep if `touse'
 	
-	*****************************************************************
+	*************************************************************
 	**** DROP MISSINGS ******************************************
-	*****************************************************************
+	*************************************************************
 	qui drop if mi(`y') | mi(`x')	
 	if ("`covs'"~="") {
 		qui ds `covs'
@@ -83,8 +83,7 @@ program define rdplot, eclass
 			qui drop if mi(`z')
 		}
 	}
-	
-	
+		
 	if ("`weights'"~="") {
 	    qui drop if mi(`weights')
 		qui drop if `weights'<=0
@@ -126,20 +125,17 @@ program define rdplot, eclass
 		}
 	}
 	
-	
-	
-		
+			
 	**** DEFAULTS ***************************************
 	if ("`masspoints'"=="") local masspoints = "adjust"
-	if ("`covs_eval'"=="")  local covs_eval = "mean"
-	*****************************************************************
-	
-	
-	
+	if ("`covs_eval'"=="")  local covs_eval  = "mean"
+	*****************************************************
+			
 	qui su `x'	
 	local N = r(N)
 	local x_min = r(min)
 	local x_max = r(max)
+	
 	if ("`support'"!="") {	
 		if (`support_l'<`x_min') {
 			local x_min = `support_l'
@@ -151,19 +147,16 @@ program define rdplot, eclass
 	local range_l = abs(`c'-`x_min')
 	local range_r = abs(`x_max'-`c')
 	
-	qui su `x' if `x'<`c', d
-	local n_l = r(N)
-	
-	qui su `x' if `x'>=`c', d
-	local n_r = r(N)
-	local n = `n_r' + `n_l'
-	
 	qui su `y' if `x'<`c'
 	local var_l = r(sd)
-	
+	local n_l = r(N)
+
 	qui su `y' if `x'>=`c'
 	local var_r = r(sd)
+	local n_r = r(N)
 	
+	local n = `n_r' + `n_l'
+
 	if ("`h_l'"=="" & "`h_r'"=="") {
 		local h_l = `range_l'
 		local h_r = `range_r'
@@ -207,16 +200,15 @@ program define rdplot, eclass
 		}
 	}
 
-
 	*******************************
 	****** Start MATA *************
 	*******************************
 	mata{
-		n_l=`n_l'
-		n_r=`n_r'
-		p=`p'
-		n=`n'
-		c=`c'
+		n_l = `n_l'
+		n_r = `n_r'
+		p   = `p'
+		n   = `n'
+		c   = `c'
 		x_min = `x_min'
 		x_max = `x_max'
 		h_l     = strtoreal("`h_l'");     h_r     = strtoreal("`h_r'")
@@ -263,15 +255,15 @@ program define rdplot, eclass
 		************************************************************	
 		************ Polynomial curve (order = p) ******************
 		************************************************************
-		rp_l = J(n_l,(p+1),.)
-		rp_r = J(n_r,(p+1),.)
+		rp_l = J(n_l,(p+1),.); rp_r = J(n_r,(p+1),.)
+		
 		for (j=1; j<=(p+1); j++) {
 			rp_l[.,j] = (x_l:-c):^(j-1)
 			rp_r[.,j] = (x_r:-c):^(j-1)
 		}
 
-		wh_l = rdrobust_kweight(x_l,c,h_l+1e-8,"`kernel'")
-		wh_r = rdrobust_kweight(x_r,c,h_r+1e-8,"`kernel'")
+		wh_l = rdrobust_kweight(x_l, c, h_l+1e-8, "`kernel'")
+		wh_r = rdrobust_kweight(x_r, c, h_r+1e-8, "`kernel'")
 		
 		if ("`weights'"~="") {
 			fw = st_data(.,("`weights'"), 0)
@@ -285,7 +277,6 @@ program define rdplot, eclass
 		if ("`covs'"=="") {	
 			gamma_p1_l = invG_p_l*cross(rp_l, wh_l, y_l)	
 			gamma_p1_r = invG_p_r*cross(rp_r, wh_r, y_r)
-
 		} else {		
 			z    = st_data(.,tokens("`covs'"), 0); dZ = cols(z)
 			z_l  = z[ind_l,];	z_r  = z[ind_r,] 
@@ -314,18 +305,23 @@ program define rdplot, eclass
 				
 			s_Y = (1 \  -gamma_p[,1])
 			gamma_p1_l  = (s_Y'*beta_p_l')'
-			gamma_p1_r  = (s_Y'*beta_p_r')'		
+			gamma_p1_r  = (s_Y'*beta_p_r')'	
+			
+			st_matrix("gamma_p", gamma_p)
+
 		}
 		
 		st_matrix("gamma_p1_l", gamma_p1_l)
 		st_matrix("gamma_p1_r", gamma_p1_r)
-		
+
 		*********** Preparte data for polynomial curve plot *****
 		nplot = 500
-		x_plot_l = rangen(c-h_l,c,nplot)
-		x_plot_r = rangen(c,c+h_r,nplot)
-		rplot_l = J(nplot,(p+1),.)
-		rplot_r = J(nplot,(p+1),.)
+		
+		x_plot_l = rangen(c-h_l, c,     nplot)
+		x_plot_r = rangen(c,     c+h_r, nplot)
+		
+		rplot_l  = J(nplot,(p+1),.); rplot_r  = J(nplot,(p+1),.)
+		
 		for (j=1; j<=(p+1); j++) {
 			rplot_l[.,j] = (x_plot_l:-c):^(j-1)
 			rplot_r[.,j] = (x_plot_r:-c):^(j-1)
@@ -334,9 +330,6 @@ program define rdplot, eclass
 		gammaZ = 0		
 		if ("`covs_eval'"=="mean" & "`covs'"!="") gammaZ = mean(z)*gamma_p
 				
-		*yhat_x = (R_p_l*gamma_p1_l  \ R_p_r*gamma_p1_r ) :+ gammaZ
-		*resid_yz = y-Z*gamma_p
-					
 		y_plot_l = rplot_l*gamma_p1_l :+ gammaZ
 		y_plot_r = rplot_r*gamma_p1_r :+ gammaZ
 		
@@ -346,8 +339,8 @@ program define rdplot, eclass
 		**** Optimal Bins (using polynomial order k) **********
 		*******************************************************
 		k = 4
-		rk_l = J(n_l,(k+1),.)
-		rk_r = J(n_r,(k+1),.)
+		rk_l = J(n_l,(k+1),.); rk_r = J(n_r,(k+1),.)
+		
 		for (j=1; j<=(k+1); j++) {
 			rk_l[.,j] = x_l:^(j-1)
 			rk_r[.,j] = x_r:^(j-1)
@@ -380,12 +373,11 @@ program define rdplot, eclass
 			invG_k_r = cholinv(cross(rk_r,rk_r))			
 		}
 		
-		gamma_k1_l = invG_k_l*cross(rk_l,y_l)		
-		gamma_k2_l = invG_k_l*cross(rk_l,y_l:^2)	
+		gamma_k1_l = invG_k_l*cross(rk_l,y_l)
 		gamma_k1_r = invG_k_r*cross(rk_r,y_r)		
+		gamma_k2_l = invG_k_l*cross(rk_l,y_l:^2)	
 		gamma_k2_r = invG_k_r*cross(rk_r,y_r:^2)
-		
-		
+				
 		
 		*** Bias w/sample
 		mu0_k1_l = rk_l*gamma_k1_l
@@ -399,14 +391,15 @@ program define rdplot, eclass
 			drk_r[.,j] = j*x_r:^(j-1)
 		}
 		
-	dxi_l=(x_l[2::length(x_l)]-x_l[1::(length(x_l)-1)])
-	dxi_r=(x_r[2::length(x_r)]-x_r[1::(length(x_r)-1)])
-	dyi_l=(y_l[2::length(y_l)]-y_l[1::(length(y_l)-1)])
-	dyi_r=(y_r[2::length(y_r)]-y_r[1::(length(y_r)-1)])
+	
+	dxi_l=(x_l[2::n_l]-x_l[1::(n_l-1)])
+	dxi_r=(x_r[2::n_r]-x_r[1::(n_r-1)])
+	dyi_l=(y_l[2::n_l]-y_l[1::(n_l-1)])
+	dyi_r=(y_r[2::n_r]-y_r[1::(n_r-1)])
 		
-	x_bar_i_l = (x_l[2::length(x_l)]+x_l[1::(length(x_l)-1)])/2
-	x_bar_i_r = (x_r[2::length(x_r)]+x_r[1::(length(x_r)-1)])/2
-		
+	x_bar_i_l = (x_l[2::n_l]+x_l[1::(n_l-1)])/2
+	x_bar_i_r = (x_r[2::n_r]+x_r[1::(n_r-1)])/2
+	
 	drk_i_l = J(n_l-1,k,.);	rk_i_l  = J(n_l-1,(k+1),.)
 	drk_i_r = J(n_r-1,k,.);	rk_i_r  = J(n_r-1,(k+1),.)
 				   
@@ -419,6 +412,7 @@ program define rdplot, eclass
 		drk_i_l[.,j] = j*x_bar_i_l:^(j-1)
 		drk_i_r[.,j] = j*x_bar_i_r:^(j-1)
 	  }
+	  
 	  mu1_i_hat_l = drk_i_l*(gamma_k1_l[2::(k+1)])
 	  mu1_i_hat_r = drk_i_r*(gamma_k1_r[2::(k+1)])
 	   
@@ -439,8 +433,7 @@ program define rdplot, eclass
 	  mu1_i_hat_r = drk_i_r*(gamma_k1_r[2::(k+1)])
 	  
 	  var_y_l = variance(y_l)
-	  var_y_r = variance(y_r)
-	  
+	  var_y_r = variance(y_r)	  
 	  
 	  sigma2_hat_l_bar = mu2_i_hat_l - mu0_i_hat_l:^2
 	  sigma2_hat_r_bar = mu2_i_hat_r - mu0_i_hat_r:^2
@@ -549,6 +542,9 @@ program define rdplot, eclass
 	st_matrix("J_qs_hat_mv", J_qs_hat_mv)
 	st_matrix("J_es_chk_mv", J_es_chk_mv)
 	st_matrix("J_qs_chk_mv", J_qs_chk_mv)
+	
+	
+	
 	}
 	
 
@@ -556,18 +552,13 @@ program define rdplot, eclass
 	**** Generate id and rdplot vars ***********************
 	********************************************************	
 	local J_star_l = J_star_l
-	local J_star_r = J_star_r
-	
-	qui gen rdplot_id = .
-	qui gen rdplot_min_bin = .
-	qui gen rdplot_max_bin = .
-	qui gen rdplot_mean_bin = .
-	
-	
+	local J_star_r = J_star_r	
+
 	if ("`binselect'"=="qs" | "`binselect'"=="qspr"  | "`binselect'"=="qsmv" | "`binselect'"=="qsmvpr") {
 		pctile binsL = `x' if `x'<`c',  nq(`J_star_l')
 		pctile binsR = `x' if `x'>=`c', nq(`J_star_r')
 	}
+
 
 mata {
 	x_min = `x_min'
@@ -581,66 +572,93 @@ mata {
 	
 	if ("`binselect'"=="qs" | "`binselect'"=="qspr"  | "`binselect'"=="qsmv" | "`binselect'"=="qsmvpr") {
 		bins = (x_min \ st_data(.,"binsL",0) \ c \ st_data(.,"binsR",0) \ x_max )
+		binsL = (x_min \ st_data(.,"binsL",0) \ c )
+		binsR = (c \ st_data(.,"binsR",0) \ x_max )
+		
 	}
-	
-	st_view(ZZ=.,., "`x' rdplot_id rdplot_min_bin rdplot_max_bin rdplot_mean_bin", "`touse'")
-	bin_i = 2
-	for(i=1; i<=rows(ZZ); i++) {
-		while(ZZ[i,1] >= bins[bin_i] & bin_i < length(bins)) bin_i++
-		/* PUT rdplot_id */
-		ZZ[i,2] = bin_i - `J_star_l' - 2
-		if (ZZ[i,2] >= 0) ZZ[i,2] = ZZ[i,2] + 1
-		/* PUT rdplot_min_bin rdplot_max_bin rdplot_mean_bin */
-		ZZ[i,3] = bins[bin_i-1] 
-		ZZ[i,4] = bins[bin_i]
-		ZZ[i,5] = (bins[bin_i]+bins[bin_i-1])/2
-	}
-	
+			
+	bin_x_l = rdrobust_groupid(x_l, binsL :- 1e-8) 
+	bin_x_r = rdrobust_groupid(x_r, binsR :+ 1e-8) 
+	bin_x = bin_x_l:-(J_star_l-1) \ bin_x_r
 }
 
-** STATA: Generate inputs for RDPLOT (and possibly for reporting back to user)
-if  ("`covs_eval'"=="" | "`covs_eval'"=="0") {
-collapse (count) rdplot_N=`x' (mean) rdplot_min_bin rdplot_max_bin rdplot_mean_bin    ///
-         (mean) rdplot_mean_x=`x'  rdplot_mean_y=`y'    ///
-		 (semean) rdplot_se_y=`y', by(rdplot_id) fast
-}
-
-**************************************************************************
+*************************************************************************
 **** covs_eval **********************************************************
-**************************************************************************
-if  ("`covs_eval'"=="mean") {
-	tempvar  rdplot_id2  yhat_tmp yhatZ
-	qui gen `rdplot_id2' = rdplot_id + `J_star_l'
-	qui reg `y' `covs_list' i.`rdplot_id2'
-	qui predict `yhatZ'
-	
-	collapse (count) rdplot_N=`x' (mean) rdplot_min_bin rdplot_max_bin rdplot_mean_bin    ///
-         (mean) rdplot_mean_x=`x'   rdplot_mean_y=`yhatZ'     ///
-		 (semean) rdplot_se_y=`y', by(rdplot_id) fast
-}		 
+*************************************************************************
 
-		qui replace rdplot_N=rdplot_N-1
-		qui gen quant = -invt(rdplot_N, abs((1-(`ci'/100))/2))
-		qui gen rdplot_ci_l = rdplot_mean_y - quant*rdplot_se_y
-		qui gen rdplot_ci_r = rdplot_mean_y + quant*rdplot_se_y
-		qui drop quant
+	if  ("`covs_eval'"=="mean" & "`covs'"!="") {		
+		qui getmata bin_x , replace force
+		tempvar yhatZ bin_x2
+		qui gen `bin_x2' = bin_x + `J_star_l'
+		qui reg `y' `covs_list' i.`bin_x2'
+		qui predict `yhatZ'
+	}		 
+
+
+mata {
 	
-	mata{
-	if ("`genvars'"!="") {
-	** MATA: Save rdplot inputs to return to user in original dataset
-	rdplot = st_data(.,.)
-	}
-	}
 	
-	qui gen bin_length = rdplot_max_bin-rdplot_min_bin
-	qui su bin_length if rdplot_id<0, d
-	local bin_avg_l = r(mean)
-	local bin_med_l = r(p50)
-	qui su bin_length if rdplot_id>0, d
-	local bin_avg_r = r(mean)
-	local bin_med_r = r(p50)
-		 
-	if ("`binselect'"=="es"){
+if  ("`covs_eval'"=="mean" & "`covs'"!="") {	
+		yhatZ = st_data(.,("`yhatZ'"), 0)
+		y_l = yhatZ[ind_l];	y_r = yhatZ[ind_r]	
+}	
+
+
+	d_l = x_l, y_l
+	d_r = x_r, y_r
+	
+	rdbin_collapse_l = rdrobust_collapse(d_l, bin_x_l)
+	rdbin_collapse_r = rdrobust_collapse(d_r, bin_x_r)
+	
+	rdplot_N_l      = rdbin_collapse_l[,1]
+	rdplot_N_r      = rdbin_collapse_r[,1]
+	rdplot_mean_x_l = rdbin_collapse_l[,2]
+	rdplot_mean_x_r = rdbin_collapse_r[,2]
+	rdplot_mean_y_l = rdbin_collapse_l[,3]
+	rdplot_mean_y_r = rdbin_collapse_r[,3]
+	rdplot_sd_y_l = sqrt(rdbin_collapse_l[,4])
+	rdplot_sd_y_r = sqrt(rdbin_collapse_r[,4])
+	
+	rdplot_na_l = uniqrows(bin_x_l)
+	rdplot_na_r = uniqrows(bin_x_r)
+		
+	rdplot_min_bin_l = binsL[1::J_star_l]
+	rdplot_min_bin_r = binsR[1::J_star_r]
+	rdplot_max_bin_l = binsL[2::(J_star_l+1)]
+	rdplot_max_bin_r = binsR[2::(J_star_r+1)]
+	
+	rdplot_mean_bin_l = rowsum( (rdplot_min_bin_l , rdplot_max_bin_l))/2
+	rdplot_mean_bin_r = rowsum( (rdplot_min_bin_r , rdplot_max_bin_r))/2
+
+	rdplot_id   = rdplot_na_l:-J_star_l:-1 \ rdplot_na_r
+	rdplot_mean_x   = rdplot_mean_x_l \ rdplot_mean_x_r
+	rdplot_mean_y   = rdplot_mean_y_l \ rdplot_mean_y_r
+	rdplot_mean_bin = rdplot_mean_bin_l[rdplot_na_l] \ rdplot_mean_bin_r[rdplot_na_r]
+	rdplot_N        = rdplot_N_l \ rdplot_N_r
+	rdplot_min_bin  = rdplot_min_bin_l[rdplot_na_l] \ rdplot_min_bin_r[rdplot_na_r]
+	rdplot_max_bin  = rdplot_max_bin_l[rdplot_na_l] \ rdplot_max_bin_r[rdplot_na_r]
+	rdplot_se_y     = rdplot_sd_y_l:/rdplot_N_l \ rdplot_sd_y_r:/rdplot_N_r
+	
+	rdplot_length_l = rdplot_max_bin_l - rdplot_min_bin_l
+	rdplot_length_r = rdplot_max_bin_r - rdplot_min_bin_r
+	
+	bin_avg_l = mean(rdplot_length_l)
+	bin_avg_r = mean(rdplot_length_r)
+	bin_med_l = rdrobust_median(rdplot_length_l)
+	bin_med_r = rdrobust_median(rdplot_length_r) 
+	
+	quant = -invt(rdplot_N, abs((1-(`ci'/100))/2))
+	rdplot_ci_l = rdplot_mean_y - quant:*rdplot_se_y
+	rdplot_ci_r = rdplot_mean_y + quant:*rdplot_se_y
+		
+	st_numscalar("bin_avg_l", bin_avg_l)
+	st_numscalar("bin_avg_r", bin_avg_r)
+	st_numscalar("bin_med_l", bin_med_l)
+	st_numscalar("bin_med_r", bin_med_r)
+	
+}
+
+ 	if ("`binselect'"=="es"){
 		local binselect_type="evenly spaced number of bins using spacings estimators."
 		scalar J_star_l_IMSE = J_es_hat_dw[1,1]
 		scalar J_star_r_IMSE = J_es_hat_dw[1,2]
@@ -701,8 +719,8 @@ if  ("`covs_eval'"=="mean") {
 	scalar scale_l = J_star_l / J_star_l_IMSE
 	scalar scale_r = J_star_r / J_star_r_IMSE
 		
-	qui getmata x_plot_l x_plot_r y_plot_l y_plot_r, force
-		
+	qui getmata x_plot_l x_plot_r y_plot_l y_plot_r rdplot_id rdplot_mean_bin rdplot_mean_x rdplot_mean_y rdplot_N rdplot_min_bin rdplot_max_bin rdplot_se_y rdplot_ci_l rdplot_ci_r, replace force
+	
 	ereturn clear
 	ereturn scalar N_l = `n_l'
 	ereturn scalar N_r = `n_r'
@@ -711,6 +729,9 @@ if  ("`covs_eval'"=="mean") {
 	ereturn scalar J_star_r = J_star_r
 	ereturn matrix coef_l = gamma_p1_l
 	ereturn matrix coef_r = gamma_p1_r
+	if ("`covs'"!="") {
+		ereturn matrix coef_covs = gamma_p
+	}
 	ereturn local binselect = "`binselect'"
 
 	****** polynomial equation for plots ******************
@@ -750,9 +771,9 @@ if  ("`covs_eval'"=="mean") {
 	disp in smcl in gr "{hline 22}{c TT}{hline 22}"
 	disp in smcl in gr   _col(22) " {c |} " _col(23) in gr "Left of " in yellow "c"  _col(36) in gr "Right of " in yellow "c" 
 	disp in smcl in gr "{hline 22}{c +}{hline 22}"                                                                                
-	disp in smcl in gr "{ralign 21:Bins selected}"          _col(22) " {c |} " _col(23) as result %9.0f e(J_star_l)      _col(37) %9.0f  e(J_star_r)
-	disp in smcl in gr "{ralign 21:Average bin length}"    _col(22) " {c |} " _col(23) as result %9.3f `bin_avg_l'   _col(37) %9.3f  `bin_avg_r'
-	disp in smcl in gr "{ralign 21:Median bin length}"     _col(22) " {c |} " _col(23) as result %9.3f `bin_med_l'   _col(37) %9.3f  `bin_med_r'
+	disp in smcl in gr "{ralign 21:Bins selected}"         _col(22) " {c |} " _col(23) as result %9.0f e(J_star_l)         _col(37) %9.0f  e(J_star_r)
+	disp in smcl in gr "{ralign 21:Average bin length}"    _col(22) " {c |} " _col(23) as result %9.3f scalar(bin_avg_l)   _col(37) %9.3f scalar(bin_avg_r)
+	disp in smcl in gr "{ralign 21:Median bin length}"     _col(22) " {c |} " _col(23) as result %9.3f scalar(bin_med_l)   _col(37) %9.3f scalar(bin_med_r)
 	disp in smcl in gr "{hline 22}{c +}{hline 22}"  
 	disp in smcl in gr "{ralign 21:IMSE-optimal bins}"      _col(22) " {c |} " _col(23) as result %9.0f J_star_l_IMSE    _col(37) %9.0f  J_star_r_IMSE
 	disp in smcl in gr "{ralign 21:Mimicking Var. bins}"    _col(22) " {c |} " _col(23) as result %9.0f J_star_l_MV      _col(37) %9.0f  J_star_r_MV
@@ -797,29 +818,32 @@ if  ("`covs_eval'"=="mean") {
 	
 restore
 
+
+
 ****************************
 ** PART 2: genvars=TRUE
 ****************************
 if ("`genvars'"!="") {
 	qui for any id N min_bin max_bin mean_bin mean_x mean_y se_y ci_l ci_r hat_y: qui gen rdplot_X = .
 }
-	
-mata{
-	if ("`genvars'"~="") {
+
+	mata {		
+	if ("`genvars'"!="") {	
+		rdplot = rdplot_id, rdplot_N, rdplot_min_bin, rdplot_max_bin, rdplot_mean_bin, rdplot_mean_x, rdplot_mean_y, rdplot_se_y, rdplot_ci_l, rdplot_ci_r
 		st_view(ZZ=.,., "`x' rdplot_id rdplot_N rdplot_min_bin rdplot_max_bin rdplot_mean_bin rdplot_mean_x rdplot_mean_y rdplot_se_y rdplot_ci_l rdplot_ci_r rdplot_hat_y", "`touse'")
-		for (i=1; i<=rows(ZZ); i++) {
-		if (ZZ[i,1]!=.) {
-			bin_i = 2; while(ZZ[i,1] >= bins[bin_i] & bin_i < length(bins)) bin_i++
-		 	rdplot_i = bin_i - `J_star_l' - 2
-			if (rdplot_i >= 0) rdplot_i = rdplot_i + 1
-			ZZ[i,2..11] = select(rdplot, rdplot[.,1]:==rdplot_i)
-			ZZ[i,12] = 0; for (j=0; j<=p; j++) {
-			if (ZZ[i,2] <0) ZZ[i,12] = ZZ[i,12] + ((ZZ[i,1]-c)^j)*gamma_p1_l[j+1] 
-			else           ZZ[i,12] = ZZ[i,12] + ((ZZ[i,1]-c)^j)*gamma_p1_r[j+1]
-			}		
+				for (i=1; i<=rows(ZZ); i++) {
+				if (ZZ[i,1]!=.) {
+					bin_i = 2; while(ZZ[i,1] >= bins[bin_i] & bin_i < length(bins)) bin_i++
+					rdplot_i = bin_i - `J_star_l' - 2
+					if (rdplot_i >= 0) rdplot_i = rdplot_i + 1
+					ZZ[i,2..11] = select(rdplot, rdplot[.,1]:==rdplot_i)
+					ZZ[i,12] = 0; for (j=0; j<=p; j++) {
+					if (ZZ[i,2] <0) ZZ[i,12] = ZZ[i,12] + ((ZZ[i,1]-c)^j)*gamma_p1_l[j+1] 
+					else            ZZ[i,12] = ZZ[i,12] + ((ZZ[i,1]-c)^j)*gamma_p1_r[j+1]
+					}		
+				}
+			}
 		}
-		}
-	}
 }
 
 mata mata clear
