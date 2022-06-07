@@ -126,6 +126,7 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   quant = -qnorm(abs((1-(level/100))/2))
   
   Z_l=Z_r=T_l=T_r=C_l=C_r=g_l=g_r=NULL
+  dT = 0
   
   if (!is.null(fuzzy)) {
     dT=1
@@ -557,7 +558,7 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   Q_q_r = t(t(R_p_r*W_h_r) - h_r^(p+1)*(L_r%*%t(e_p1))%*%t(t(invG_q_r%*%t(R_q_r))*W_b_r))
   D_l = eY_l; D_r = eY_r
   eC_l=eC_r=eT_l=eT_r=eZ_l=eZ_r=NULL
-  dT =g_l=g_r= 0
+  g_l=g_r= 0
   
   if (!is.null(fuzzy)) {
     eT_l  = T_l[ind_l,,drop=FALSE]
