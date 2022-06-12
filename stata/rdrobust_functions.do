@@ -1,4 +1,4 @@
-*!version 9.0.1  2022-06-09
+*!version 9.0.2  2022-06-12
    
 capture mata mata drop rdrobust_res()
 mata
@@ -268,10 +268,8 @@ real colvector rdrobust_groupid(real colvector x, real vector at)
 {
         real scalar i, j
         real colvector result, p
-
         result = J(rows(x),1,.)
         j = length(at)
-        if (args()<3) sorted = 0
                 for (i=rows(x); i>0; i--) {
                         if (x[i]>=.) continue
                         for (; j>0; j--) {
@@ -309,18 +307,18 @@ capture mata mata drop rdrobust_collapse()
 mata
 real matrix rdrobust_collapse(real matrix x, real colvector id)
 {	
-info  = panelsetup(id,1)
-g     = rows(info)
-mean = J(g,2,.)
-var  = J(g,1,.)
-	for (i=1; i<=g; i++) {
-				Xi = panelsubmatrix(x,  i, info)
+	info  = panelsetup(id,1)
+	g     = rows(info)
+	mean = J(g,2,.)
+	var  = J(g,1,.)
+		for (i=1; i<=g; i++) {
+				Xi       = panelsubmatrix(x,  i, info)
 				mean[i,] = mean(Xi)
-				var[i]  = variance(Xi[,2])
-	}
-	nobs =  (info[,2]-info[,1]):+1
-	result = nobs, mean, var	
-	return(result)  		
+				var[i]   = variance(Xi[,2])
+		}
+		nobs =  (info[,2]-info[,1]):+1
+		result = nobs, mean, var	
+		return(result)  		
 }	
 mata mosave rdrobust_collapse(), replace 
 end

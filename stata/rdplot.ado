@@ -1,4 +1,4 @@
-*!version 9.0.1  2022-06-09
+*!version 9.0.2  2022-06-12
 
 capture program drop rdplot
 program define rdplot, eclass
@@ -565,21 +565,20 @@ mata {
 	x_max = `x_max'
 
 	if ("`binselect'"=="es" | "`binselect'"=="espr"  | "`binselect'"=="esmv" | "`binselect'"=="esmvpr" | "`binselect'"=="") {
-		binsL = rangen(x_min,c    , `J_star_l'+1)
-		binsR = rangen(c    ,x_max, `J_star_r'+1)
+		binsL = rangen(x_min-1e-8,c    , `J_star_l'+1)
+		binsR = rangen(c    ,x_max+1e-8, `J_star_r'+1)
 		bins = binsL[1..length(binsL)-1]\binsR		
 	}
 	
 	if ("`binselect'"=="qs" | "`binselect'"=="qspr"  | "`binselect'"=="qsmv" | "`binselect'"=="qsmvpr") {
-		bins = (x_min \ st_data(.,"binsL",0) \ c \ st_data(.,"binsR",0) \ x_max )
-		binsL = (x_min \ st_data(.,"binsL",0) \ c )
-		binsR = (c \ st_data(.,"binsR",0) \ x_max )
-		
+		bins  = (x_min-1e-8 \ st_data(.,"binsL",0) \ c \ st_data(.,"binsR",0) \ x_max+1e-8 )
+		binsL = (x_min-1e-8 \ st_data(.,"binsL",0) \ c )
+		binsR = (c \ st_data(.,"binsR",0) \ x_max+1e-8 )		
 	}
 			
-	bin_x_l = rdrobust_groupid(x_l, binsL :- 1e-8) 
-	bin_x_r = rdrobust_groupid(x_r, binsR :+ 1e-8) 
-	bin_x = bin_x_l:-(J_star_l-1) \ bin_x_r
+	bin_x_l = rdrobust_groupid(x_l, binsL) 
+	bin_x_r = rdrobust_groupid(x_r, binsR) 
+	bin_x = bin_x_l:-(J_star_l+1) \ bin_x_r
 }
 
 *************************************************************************
