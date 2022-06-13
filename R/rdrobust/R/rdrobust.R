@@ -16,8 +16,6 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   }
   
   if (is.null(c)) c <- 0
-  
-  # p
   if (is.null(p) & !is.null(deriv)) {p = deriv+1}
   
   if (length(p) == 0) {
@@ -29,7 +27,6 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
     flag_no_p <- FALSE
   }
   
-  # q
   if (length(q) == 0) {
     flag_no_q <- TRUE
     q <- p + 1
@@ -39,7 +36,6 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
     flag_no_q <- FALSE
   }
   
-  # deriv
   if (length(deriv) == 0) {
     flag_no_deriv <- TRUE
     deriv <- 0
@@ -91,79 +87,6 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
     if (!is.null(weights)) weights = weights[order_x,,drop=FALSE]
   }
 
-  kernel   = tolower(kernel)
-  bwselect = tolower(bwselect)
-  vce      = tolower(vce)
-  
-
-  
-  
-  if (is.null(h)) {
-    x_iq = quantile(x,.75,type=2) - quantile(x,.25,type=2)
-    BWp = min(c(sd(x),x_iq/1.349))
-    x_sd = y_sd = 1
-    c_orig = c
-    if (isTRUE(stdvars)) { 
-      y_sd = sd(y)
-      x_sd = sd(x)
-      y = y/y_sd
-      x = x/x_sd
-      c = c/x_sd
-      BWp = min(c(1,(x_iq/x_sd)/1.349))
-    }
-  }
-
-  ind_l = x<c
-  ind_r = x>=c
-  X_l = x[ind_l,,drop=FALSE];  X_r = x[ind_r,,drop=FALSE]
-  Y_l = y[ind_l,,drop=FALSE];  Y_r = y[ind_r,,drop=FALSE]
-  x_min = min(x);  x_max = max(x)
-  x_l_min = min(X_l);  x_l_max = max(X_l)
-  x_r_min = min(X_r);  x_r_max = max(X_r)
-  range_l = abs(c-x_l_min);  range_r = abs(c-x_r_max)
-  N_l = length(X_l);   N_r = length(X_r)
-  N = N_r + N_l
-  quant = -qnorm(abs((1-(level/100))/2))
-  
-  Z_l=Z_r=T_l=T_r=C_l=C_r=g_l=g_r=NULL
-  dT = 0
-  
-  if (!is.null(fuzzy)) {
-    dT=1
-    T_l  = fuzzy[ind_l,,drop=FALSE];  T_r  = fuzzy[ind_r,,drop=FALSE]
-  }
-  
-  if (!is.null(covs)) {
-    Z_l  = covs[ind_l,,drop=FALSE];   Z_r  = covs[ind_r,,drop=FALSE]
-  }
-  
-  if (!is.null(cluster)) {
-    C_l  = cluster[ind_l,,drop=FALSE]; C_r= cluster[ind_r,,drop=FALSE]
-  }
-  
-  fw_l = fw_r = 0 
-  if (!is.null(weights)) {
-    fw_l=weights[ind_l,,drop=FALSE];  fw_r=weights[ind_r,,drop=FALSE]
-  }  	
-  
-  vce_type = "NN"
-  if (vce=="hc0")         vce_type = "HC0"
-  if (vce=="hc1")         vce_type = "HC1"
-  if (vce=="hc2")         vce_type = "HC2"
-  if (vce=="hc3")      	  vce_type = "HC3"
-  if (!is.null(cluster))	vce_type = "Cluster"
-
-  
-  if (vce=="nn") {
-    nn_l = rep(1,N_l)
-    nn_r = rep(1,N_r)
-    dups_l   = ave(nn_l, X_l, FUN = sum)
-    dups_r   = ave(nn_r, X_r, FUN = sum)
-    dupsid_l = ave(nn_l, X_l, FUN = cumsum)
-    dupsid_r = ave(nn_r, X_r, FUN = cumsum)
-  }          
-  
-  
   ############## COLLINEARITY
   covs_drop_coll=dZ=0
   if (covs_drop == TRUE) covs_drop_coll = 1 
@@ -185,7 +108,86 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
       dZ    <- covs.check$ncovs
     }
   }
+  
+  kernel   = tolower(kernel)
+  bwselect = tolower(bwselect)
+  vce      = tolower(vce)
+  
+  if (is.null(h)) {
+    x_iq = quantile(x,.75,type=2) - quantile(x,.25,type=2)
+    BWp = min(c(sd(x),x_iq/1.349))
+    x_sd = y_sd = 1
+    c_orig = c
+    if (isTRUE(stdvars)) { 
+      y_sd = sd(y)
+      x_sd = sd(x)
+      y = y/y_sd
+      x = x/x_sd
+      c = c/x_sd
+      BWp = min(c(1,(x_iq/x_sd)/1.349))
+    }
+  }
 
+  ind_l = x<c;  ind_r = x>=c
+  X_l = x[ind_l,,drop=FALSE];  X_r = x[ind_r,,drop=FALSE]
+  Y_l = y[ind_l,,drop=FALSE];  Y_r = y[ind_r,,drop=FALSE]
+  x_min = min(x);  x_max = max(x)
+  range_l = abs(c-x_min);  range_r = abs(c-x_max)
+  N_l = length(X_l);   N_r = length(X_r)
+  N = N_r + N_l
+  quant = -qnorm(abs((1-(level/100))/2))
+  
+  dT = 0
+  T_l = T_r = NULL
+  perf_comp = FALSE
+  if (!is.null(fuzzy)) {
+    dT = 1
+    T_l  = fuzzy[ind_l,,drop=FALSE];  T_r  = fuzzy[ind_r,,drop=FALSE]
+    
+    if (var(T_l)==0 | var(T_r)==0) perf_comp=TRUE
+    
+  if (perf_comp==TRUE | sharpbw==TRUE) {
+      dT = 0
+      T_l = T_r = NULL
+    }
+  }
+  
+
+  
+  
+  Z_l = Z_r = NULL
+  if (!is.null(covs)) {
+    Z_l  = covs[ind_l,,drop=FALSE];   Z_r  = covs[ind_r,,drop=FALSE]
+  }
+  
+  g_l = g_r = 0       
+  C_l = C_r = NULL
+  if (!is.null(cluster)) {
+    C_l = cluster[ind_l,,drop=FALSE]; g_l = length(unique(C_l))
+    C_r = cluster[ind_r,,drop=FALSE]; g_r = length(unique(C_r))
+  }
+  
+  fw_l = fw_r = 0 
+  if (!is.null(weights)) {
+    fw_l = weights[ind_l,,drop=FALSE];  fw_r = weights[ind_r,,drop=FALSE]
+  }  	
+  
+  vce_type = "NN"
+  if (vce=="hc0")         vce_type = "HC0"
+  if (vce=="hc1")         vce_type = "HC1"
+  if (vce=="hc2")         vce_type = "HC2"
+  if (vce=="hc3")      	  vce_type = "HC3"
+  if (!is.null(cluster))	vce_type = "Cluster"
+
+  if (vce=="nn") {
+    nn_l = rep(1,N_l)
+    nn_r = rep(1,N_r)
+    dups_l   = ave(nn_l, X_l, FUN = sum)
+    dups_r   = ave(nn_r, X_r, FUN = sum)
+    dupsid_l = ave(nn_l, X_l, FUN = cumsum)
+    dupsid_r = ave(nn_r, X_r, FUN = cumsum)
+  }          
+  
   #####################################################   CHECK ERRORS
   exit=0
   if (kernel!="uni" & kernel!="uniform" & kernel!="tri" & kernel!="triangular" & kernel!="epa" & kernel!="epanechnikov" & kernel!="" ){
@@ -208,47 +210,47 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
     exit = 1
   }
     
-    if (c<=x_min | c>=x_max){
-      print("c should be set within the range of x")
-      exit = 1
-    }
+  if (c<=x_min | c>=x_max){
+    print("c should be set within the range of x")
+    exit = 1
+  }
     
-    if (level>100 | level<=0){
-      print("level should be set between 0 and 100")
-      exit = 1
-    }
+  if (level>100 | level<=0){
+    print("level should be set between 0 and 100")
+    exit = 1
+  }
     
-    if (!is.null(rho)){  
-       if (rho<0){
-          print("rho should be greater than 0")
-          exit = 1
-        }
-    }
+  if (!is.null(rho)){  
+     if (rho<0){
+        print("rho should be greater than 0")
+        exit = 1
+      }
+  }
   
-    if (exit>0) stop()
-    if (!is.null(h)) bwselect = "Manual"
-    if (!is.null(h) & is.null(rho) & is.null(b)) {
-      rho = 1
-      b = h
-    }
-    if (!is.null(h) & !is.null(rho) ) b = h/rho
+  if (exit>0) stop()
+  if (!is.null(h)) bwselect = "Manual"
+  if (!is.null(h) & is.null(rho) & is.null(b)) {
+    rho = 1
+    b = h
+  }
+  if (!is.null(h) & !is.null(rho) ) b = h/rho
     
   
   if (N<20){
 			print("Not enough observations to perform bandwidth calculations. Estimates computed using entire sample")
       h = b = max(range_l,range_r)
 			bwselect = "Manual"
-			}
+		}
   
   if (kernel=="epanechnikov" | kernel=="epa") {
     kernel_type = "Epanechnikov"
-    C_c=2.34
+    C_c = 2.34
   }  else if (kernel=="uniform" | kernel=="uni") {
     kernel_type = "Uniform"
-    C_c=1.843
+    C_c = 1.843
   }   else  {
     kernel_type = "Triangular"
-    C_c=2.576
+    C_c = 2.576
   }
   
   vce_type = "NN"
@@ -266,35 +268,34 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   ############################################################################################
   mN = N;  M_l = N_l;  M_r = N_r
   
-    if (is.null(h)) {
+  if (is.null(h)) {
  
-      if (masspoints=="check" | masspoints=="adjust") {
-        X_uniq_l = sort(unique(X_l), decreasing=TRUE)
-        X_uniq_r = unique(X_r)
-        M_l = length(X_uniq_l)
-        M_r = length(X_uniq_r)
-        M = M_l + M_r
-        mass_l = 1-M_l/N_l
-        mass_r = 1-M_r/N_r				
-        if (mass_l>=0.1 | mass_r>=0.1){
-          print("Mass points detected in the running variable.")
-          if (masspoints=="check") print("Try using option masspoints=adjust.")
-          if (is.null(bwcheck) & masspoints=="adjust") bwcheck <- 10
-        }				
-      }
-    
-      ###############################################
-      
-      c_bw = C_c*BWp*N^(-1/5)
-      if (masspoints=="adjust") c_bw = C_c*BWp*M^(-1/5)
-      
-      if (isTRUE(bwrestrict)) {
+    if (masspoints=="check" | masspoints=="adjust") {
+      X_uniq_l = sort(unique(X_l), decreasing=TRUE)
+      X_uniq_r = unique(X_r)
+      M_l = length(X_uniq_l)
+      M_r = length(X_uniq_r)
+      M = M_l + M_r
+      mass_l = 1-M_l/N_l
+      mass_r = 1-M_r/N_r				
+      if (mass_l>=0.1 | mass_r>=0.1){
+        print("Mass points detected in the running variable.")
+        if (masspoints=="check") print("Try using option masspoints=adjust.")
+        if (is.null(bwcheck) & masspoints=="adjust") bwcheck <- 10
+      }				
+    }
+  
+
+    c_bw = C_c*BWp*N^(-1/5)
+    if (masspoints=="adjust") c_bw = C_c*BWp*M^(-1/5)
+        
+    if (isTRUE(bwrestrict)) {
         bw_max_l = abs(c-x_min)
         bw_max_r = abs(c-x_max)
         bw_max = max(bw_max_l, bw_max_r)
         c_bw <- min(c_bw, bw_max)
-      }
-      
+    }
+    
       bw.adj <- 0
       if (!is.null(bwcheck)) {
         bwcheck_l = min(bwcheck, M_l)
@@ -424,6 +425,8 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
         b_msecomb2_l = median(c(b_mserd,b_msesum,b_msetwo_l))
         b_msecomb2_r = median(c(b_mserd,b_msesum,b_msetwo_r))
       }
+      
+      
       cer_h = N^(-(p/((3+p)*(3+2*p))))
       
       if (!is.null(cluster)) {
@@ -503,6 +506,9 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   	Y_l = Y_l*y_sd;	Y_r = Y_r*y_sd
   }
   
+  ### end BW selection
+  
+  
   ### Estimation
   w_h_l <- rdrobust_kweight(X_l,c,h_l,kernel);	w_h_r <- rdrobust_kweight(X_r,c,h_r,kernel)
   w_b_l <- rdrobust_kweight(X_l,c,b_l,kernel);	w_b_r <- rdrobust_kweight(X_r,c,b_r,kernel)
@@ -557,30 +563,29 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   Q_q_l = t(t(R_p_l*W_h_l) - h_l^(p+1)*(L_l%*%t(e_p1))%*%t(t(invG_q_l%*%t(R_q_l))*W_b_l))
   Q_q_r = t(t(R_p_r*W_h_r) - h_r^(p+1)*(L_r%*%t(e_p1))%*%t(t(invG_q_r%*%t(R_q_r))*W_b_r))
   D_l = eY_l; D_r = eY_r
-  eC_l=eC_r=eT_l=eT_r=eZ_l=eZ_r=NULL
-  g_l=g_r= 0
-  
+
+  eT_l = eT_r = NULL
   if (!is.null(fuzzy)) {
-    eT_l  = T_l[ind_l,,drop=FALSE]
-    eT_r  = T_r[ind_r,,drop=FALSE]
-    D_l   = cbind(D_l,eT_l)
-    D_r   = cbind(D_r,eT_r)
+  
+    if (perf_comp==TRUE | sharpbw==TRUE) {
+      dT = 1
+      T_l  = fuzzy[x<c,,drop=FALSE];  T_r  = fuzzy[x>=c,,drop=FALSE]
+    }
+    
+    eT_l = T_l[ind_l,,drop=FALSE]; D_l  = cbind(D_l,eT_l)
+    eT_r = T_r[ind_r,,drop=FALSE]; D_r  = cbind(D_r,eT_r)
   }
   
+  eZ_l = eZ_r = NULL
   if (!is.null(covs)) {
-    eZ_l  = Z_l[ind_l,,drop=FALSE]
-    eZ_r  = Z_r[ind_r,,drop=FALSE]
-    D_l   = cbind(D_l,eZ_l)
-    D_r   = cbind(D_r,eZ_r)
-    U_p_l = crossprod(R_p_l*W_h_l,D_l)
-    U_p_r = crossprod(R_p_r*W_h_r,D_r)
+    eZ_l  = Z_l[ind_l,,drop=FALSE]; D_l   = cbind(D_l,eZ_l)
+    eZ_r  = Z_r[ind_r,,drop=FALSE]; D_r   = cbind(D_r,eZ_r)
+    U_p_l = crossprod(R_p_l*W_h_l,D_l); U_p_r = crossprod(R_p_r*W_h_r,D_r)
   }
-              
+    
+  eC_l = eC_r = NULL
   if (!is.null(cluster)) {
-    eC_l  = C_l[ind_l]
-    eC_r  = C_r[ind_r]
-    g_l = length(unique(eC_l))
-    g_r = length(unique(eC_r))
+    eC_l  = C_l[ind_l]; eC_r  = C_r[ind_r]
   }
   
   beta_p_l  = invG_p_l%*%crossprod(R_p_l*W_h_l,D_l) 
@@ -589,40 +594,40 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   beta_q_r  = invG_q_r%*%crossprod(R_q_r*W_b_r,D_r)
   beta_bc_l = invG_p_l%*%crossprod(Q_q_l,D_l) 
   beta_bc_r = invG_p_r%*%crossprod(Q_q_r,D_r)
-  beta_p  = beta_p_r  - beta_p_l
-  beta_q  = beta_q_r  - beta_q_l
-  beta_bc = beta_bc_r - beta_bc_l
+  beta_p    = beta_p_r  - beta_p_l
+  beta_q    = beta_q_r  - beta_q_l
+  beta_bc   = beta_bc_r - beta_bc_l
 
   gamma_p = NULL
   if (is.null(covs)) {	
-  tau_cl = tau_Y_cl = scalepar*factorial(deriv)*beta_p[(deriv+1),1]
-  tau_bc = tau_Y_bc = scalepar*factorial(deriv)*beta_bc[(deriv+1),1]
-  s_Y = 1
-  
-  tau_Y_cl_l = scalepar*factorial(deriv)*beta_p_l[(deriv+1),1]
-  tau_Y_cl_r = scalepar*factorial(deriv)*beta_p_r[(deriv+1),1]
-  tau_Y_bc_l = scalepar*factorial(deriv)*beta_bc_l[(deriv+1),1]
-  tau_Y_bc_r = scalepar*factorial(deriv)*beta_bc_r[(deriv+1),1]
-  bias_l = tau_Y_cl_l-tau_Y_bc_l
-  bias_r = tau_Y_cl_r-tau_Y_bc_r 
-  
-  if (!is.null(fuzzy)) {
-     tau_T_cl = factorial(deriv)*beta_p[(deriv+1),2]
-     tau_T_bc = factorial(deriv)*beta_bc[(deriv+1),2]
-     tau_cl   = tau_Y_cl/tau_T_cl
-     s_Y      = c(1/tau_T_cl , -(tau_Y_cl/tau_T_cl^2))
-     B_F      = c(tau_Y_cl-tau_Y_bc , tau_T_cl-tau_T_bc)
-     tau_bc   = tau_cl - t(s_Y)%*%B_F
-     sV_T     = c(0 , 1)
-     
-     tau_T_cl_l = factorial(deriv)*beta_p_l[(deriv+1),2]
-     tau_T_cl_r = factorial(deriv)*beta_p_r[(deriv+1),2]
-     tau_T_bc_l = factorial(deriv)*beta_bc_l[(deriv+1),2]
-     tau_T_bc_r = factorial(deriv)*beta_bc_r[(deriv+1),2]
-     B_F_l = c(tau_Y_cl_l-tau_Y_bc_l, tau_T_cl_l-tau_T_bc_l)
-     B_F_r = c(tau_Y_cl_r-tau_Y_bc_r, tau_T_cl_r-tau_T_bc_r)
-     bias_l = t(s_Y)%*%B_F_l
-		 bias_r = t(s_Y)%*%B_F_r
+    tau_cl = tau_Y_cl = scalepar*factorial(deriv)*beta_p[(deriv+1),1]
+    tau_bc = tau_Y_bc = scalepar*factorial(deriv)*beta_bc[(deriv+1),1]
+    s_Y = 1
+    
+    tau_Y_cl_l = scalepar*factorial(deriv)*beta_p_l[(deriv+1),1]
+    tau_Y_cl_r = scalepar*factorial(deriv)*beta_p_r[(deriv+1),1]
+    tau_Y_bc_l = scalepar*factorial(deriv)*beta_bc_l[(deriv+1),1]
+    tau_Y_bc_r = scalepar*factorial(deriv)*beta_bc_r[(deriv+1),1]
+    bias_l = tau_Y_cl_l-tau_Y_bc_l
+    bias_r = tau_Y_cl_r-tau_Y_bc_r 
+    
+    if (!is.null(fuzzy)) {
+       tau_T_cl = factorial(deriv)*beta_p[(deriv+1),2]
+       tau_T_bc = factorial(deriv)*beta_bc[(deriv+1),2]
+       tau_cl   = tau_Y_cl/tau_T_cl
+       s_Y      = c(1/tau_T_cl , -(tau_Y_cl/tau_T_cl^2))
+       B_F      = c(tau_Y_cl-tau_Y_bc , tau_T_cl-tau_T_bc)
+       tau_bc   = tau_cl - t(s_Y)%*%B_F
+       sV_T     = c(0 , 1)
+       
+       tau_T_cl_l = factorial(deriv)*beta_p_l[(deriv+1),2]
+       tau_T_cl_r = factorial(deriv)*beta_p_r[(deriv+1),2]
+       tau_T_bc_l = factorial(deriv)*beta_bc_l[(deriv+1),2]
+       tau_T_bc_r = factorial(deriv)*beta_bc_r[(deriv+1),2]
+       B_F_l = c(tau_Y_cl_l-tau_Y_bc_l, tau_T_cl_l-tau_T_bc_l)
+       B_F_r = c(tau_Y_cl_r-tau_Y_bc_r, tau_T_cl_r-tau_T_bc_r)
+       bias_l = t(s_Y)%*%B_F_l
+  		 bias_r = t(s_Y)%*%B_F_r
   }	
   } else {	
     ZWD_p_l  = crossprod(eZ_l*W_h_l,D_l)
@@ -688,7 +693,7 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   #print("Computing variance-covariance matrix.")
   #start_time <- Sys.time()
 
-  hii_l=hii_r=predicts_p_l=predicts_p_r=predicts_q_l=predicts_q_r=0
+  hii_l = hii_r = predicts_p_l = predicts_p_r = predicts_q_l = predicts_q_r = 0
   if (vce=="hc0" | vce=="hc1" | vce=="hc2" | vce=="hc3") {
     predicts_p_l=R_p_l%*%beta_p_l
     predicts_p_r=R_p_r%*%beta_p_r

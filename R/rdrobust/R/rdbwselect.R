@@ -101,12 +101,13 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
 	  BWp = min(c(1,(x_iq/x_sd)/1.349))
   }
   ###############################################
-  X_l = x[x<c];   X_r = x[x>=c]
+  ind_l = x<c; ind_r = x>=c
+  X_l = x[ind_l];   X_r = x[ind_r]
   x_l_min = min(X_l);  x_l_max = max(X_l)
   x_r_min = min(X_r);  x_r_max = max(X_r)
   range_l = abs(c-x_l_min);  range_r = abs(c-x_r_max)
 
-  Y_l = y[x<c];    Y_r = y[x>=c]
+  Y_l = y[ind_l];    Y_r = y[ind_r]
   N_l = length(X_l);   N_r = length(X_r)
   x_min=min(x);  x_max=max(x)
   N = N_r + N_l
@@ -233,8 +234,9 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
     if (vce=="nncluster") 	vce_type = "NNcluster"
     
   #***********************************************************************
-  Z_l=Z_r=T_l=T_r=C_l=C_r=g_l=g_r=NULL
-
+  Z_l=Z_r=T_l=T_r=C_l=C_r=NULL
+  g_l=g_r=0
+  
   if (vce=="nn") {
     nn_l = rep(1,N_l);  nn_r = rep(1,N_r)
     dups_l   = ave(nn_l, X_l, FUN = sum); dupsid_l = ave(nn_l, X_l, FUN = cumsum)
@@ -242,12 +244,12 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
   } 
   
   if (!is.null(covs)) {
-    Z_l  = covs[x<c,,drop=FALSE];  Z_r  = covs[x>=c,,drop=FALSE]
+    Z_l  = covs[ind_l,,drop=FALSE];  Z_r  = covs[ind_r,,drop=FALSE]
   }
   
   perf_comp=FALSE
   if (!is.null(fuzzy)) {
-    T_l  = fuzzy[x<c,,drop=FALSE];  T_r  = fuzzy[x>=c,,drop=FALSE]; 
+    T_l  = fuzzy[ind_l,,drop=FALSE];  T_r  = fuzzy[ind_r,,drop=FALSE]; 
     if (var(T_l)==0 | var(T_r)==0) perf_comp=TRUE
     if (perf_comp==TRUE | sharpbw==TRUE) {
       T_l = T_r = NULL
@@ -255,13 +257,13 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
     }
    
   if (!is.null(cluster)) {
-    C_l  = cluster[x<c,,drop=FALSE]; C_r= cluster[x>=c,,drop=FALSE]
+    C_l  = cluster[ind_l,,drop=FALSE]; C_r= cluster[ind_r,,drop=FALSE]
     g_l = length(unique(C_l));	g_r = length(unique(C_r))
   }
   
   fw_l = fw_r = 0 
   if (!is.null(weights)) {
-    fw_l=weights[x<c];  fw_r=weights[x>=c]
+    fw_l=weights[ind_l];  fw_r=weights[ind_r]
   }                                                                           
 
   

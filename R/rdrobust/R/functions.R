@@ -87,7 +87,7 @@ rdrobust_res = function(X, y, T, Z, m, hii, vce, matches, dups, dupsid, d) {
 
 
 rdrobust_bw = function(Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale, vce, nnmatch, kernel, dups, dupsid, covs_drop_coll, ginv.tol){
-  dT = dZ = dC = eC = 0
+  dT = dZ = dC = 0
   w = rdrobust_kweight(X, c, h_V, kernel)
   dW = length(W)
   if (dW>1) {
@@ -153,10 +153,6 @@ rdrobust_bw = function(Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale, vce, nn
   if (vce=="hc0" | vce=="hc1" | vce=="hc2" | vce=="hc3") {
     predicts_V=R_V%*%beta_V
     if (vce=="hc2" | vce=="hc3") {
-      #hii=matrix(NA,n_V,1)	
-      #for (i in 1:n_V) {
-      #  hii[i] = R_V[i,]%*%invG_V%*%(R_V*eW)[i,]
-      #}
       hii = rowSums((R_V%*%invG_V)*(R_V*eW))
     }
   }	
@@ -202,10 +198,6 @@ rdrobust_bw = function(Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale, vce, nn
         if (vce=="hc0" | vce=="hc1" | vce=="hc2" | vce=="hc3") {
           predicts_B=R_B%*%beta_B
           if (vce=="hc2" | vce=="hc3") {
-            #hii=matrix(NA,n_B,1)	
-            #for (i in 1:n_B) {
-            #hii[i] = R_B[i,]%*%invG_B%*%(R_B*eW)[i,]
-    				#}
             hii = rowSums((R_B%*%invG_B)*(R_B*eW))
   		  	}
 		    }	
@@ -234,7 +226,7 @@ rdrobust_vce = function(d, s, RX, res, C) {
       for (i in 1:(1+d)) {
         SS = res[,i]*res
         for (j in 1:(1+d)) {
-          M = M + crossprod(RX*(s[i]*s[j])*SS[,j],RX)
+            M = M + crossprod(RX*(s[i]*s[j])*SS[,j],RX)
         }
       }
     }
