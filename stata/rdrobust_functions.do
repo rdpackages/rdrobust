@@ -1,4 +1,4 @@
-*!version 9.0.2  2022-06-12
+*!version 9.0.3  2022-06-25
    
 capture mata mata drop rdrobust_res()
 mata

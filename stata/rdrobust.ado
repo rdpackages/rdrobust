@@ -1,4 +1,4 @@
-*!version 9.0.2  2022-06-12
+*!version 9.0.3  2022-06-25
 
 capture program drop rdrobust 
 program define rdrobust, eclass
@@ -88,7 +88,9 @@ program define rdrobust, eclass
 			local b_r = `h_r'
 			local b_l = `h_l'
 		}		
-		if ("`rho'">"0")  {
+		
+		scalar rho= round(`rho', .0001)
+		if (rho>0)  {
 			local b_l = `h_l'/`rho'
 			local b_r = `h_r'/`rho'
 		}		
@@ -523,9 +525,10 @@ masspoints_found = 0
 			b_r = b_r*cer_b
 		}
 		
-		if ("`rho'">"0")  {
-			b_l = h_l/`rho'
-			b_r = h_r/`rho'
+		rho = `rho'
+		if (rho>0)  {
+			b_l = h_l/rho
+			b_r = h_r/rho
 		}
 					
 		*** De-Starndardized *********************************
@@ -945,7 +948,9 @@ masspoints_found = 0
 	restore
 
 	ereturn clear
+	
 	cap ereturn post b V, esample(`touse')
+	
 	ereturn scalar N = `N'
 	ereturn scalar N_l = scalar(N_l)
 	ereturn scalar N_r = scalar(N_r)
@@ -953,41 +958,45 @@ masspoints_found = 0
 	ereturn scalar N_h_r = scalar(N_h_r)
 	ereturn scalar N_b_l = scalar(N_b_l)
 	ereturn scalar N_b_r = scalar(N_b_r)
+	
 	ereturn scalar c = `c'
 	ereturn scalar p = `p'
 	ereturn scalar q = `q'
+	
 	ereturn scalar h_l = scalar(h_l)
 	ereturn scalar h_r = scalar(h_r)
 	ereturn scalar b_l = scalar(b_l)
 	ereturn scalar b_r = scalar(b_r)
-	ereturn scalar level = `level'
+	
 	ereturn scalar tau_cl   = scalar(tau_cl)
-	ereturn scalar tau_bc   = scalar(tau_bc)
 	ereturn scalar tau_cl_l = scalar(tau_Y_cl_l)
 	ereturn scalar tau_cl_r = scalar(tau_Y_cl_r)
+	ereturn scalar tau_bc   = scalar(tau_bc)
 	ereturn scalar tau_bc_l = scalar(tau_Y_bc_l)
 	ereturn scalar tau_bc_r = scalar(tau_Y_bc_r)
-	ereturn scalar bias_l = scalar(bias_l)
-	ereturn scalar bias_r = scalar(bias_r)
+
+	ereturn scalar bias_l    = scalar(bias_l)
+	ereturn scalar bias_r    = scalar(bias_r)
 	ereturn scalar se_tau_cl = scalar(se_tau_cl)
 	ereturn scalar se_tau_rb = scalar(se_tau_rb)
+	
+	ereturn scalar level   = `level'
 	ereturn scalar ci_l_cl = scalar(tau_cl - quant*se_tau_cl)
 	ereturn scalar ci_r_cl = scalar(tau_cl + quant*se_tau_cl)
-	ereturn scalar pv_cl = scalar(2*normal(-abs(tau_cl/se_tau_cl)))
 	ereturn scalar ci_l_rb = scalar(tau_bc - quant*se_tau_rb)
 	ereturn scalar ci_r_rb = scalar(tau_bc + quant*se_tau_rb)
-	ereturn scalar pv_rb = scalar(2*normal(-abs(tau_bc/se_tau_rb)))
+	ereturn scalar pv_cl   = scalar(2*normal(-abs(tau_cl/se_tau_cl)))
+	ereturn scalar pv_rb   = scalar(2*normal(-abs(tau_bc/se_tau_rb)))
 	
 	if ("`fuzzy'"!="") {
-		ereturn scalar tau_T_cl  = scalar(tau_T_cl)
-		ereturn scalar tau_T_bc  = scalar(tau_T_bc)
-		ereturn scalar se_tau_T_cl   = scalar(se_tau_T_cl)
-		ereturn scalar se_tau_T_rb   = scalar(se_tau_T_rb)
-		
-		ereturn scalar tau_T_cl_l = scalar(tau_T_cl_l)
-		ereturn scalar tau_T_cl_r = scalar(tau_T_cl_r)
-		ereturn scalar tau_T_bc_l = scalar(tau_T_bc_l)
-		ereturn scalar tau_T_bc_r = scalar(tau_T_bc_r)
+		ereturn scalar tau_T_cl    = scalar(tau_T_cl)
+		ereturn scalar tau_T_bc    = scalar(tau_T_bc)
+		ereturn scalar se_tau_T_cl = scalar(se_tau_T_cl)
+		ereturn scalar se_tau_T_rb = scalar(se_tau_T_rb)
+		ereturn scalar tau_T_cl_l  = scalar(tau_T_cl_l)
+		ereturn scalar tau_T_cl_r  = scalar(tau_T_cl_r)
+		ereturn scalar tau_T_bc_l  = scalar(tau_T_bc_l)
+		ereturn scalar tau_T_bc_r  = scalar(tau_T_bc_r)
 	}
 	
 	ereturn matrix beta_p_r = beta_p_r
@@ -1003,8 +1012,8 @@ masspoints_found = 0
 	ereturn matrix V_rb_r = V_Y_bc_r 
 	
 	ereturn local ci_rb  [`ci_l_rb' ; `ci_r_rb']
-	ereturn local kernel = "`kernel_type'"
-	ereturn local bwselect = "`bwselect'"
+	ereturn local kernel     = "`kernel_type'"
+	ereturn local bwselect   = "`bwselect'"
 	ereturn local vce_select = "`vce_type'"
 	if ("`covs'"!="")    ereturn local covs "`covs_list'"
 	if ("`cluster'"!="") ereturn local clustvar "`clustvar'"
