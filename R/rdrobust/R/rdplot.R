@@ -102,8 +102,9 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
     mass_l = 1-M_l/n_l
     mass_r = 1-M_r/n_r				
     if (mass_l>=0.2 | mass_r>=0.2){
-      print("Mass points detected in the running variable.")
-      if (masspoints=="check") print("Try using option masspoints=adjust.")
+      if (masspoints!="adjust") {
+        warning("Mass points detected in the running variable. Consider using masspoints=adjust.")
+      }
       if (masspoints=="adjust") {
         if (binselect=="es")    binselect="espr"
         if (binselect=="esmv")  binselect="esmvpr"
@@ -127,7 +128,7 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
     dZ = length(covs.names)
     covs.check = covs_drop_fun(covs)
     if (covs.check$ncovs < dZ & covs_drop==FALSE) {
-      print("Multicollinearity issue detected in covs. Please rescale and/or remove redundant covariates, or use covs_drop option.")  
+      warning("Multicollinearity issue detected in covs. Please rescale and/or remove redundant covariates, or use covs_drop option.")  
     }
     if (covs.check$ncovs < dZ & isTRUE(covs_drop)) {
       covs  <- as.matrix(covs.check$covs)
@@ -443,12 +444,12 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
   
   if (var_y_l==0) {
     J_star_l = J_star_l_orig = 1
-    print("Warning: not enough variability in the outcome variable below the threshold")
+    warning("not enough variability in the outcome variable below the threshold")
   }
 
 	if (var_y_r==0) {
 	  J_star_r = J_star_r_orig = 1
-	  print("Warning: not enough variability in the outcome variable above the threshold")
+	  warning("not enough variability in the outcome variable above the threshold")
 	}
   
   rscale_l = J_star_l / J_IMSE[1]
