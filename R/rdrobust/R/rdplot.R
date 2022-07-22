@@ -563,41 +563,39 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
 	#cat(paste("Stop 4d: Loop bins     -> ",  Sys.time()-start_time,"\n", sep=""))
 	#start_time <- Sys.time()
 	############################################################################################
-	
-  if (hide=="FALSE") {
   
-    if (is.null(col.lines)) col.lines = "red"
-    if (is.null(col.dots))  col.dots  = "darkblue"
-    #if (is.null(type.dots)) type.dots = 20
-    if (is.null(title)) title="RD Plot"
-    if (is.null(x.label)) x.label="X axis"
-    if (is.null(y.label)) y.label="Y axis"
-    #if (is.null(x.lim)) x.lim=c(min(x_l),max(x_r))
-    #if (is.null(y.lim)) y.lim=c(min(c(y_l,y_r)),max(c(y_l,y_r)))
-    #if (is.null(y.lim)) y.lim=c(min(rdplot_mean_y),max(rdplot_mean_y))
-    
-    data_bins <- data.frame(rdplot_mean_bin, rdplot_mean_y, rdplot_cil_bin, rdplot_cir_bin)
-    data_poly <- data.frame(x_plot_l, y_hat_l, x_plot_r, y_hat_r)
-    
-    temp_plot <- ggplot() + theme_bw() +
-        geom_point(data=data_bins, aes(x=rdplot_mean_bin, y=rdplot_mean_y), col=col.dots, na.rm=TRUE) +
-        geom_line( data=data_poly, aes(x=x_plot_l, y=y_hat_l), col=col.lines, na.rm=TRUE) +
-        geom_line( data=data_poly, aes(x=x_plot_r, y=y_hat_r), col=col.lines, na.rm=TRUE) 
+  if (is.null(col.lines)) col.lines = "red"
+  if (is.null(col.dots))  col.dots  = "darkblue"
+  #if (is.null(type.dots)) type.dots = 20
+  if (is.null(title)) title="RD Plot"
+  if (is.null(x.label)) x.label="X axis"
+  if (is.null(y.label)) y.label="Y axis"
+  #if (is.null(x.lim)) x.lim=c(min(x_l),max(x_r))
+  #if (is.null(y.lim)) y.lim=c(min(c(y_l,y_r)),max(c(y_l,y_r)))
+  #if (is.null(y.lim)) y.lim=c(min(rdplot_mean_y),max(rdplot_mean_y))
+  
+  data_bins <- data.frame(rdplot_mean_bin, rdplot_mean_y, rdplot_cil_bin, rdplot_cir_bin)
+  data_poly <- data.frame(x_plot_l, y_hat_l, x_plot_r, y_hat_r)
+  
+  temp_plot <- ggplot() + theme_bw() +
+      geom_point(data=data_bins, aes(x=rdplot_mean_bin, y=rdplot_mean_y), col=col.dots, na.rm=TRUE) +
+      geom_line( data=data_poly, aes(x=x_plot_l, y=y_hat_l), col=col.lines, na.rm=TRUE) +
+      geom_line( data=data_poly, aes(x=x_plot_r, y=y_hat_r), col=col.lines, na.rm=TRUE) 
 
-    if (flag_no_ci==FALSE)
-    temp_plot <- temp_plot +
-      geom_errorbar(data=data_bins, aes(x=rdplot_mean_bin, ymin=rdplot_cil_bin, ymax=rdplot_cir_bin), linetype = 1) 
-      if (shade==TRUE){
-       temp_plot <- temp_plot +
-         geom_ribbon(data=data_bins, aes(x=rdplot_mean_bin, ymin=rdplot_cil_bin, ymax=rdplot_cir_bin))
+  if (flag_no_ci==FALSE) {
+  temp_plot <- temp_plot +
+    geom_errorbar(data=data_bins, aes(x=rdplot_mean_bin, ymin=rdplot_cil_bin, ymax=rdplot_cir_bin), linetype = 1) 
+    if (shade==TRUE){
+     temp_plot <- temp_plot +
+       geom_ribbon(data=data_bins, aes(x=rdplot_mean_bin, ymin=rdplot_cil_bin, ymax=rdplot_cir_bin))
     }
-    
-    temp_plot <- temp_plot + labs(x = x.label, y = y.label) + ggtitle(title)+
-      coord_cartesian(xlim = x.lim, ylim = y.lim) +
-      theme(legend.position = "None") +
-      geom_vline(xintercept = c, size = 0.5) 
-    print(temp_plot)
-    }
+  }
+  
+  temp_plot <- temp_plot + labs(x = x.label, y = y.label) + ggtitle(title)+
+    coord_cartesian(xlim = x.lim, ylim = y.lim) +
+    theme(legend.position = "None") +
+    geom_vline(xintercept = c, size = 0.5) 
+  if (hide == FALSE) print(temp_plot)
 
       
     ############################################################################################
