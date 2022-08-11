@@ -497,3 +497,5 @@ def rdrobust_bw (Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale,
     rate = 1/(2*o+3)
     
     return V, B, R, rate;
+
+
