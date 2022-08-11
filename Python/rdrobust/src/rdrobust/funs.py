@@ -109,8 +109,8 @@ class rdrobust_output:
                       ('[' + str(round(float(self.ci.iloc[j,0]),n_dec)) + ', ' + str(round(float(self.ci.iloc[j,1]),n_dec)) + ']').rjust(fw_ci))
             else:
                 print(self.coef.index[j].ljust(fw_l),
-                      '-'.rjust(fw_c),
-                      '-'.rjust(fw_c),
+                      str(round(float(self.coef.iloc[j]),n_dec)).rjust(fw_c),
+                      str(round(float(self.se.iloc[j]),n_dec)).rjust(fw_c),
                       str(round(float(self.t.iloc[j]),n_dec)).rjust(fw_c),
                       ("{:.3e}".format(float(self.pv.iloc[j]))).rjust(fw_c+3),
                       ('[' + str(round(float(self.ci.iloc[j,0]),n_dec)) + ', ' + str(round(float(self.ci.iloc[j,1]),n_dec)) + ']').rjust(fw_ci))
@@ -497,5 +497,3 @@ def rdrobust_bw (Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale,
     rate = 1/(2*o+3)
     
     return V, B, R, rate;
-
-
