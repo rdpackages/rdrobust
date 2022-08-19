@@ -1,4 +1,4 @@
-*!version 9.0.3  2022-06-25
+*!version 9.0.4  2022-08-19
 
 capture program drop rdplot
 program define rdplot, eclass
@@ -636,7 +636,7 @@ if  ("`covs_eval'"=="mean" & "`covs'"!="") {
 	rdplot_N        = rdplot_N_l \ rdplot_N_r
 	rdplot_min_bin  = rdplot_min_bin_l[rdplot_na_l] \ rdplot_min_bin_r[rdplot_na_r]
 	rdplot_max_bin  = rdplot_max_bin_l[rdplot_na_l] \ rdplot_max_bin_r[rdplot_na_r]
-	rdplot_se_y     = rdplot_sd_y_l:/rdplot_N_l \ rdplot_sd_y_r:/rdplot_N_r
+	rdplot_se_y     = rdplot_sd_y_l:/sqrt(rdplot_N_l) \ rdplot_sd_y_r:/sqrt(rdplot_N_r)
 	
 	rdplot_length_l = rdplot_max_bin_l - rdplot_min_bin_l
 	rdplot_length_r = rdplot_max_bin_r - rdplot_min_bin_r

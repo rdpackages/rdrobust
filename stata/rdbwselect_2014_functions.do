@@ -1,5 +1,5 @@
 *!version 6.0  2014-10-14
- 
+
 capture mata mata drop rdbwselect_2014_rdvce()
 mata
 real matrix rdbwselect_2014_rdvce(real matrix X, real matrix y, real matrix z, real scalar p, real scalar h, real scalar matches, string vce, string kernel)
