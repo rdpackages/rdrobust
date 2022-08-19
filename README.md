@@ -91,8 +91,8 @@ _Review of Economics and Statistics_ 101(3): 442-451.<br>
 _Econometrics Journal_ 23(2): 192-210.<br>
 [Supplemental Appendix](https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2020_ECTJ--Supplement.pdf).
 
-- Calonico, Cattaneo and Farrell (2021): [Coverage Error Optimal Confidence Intervals for Local Polynomial Regression](https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2021_Bernoulli.pdf).<br>
-_Bernoulli_, forthcoming.<br>
-[Supplemental Appendix](https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2021_Bernoulli--Supplement.pdf).
+- Calonico, Cattaneo and Farrell (2022): [Coverage Error Optimal Confidence Intervals for Local Polynomial Regression](https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2022_Bernoulli.pdf).<br>
+_Bernoulli_ 28(4): 2998-3022.<br>
+[Supplemental Appendix](https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2022_Bernoulli--Supplement.pdf).
 
 <br><br>
