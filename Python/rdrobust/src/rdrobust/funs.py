@@ -11,7 +11,6 @@ Created on Sat Jun  5 14:07:58 2021
 import numpy as np
 from scipy.linalg import qr
 
-    
 class rdrobust_output:
     def __init__(self, Estimate, bws, coef, se, t, pv, ci, beta_p_l, beta_p_r,
                  V_cl_l, V_cl_r, V_rb_l, V_rb_r, N, N_h, N_b, M,
@@ -108,13 +107,23 @@ class rdrobust_output:
                       ("{:.3e}".format(float(self.pv.iloc[j]))).rjust(fw_c+3),
                       ('[' + str(round(float(self.ci.iloc[j,0]),n_dec)) + ', ' + str(round(float(self.ci.iloc[j,1]),n_dec)) + ']').rjust(fw_ci))
             else:
-                print(self.coef.index[j].ljust(fw_l),
+                if self.all:
+                    print(self.coef.index[j].ljust(fw_l),
+                      str(round(float(self.coef.iloc[j]),n_dec)).rjust(fw_c),
+                      str(round(float(self.se.iloc[j]),n_dec)).rjust(fw_c),
+                      str(round(float(self.t.iloc[j]),n_dec)).rjust(fw_c),
+                      ("{:.3e}".format(float(self.pv.iloc[j]))).rjust(fw_c+3),
+                      ('[' + str(round(float(self.ci.iloc[j,0]),n_dec)) + ', ' + str(round(float(self.ci.iloc[j,1]),n_dec)) + ']').rjust(fw_ci))
+                else:
+                    print(self.coef.index[j].ljust(fw_l),
                       '-'.rjust(fw_c),
                       '-'.rjust(fw_c),
                       str(round(float(self.t.iloc[j]),n_dec)).rjust(fw_c),
                       ("{:.3e}".format(float(self.pv.iloc[j]))).rjust(fw_c+3),
                       ('[' + str(round(float(self.ci.iloc[j,0]),n_dec)) + ', ' + str(round(float(self.ci.iloc[j,1]),n_dec)) + ']').rjust(fw_ci))
-        return '';
+
+                
+        return ''
 
 class rdplot_output:
     def __init__(self, coef, rdplot, vars_bins, vars_poly, J, J_IMSE, J_MV, 
@@ -193,7 +202,7 @@ class rdplot_output:
         print('WIMSE bias weight'.ljust(fw_n),
               str(round(self.rscale[0]**3/(1+self.rscale[0]**3),nd)).rjust(fw_l),
               str(round(self.rscale[1]**3/(1+self.rscale[1]**3),nd)).rjust(fw_r))
-        return '';
+        return ''
 
 class rdbwselect_output:
     def __init__(self, bws, bwselect, bw_list, kernel, p, q, c,
@@ -223,7 +232,7 @@ class rdbwselect_output:
         print('Var-Cov Estimator:'.ljust(fw), str(self.vce).rjust(fw_r))
         print('')
         print(self.bws.round(nd))
-        return '';
+        return ''
         
 def tomat(x):
     return x.reshape(len(x),-1);
@@ -248,18 +257,18 @@ def inv_chol(x):
     # Given a matrix X it returns the inverse of X'X using Cholesky decomposition
     # No check is made if X'X is indeed positive definite!
     Linv = np.linalg.inv(np.linalg.cholesky(x))
-    return crossprod(Linv,Linv);
+    return crossprod(Linv,Linv)
         
 def qrXXinv(x):
-    return inv_chol(crossprod(x,x));
+    return inv_chol(crossprod(x,x))
 
 def complete_cases(x):
-    return np.all(np.invert(np.isnan(x)), axis = 1);
+    return np.all(np.invert(np.isnan(x)), axis = 1)
 
 def covs_drop_fun(z,tol = 1e-5):
     q,r,pivot = qr(a = z, pivoting = True)
     keep = pivot[np.abs(np.diagonal(r))>tol]
-    return z[:,keep];
+    return z[:,keep]
     
 def rdrobust_kweight(X, c, h, kernel):
     
@@ -270,7 +279,7 @@ def rdrobust_kweight(X, c, h, kernel):
          w = (0.5*(abs(u)<=1))/h
     else:
         w = ((1-abs(u))*(abs(u)<=1))/h
-    return w;
+    return w
 
 def rdrobust_res(X, y, T, Z, m, hii, vce, matches, dups, dupsid, d):
     
@@ -325,10 +334,9 @@ def rdrobust_res(X, y, T, Z, m, hii, vce, matches, dups, dupsid, d):
            for i in range(dZ):
                res[:,1+dT+i] = w*(Z[:,i]- m[:,1+dT+i])
                
-    return res;
+    return res
 
 def rdrobust_vce(d, s, RX, res, C):
-    
     k = ncol(RX)
     M = np.zeros((k,k))
     if C is None:
@@ -351,18 +359,20 @@ def rdrobust_vce(d, s, RX, res, C):
                 ind = C==clusters[i]
                 Xi = RX[ind,:]
                 ri = res[ind,:]
-                Xiri = crossprod(Xi,ri).T
-                M = M + crossprod(Xiri,Xiri)
+                Xr = crossprod(Xi,ri).T
+                M = M + crossprod(Xr,Xr)
         else:
             for i in range(g):
                 ind = C==clusters[i]
                 Xi = RX[ind,:]
                 ri = res[ind,:]
-            for l in range(d+1):
-                for j in range(d+1):
-                    M = M + crossprod(crossprod(Xi,s[l]*ri[:,l]).T,crossprod(Xi,s[j]*ri[:,j]).T)
-
-    return w*M;		 
+                MHolder = np.zeros((1+d,k))
+                for l in range(d+1):	
+                    MHolder[l,:] = crossprod(Xi,s[l]*ri[:,l]).T
+                    summedvalues = np.sum(MHolder, axis = 0).T
+                    M = M + crossprod(summedvalues,summedvalues)
+                    
+    return w*M	 
 
 def rdrobust_bw (Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale, 
                  vce, nnmatch, kernel, dups, dupsid, covs_drop_coll):
@@ -429,10 +439,7 @@ def rdrobust_bw (Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale,
     if vce=="hc0" or vce=="hc1" or vce=="hc2" or vce=="hc3":
         predicts_V = np.matmul(R_V,beta_V)
         if vce=="hc2" or vce=="hc3":
-            hii = nanmat(n_V,1)	
-            for i in range(n_V):
-                hii[i,0] = (np.matmul(np.matmul(R_V[i,:],invG_V),
-                                     (R_V*eW.reshape(-1,1))[i,:]))
+            hii = np.sum(np.matmul(R_V,invG_V)*(R_V*eW.reshape(-1,1)), axis = 1).reshape(-1,1)
     
     res_V = (rdrobust_res(eX, eY, eT, eZ, predicts_V, hii, vce, 
                           nnmatch, dups_V, dupsid_V, o+1))
@@ -479,11 +486,8 @@ def rdrobust_bw (Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale,
         if vce=="hc0" or vce=="hc1" or vce=="hc2" or vce=="hc3":
             predicts_B = np.matmul(R_B,beta_B)
             if vce=="hc2" or vce=="hc3":
-                hii = nanmat(n_B,1)	
-                for i in range(n_B):
-                     hii[i,0] = (np.matmul(np.matmul(R_B[i,:],invG_B),
-                                           (R_B*eW.reshape(-1,1))[i,:]))
-    
+                hii = np.sum(np.matmul(R_B,invG_B)*(R_B*eW.reshape(-1,1)), axis = 1).reshape(-1,1)
+                
         res_B = (rdrobust_res(eX, eY, eT, eZ, predicts_B, hii, vce, nnmatch,
                               dups_B, dupsid_B,o_B+1))
         aux = rdrobust_vce(dT+dZ, s, R_B*eW.reshape(-1,1), res_B, eC)
@@ -496,6 +500,4 @@ def rdrobust_bw (Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale,
     R = scale*(2*(o+1-nu))*BWreg
     rate = 1/(2*o+3)
     
-    return V, B, R, rate;
-
-
+    return V, B, R, rate

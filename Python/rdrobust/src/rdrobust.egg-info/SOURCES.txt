@@ -11,5 +11,3 @@ src/rdrobust.egg-info/SOURCES.txt
 src/rdrobust.egg-info/dependency_links.txt
 src/rdrobust.egg-info/requires.txt
 src/rdrobust.egg-info/top_level.txt
-test/test_minimal.py
-test/test_suite.py

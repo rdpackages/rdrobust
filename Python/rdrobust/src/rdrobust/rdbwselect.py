@@ -7,8 +7,8 @@ Created on Wed Jul  7 18:57:15 2021
 """
 
 import numpy as np
-import pandas  as pd
-from .funs import *
+import pandas as pd
+from .funs import *  # relative path here .funs to make the package
 
 def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
                covs = None, covs_drop = True, kernel = "tri", weights = None, 
@@ -340,12 +340,11 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
         # Check for COLLINEARITY
         if covs is not None:
             dZ = ncol(covs)
-            covs_check = covs_drop_fun(covs)
-            if ncol(covs_check) < dZ and not covs_drop:
-                print("Multicollinearity issue detected in covs. Please rescale and/or remove redundant covariates, or use covs_drop option.")  
-            if ncol(covs_check) < dZ and covs_drop:
-                covs = covs_check
-                dZ = ncol(covs)
+            if covs_drop: 
+                covs_check = covs_drop_fun(covs)
+                if ncol(covs_check) < dZ:
+                    covs = covs_check
+                    dZ = ncol(covs)
     
     if kernel=="epanechnikov" or kernel=="epa":
         kernel_type = "Epanechnikov"
@@ -374,17 +373,14 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
     dups_r = np.zeros(N_r).astype(int)
     dupsid_r = np.zeros(N_r).astype(int)
     if vce == "nn":
-        for i in range(N_l): dups_l[i]=sum(X_l==X_l[i])
-        for i in range(N_r): dups_r[i]=sum(X_r==X_r[i])
-        i = 0
-        while i < N_l:
-            dupsid_l[i:int(i+dups_l[i])] = np.arange(1,int(dups_l[i]+1))
-            i += dups_l[i]
-        i = 0
-        while i < N_r:
-            dupsid_r[i:int(i+dups_r[i])] = np.arange(1,int(dups_r[i]+1))
-            i += dups_r[i]
-       
+        aux_l  = pd.DataFrame({'nn_l': np.ones(N_l), 'X_l': X_l })
+        dups_l   = aux_l.groupby('X_l')['nn_l'].transform('sum').values.astype(int)
+        dupsid_l = aux_l.groupby('X_l')['nn_l'].transform('cumsum').values.astype(int)
+
+        aux_r  = pd.DataFrame({'nn_r': np.ones(N_r), 'X_r': X_r })
+        dups_r   = aux_r.groupby('X_r')['nn_r'].transform('sum').values.astype(int)
+        dupsid_r = aux_r.groupby('X_r')['nn_r'].transform('cumsum').values.astype(int)
+
     if covs is not None:
         Z_l  = covs[(x<c).reshape(-1),:]
         Z_r  = covs[(x>=c).reshape(-1),:]
@@ -437,7 +433,7 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
     if (bwselect=="msetwo" or  bwselect=="certwo" or bwselect=="msecomb2" or
         bwselect=="cercomb2"  or all):		
         d_bw_l = (C_d_l[0]/(C_d_l[1]**2))**C_d_l[3]
-        d_bw_r = (C_d_r[0]/(C_d_r[1]**2))**C_d_l[3] # Shouldn;t it be C_d_r[3]?!?
+        d_bw_r = (C_d_r[0]/(C_d_r[1]**2))**C_d_l[3] 
         if bwrestrict:
             d_bw_l = min(d_bw_l, bw_max_l)
             d_bw_r = min(d_bw_r, bw_max_r)
@@ -451,7 +447,7 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
                              c_bw, d_bw_r, scaleregul, vce, nnmatch, kernel,
                              dups_r, dupsid_r, covs_drop_coll))
         b_bw_l = (C_b_l[0]/(C_b_l[1]**2 + scaleregul*C_b_l[2]))**C_b_l[3]
-        b_bw_r = (C_b_r[0]/(C_b_r[1]**2 + scaleregul*C_b_r[2]))**C_b_l[3] # Shouldn;t it be C_b_r[3]?!?
+        b_bw_r = (C_b_r[0]/(C_b_r[1]**2 + scaleregul*C_b_r[2]))**C_b_l[3]
         if bwrestrict:
             b_bw_l = min(b_bw_l, bw_max_l)
             b_bw_r = min(b_bw_r, bw_max_r)
@@ -462,7 +458,7 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
                               q, c_bw, b_bw_r, scaleregul, vce, nnmatch,
                               kernel, dups_r, dupsid_r, covs_drop_coll))
         h_bw_l = (C_h_l[0]/(C_h_l[1]**2 + scaleregul*C_h_l[2]))**C_h_l[3]
-        h_bw_r = (C_h_r[0]/(C_h_r[1]**2 + scaleregul*C_h_r[2]))**C_h_l[3] # Shouldn;t it be C_h_r[3]?!?
+        h_bw_r = (C_h_r[0]/(C_h_r[1]**2 + scaleregul*C_h_r[2]))**C_h_l[3]
         if bwrestrict:
             h_bw_l = min(h_bw_l, bw_max_l)
             h_bw_r = min(h_bw_r, bw_max_r)  

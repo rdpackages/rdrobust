@@ -11,7 +11,7 @@ import scipy.stats as sct
 import pandas  as pd
 from sklearn.linear_model import LinearRegression as LR
 from plotnine import *
-from .funs import *
+from .funs import *  # relative path here .fun to make package
 
 
 def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None, 
@@ -317,12 +317,11 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     if covs_drop: covs_drop_coll = 1 
     if covs is not None:
         dZ = ncol(covs)
-        covs_check = covs_drop_fun(covs)
-        if ncol(covs_check) < dZ and not covs_drop:
-            print("Multicollinearity issue detected in covs. Please rescale and/or remove redundant covariates, or use covs_drop option.")  
-        if ncol(covs_check) < dZ and covs_drop:
-            covs = covs_check
-            dZ = ncol(covs)
+        if covs_drop: 
+            covs_check = covs_drop_fun(covs)
+            if ncol(covs_check) < dZ:
+                covs = covs_check
+                dZ = ncol(covs)
 
     ### ERRORS
     
@@ -602,14 +601,13 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
         print("Warning: not enough variability in the outcome variable below the threshold")
       
     if var_y_r==0:
- 	    J_star_r = 1
- 	    print("Warning: not enough variability in the outcome variable above the threshold")
-    
+        J_star_r = 1
+        print("Warning: not enough variability in the outcome variable above the threshold")
     rscale_l = J_star_l / J_IMSE[0]
     rscale_r = J_star_r / J_IMSE[1]
   
-    bin_x_l = np.zeros(len(x_l))
-    bin_x_r = np.zeros(len(x_r))
+    
+  
     jump_l  = range_l/J_star_l
     jump_r = range_r/J_star_r
   
@@ -621,78 +619,69 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
        jumps_l=np.quantile(x_l,np.linspace(0,1,J_star_l+1))
        jumps_r=np.quantile(x_r,np.linspace(0,1,J_star_r+1))
       # binselect_type="Quantile-Spaced"
-      
-    for k in range(J_star_l-1): 
-        bin_x_l[np.logical_and(x_l>=jumps_l[k],x_l<jumps_l[k+1])] = -J_star_l+k 
-    bin_x_l[x_l>=jumps_l[J_star_l-1]] = -1
-    for k in range(J_star_r-1):
-        bin_x_r[np.logical_and(x_r>=jumps_r[k],x_r<jumps_r[k+1])] = k+1 
-    bin_x_r[x_r>=jumps_r[J_star_r-1]] = J_star_r
-  
-    rdplot_mean_bin_l = np.zeros(J_star_l)
-    rdplot_mean_x_l = np.zeros(J_star_l)
-    rdplot_mean_y_l = np.zeros(J_star_l)
-    rdplot_mean_bin_r = np.zeros(J_star_r)
-    rdplot_mean_x_r = np.zeros(J_star_r)
-    rdplot_mean_y_r = np.zeros(J_star_r)
     
+    
+    
+    def mean(x):
+        if not np.any(x): return(np.nan)
+        else: return np.mean(x)
+    
+    bin_x_l = np.searchsorted(jumps_l, x_l,side='right') - J_star_l - 1
+    bin_x_r = np.searchsorted(jumps_r, x_r,side='left')
+
+    aux_l  = pd.DataFrame({'bin_x_l':bin_x_l, 'y_l':y_l, 'x_l':x_l})
+    rdplot_l  = aux_l.groupby('bin_x_l').agg({'y_l': 'mean', 'x_l':'mean'}).reset_index()
+    
+    rdplot_bin_l =  rdplot_l['bin_x_l'].values
+    rdplot_mean_y_l = rdplot_l['y_l'].values
+    rdplot_mean_x_l = rdplot_l['x_l'].values
+
+    aux_r  = pd.DataFrame({'bin_x_r':bin_x_r, 'y_r':y_r, 'x_r':x_r})
+    rdplot_r  = aux_r.groupby('bin_x_r').agg({'y_r': 'mean', 'x_r':'mean'}).reset_index()    
+    
+    rdplot_bin_r =  rdplot_r['bin_x_r'].values  # Only 34 values (insteaf of 35), bin 29 is missing?!?!
+    rdplot_mean_y_r = rdplot_r['y_r'].values
+    rdplot_mean_x_r = rdplot_r['x_r'].values
+
     if covs is not None and covs_eval=="mean":
         dummy_l = pd.get_dummies(data=bin_x_l, drop_first=True)
         dummy_l = np.array(dummy_l).reshape(-1,ncol(dummy_l))
         regressors_l = np.column_stack([z_l,dummy_l])
         covs_model_l = LR().fit(regressors_l,y_l.reshape(-1,1))
-        yhatZ_l = covs_model_l.predict(regressors_l)
+        yhatZ_l = covs_model_l.predict(regressors_l).reshape(-1)
+        aux_l  = pd.DataFrame({'bin_x_l':bin_x_l, 'yhatZ_l':yhatZ_l})
+        rdplot_mean_y_l  = aux_l.groupby('bin_x_l').agg({'yhatZ_l': 'mean'})['yhatZ_l'].values
         
         dummy_r = pd.get_dummies(data=bin_x_r, drop_first=True)
         dummy_r = np.array(dummy_r).reshape(-1,ncol(dummy_r))
         regressors_r = np.column_stack([z_r,dummy_r])
         covs_model_r = LR().fit(regressors_r,y_r.reshape(-1,1))
-        yhatZ_r = covs_model_r.predict(regressors_r)
-    
-    def mean(x):
-        if not np.any(x): return(np.nan)
-        else: return np.mean(x);
-    
-    def sd(x):
-        if np.size(x)<=1: return(np.nan)
-        else: return np.std(x, ddof = 1);
-          
-    for k in range(J_star_l):
-        rdplot_mean_bin_l[k] = mean(np.array([jumps_l[k],jumps_l[k+1]]))
-        rdplot_mean_x_l[k] = mean(x_l[bin_x_l==-(k+1)])
-        rdplot_mean_y_l[k] = mean(y_l[bin_x_l==-(k+1)])
-        if covs is not None and covs_eval=="mean":
-            rdplot_mean_y_l[k] = mean(yhatZ_l[bin_x_l==-(k+1)])
+        yhatZ_r = covs_model_r.predict(regressors_r).reshape(-1)
+        aux_r  = pd.DataFrame({'bin_x_r':bin_x_r, 'yhatZ_r':yhatZ_r})
+        rdplot_mean_y_r  = aux_r.groupby('bin_x_r').agg({'yhatZ_r': 'mean'})['yhatZ_r'].values
 
-    rdplot_mean_y_l = rdplot_mean_y_l[::-1]
-    rdplot_mean_x_l = rdplot_mean_x_l[::-1]
-	
-    for k in range(J_star_r):
-        rdplot_mean_bin_r[k]  = mean(np.array([jumps_r[k],jumps_r[k+1]]))
-        rdplot_mean_x_r[k]    = mean(x_r[bin_x_r==(k+1)])
-        rdplot_mean_y_r[k]    = mean(y_r[bin_x_r==(k+1)]) 
-        if covs is not None and covs_eval=="mean":
-            rdplot_mean_y_r[k] = mean(yhatZ_r[bin_x_r==(k+1)])
-	
-    rdplot_mean_bin_l[J_star_l-1] = mean(np.array([jumps_l[J_star_l-1],c]))
-    rdplot_mean_bin_r[J_star_r-1] = mean(np.array([jumps_r[J_star_r-1],x_max]))
-  
-    bin_x = np.concatenate([bin_x_l,bin_x_r])
-    rdplot_mean_bin =  np.concatenate([rdplot_mean_bin_l,rdplot_mean_bin_r])
-    rdplot_mean_x   =  np.concatenate([rdplot_mean_x_l,rdplot_mean_x_r])
-    rdplot_mean_y   =  np.concatenate([rdplot_mean_y_l,rdplot_mean_y_r])
-	
-    rdplot_sd_y_l = np.zeros(J_star_l)
-    rdplot_N_l = np.zeros(J_star_l)
-    for j in range(J_star_l):
-        rdplot_sd_y_l[j] = sd(y_l[bin_x_l==-(j+1)])
-        rdplot_N_l[j] = len(y_l[bin_x_l==-(j+1)])
+    t_ind_l = np.arange(J_star_l)
+    t_ind_r = np.arange(J_star_r)
+
+    rdplot_mean_bin_l = np.mean(np.column_stack((jumps_l[t_ind_l],jumps_l[t_ind_l+1])),axis=1)
+    rdplot_mean_bin_r = np.mean(np.column_stack((jumps_r[t_ind_r],jumps_r[t_ind_r+1])),axis=1)
+
+    rdplot_mean_bin_l = rdplot_mean_bin_l[np.flip(-rdplot_bin_l)-1]
+    rdplot_mean_bin_r = rdplot_mean_bin_r[rdplot_bin_r-1]
+
+    bin_x = np.concatenate((bin_x_l,bin_x_r))
+
+    rdplot_mean_bin = np.concatenate((rdplot_mean_bin_l, rdplot_mean_bin_r))
+    rdplot_mean_x   = np.concatenate((rdplot_mean_x_l, rdplot_mean_x_r))
+    rdplot_mean_y   = np.concatenate((rdplot_mean_y_l, rdplot_mean_y_r))
     
-    rdplot_sd_y_r = np.zeros(J_star_r)
-    rdplot_N_r = np.zeros(J_star_r)
-    for j in range(J_star_r):
-        rdplot_sd_y_r[j] = sd(y_r[bin_x_r==(j+1)])
-        rdplot_N_r[j] = len(y_r[bin_x_r==(j+1)])
+    aux_l = pd.DataFrame({'bin':-bin_x_l, 'y':y_l}).groupby('bin').agg({'y':['count','std']})
+    aux_r = pd.DataFrame({'bin':bin_x_r, 'y':y_r}).groupby('bin').agg({'y':['count','std']})
+
+    rdplot_N_l    = aux_l['y']['count'].values
+    rdplot_sd_y_l = aux_l['y']['std'].values
+    rdplot_N_r    = aux_r['y']['count'].values
+    rdplot_sd_y_r = aux_r['y']['std'].values
 		
     rdplot_sd_y_l[np.isnan(rdplot_sd_y_l)] = 0
     rdplot_sd_y_r[np.isnan(rdplot_sd_y_r)] = 0
@@ -747,17 +736,21 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
         
         print(temp_plot)
   
-    cutoffs = np.concatenate([jumps_l,jumps_r[1:]])
-    rdplot_min_bin = cutoffs[:-1]
-    rdplot_max_bin = cutoffs[1:]
-	
+    rdplot_min_bin_l = jumps_l[0:J_star_l]
+    rdplot_max_bin_l = jumps_l[1:(J_star_l + 1)]
+    rdplot_min_bin_r = jumps_r[0:J_star_r]
+    rdplot_max_bin_r = jumps_r[1:(J_star_r + 1)]
+    rdplot_min_bin = np.concatenate((rdplot_min_bin_l[np.flip(-rdplot_bin_l)-1], rdplot_min_bin_r[rdplot_bin_r-1]))
+    rdplot_max_bin = np.concatenate((rdplot_max_bin_l[np.flip(-rdplot_bin_l)-1], rdplot_max_bin_r[rdplot_bin_r-1]))
+
     bin_length = rdplot_max_bin-rdplot_min_bin
     bin_avg_l = mean(bin_length[:J_star_l])
     bin_med_l = np.median(bin_length[:J_star_l])
   	
     bin_avg_r = mean(bin_length[J_star_l:])
     bin_med_r = np.median(bin_length[J_star_l:])
- 
+
+
     vars_bins = pd.DataFrame({
           "rdplot_mean_bin": rdplot_mean_bin,
           "rdplot_mean_x": rdplot_mean_x,
@@ -786,5 +779,3 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
                         [bin_avg_l,bin_avg_r], [bin_med_l,bin_med_r],
                         p, c, [h_l,h_r], [n_l,n_r], [n_h_l,n_h_r],
                         binselect_type, kernel_type)
-
- 

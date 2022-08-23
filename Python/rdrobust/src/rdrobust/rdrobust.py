@@ -9,8 +9,8 @@ Created on Wed Jul  7 19:01:48 2021
 import numpy as np
 import pandas  as pd
 import scipy.stats as sct
-from .rdbwselect import rdbwselect
-from .funs import *
+from .rdbwselect import rdbwselect    # relative path here .rdbwselect to make package
+from .funs import *  # relative path here .funs to make package
      
 def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
              p = None, q = None, h = None, b = None, rho = None, 
@@ -271,7 +271,7 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
     
     #=========================================================================
     # Tidy the Input and remove NAN
-    
+
     x = np.array(x).reshape(-1,1)
     y = np.array(y).reshape(-1,1)
     if subset is not None:
@@ -358,12 +358,11 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
     if covs_drop: covs_drop_coll = 1 
     if covs is not None:
         dZ = ncol(covs)
-        covs_check = covs_drop_fun(covs)
-        if ncol(covs_check) < dZ and not covs_drop:
-            print("Multicollinearity issue detected in covs. Please rescale and/or remove redundant covariates, or use covs_drop option.")  
-        if ncol(covs_check) < dZ and covs_drop:
-            covs = covs_check
-            dZ = ncol(covs)
+        if covs_drop: 
+            covs_check = covs_drop_fun(covs)
+            if ncol(covs_check) < dZ:
+                covs = covs_check
+                dZ = ncol(covs)
     # ================================================================
                   
     if h is not None: 
@@ -401,6 +400,7 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
       X_uniq_l = np.sort(np.unique(X_l))[::-1]
       X_uniq_r = np.unique(X_r)
       M_l = len(X_uniq_l)
+
       M_r = len(X_uniq_r)
       mass_l = 1-M_l/N_l
       mass_r = 1-M_r/N_r				
@@ -411,7 +411,7 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
 
     
     ######### Calculate bandwidth
-    
+
     if h is None:
         rdbws = rdbwselect(y=y, x=x, c=c, fuzzy=fuzzy,  deriv=deriv, p=p, q=q,
                            covs=covs, covs_drop=covs_drop, kernel=kernel,  weights=weights,
@@ -476,16 +476,14 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
     edups_r = np.zeros(eN_r).astype(int)
     edupsid_r = np.zeros(eN_r).astype(int)
     if vce=="nn":
-        for i in range(eN_l): edups_l[i] = sum(eX_l==eX_l[i])
-        for i in range(eN_r): edups_r[i] = sum(eX_r==eX_r[i])
-        i = 0
-        while i < eN_l:
-            edupsid_l[i:(i+edups_l[i])] = np.arange(1,edups_l[i]+1)
-            i += edups_l[i]
-        i = 0
-        while i < eN_r:
-            edupsid_r[i:(i+edups_r[i])] = np.arange(1,edups_r[i]+1)
-            i += edups_r[i]          
+        aux_l  = pd.DataFrame({'nn_l': np.ones(eN_l), 'eX_l': eX_l })
+        edups_l   = aux_l.groupby('eX_l')['nn_l'].transform('sum').values.astype(int)
+        edupsid_l = aux_l.groupby('eX_l')['nn_l'].transform('cumsum').values.astype(int)
+
+        aux_r  = pd.DataFrame({'nn_r': np.ones(eN_r), 'eX_r': eX_r })
+        edups_r   = aux_r.groupby('eX_r')['nn_r'].transform('sum').values.astype(int)
+        edupsid_r = aux_r.groupby('eX_r')['nn_r'].transform('cumsum').values.astype(int)
+
     u_l = ((eX_l-c)/h_l).reshape(-1,1)
     u_r = ((eX_r-c)/h_r).reshape(-1,1)
     R_q_l = nanmat(eN_l,q+1)
@@ -668,12 +666,8 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
         predicts_q_l = np.matmul(R_q_l,beta_q_l)
         predicts_q_r = np.matmul(R_q_r,beta_q_r)
         if vce=="hc2" or vce=="hc3":
-            hii_l = nanmat(eN_l)	
-            for i in range(eN_l):
-                hii_l[i] = np.matmul(R_p_l[i,:],np.matmul(invG_p_l,(R_p_l*W_h_l)[i,:]))
-            hii_r = nanmat(eN_r)	
-            for i in range(eN_r):
-                hii_r[i] = np.matmul(R_p_r[i,:],np.matmul(invG_p_r,(R_p_r*W_h_r)[i,:]))
+            hii_l = np.sum(np.matmul(R_p_l,invG_p_l)*(R_p_l*W_h_l), axis = 1)
+            hii_r = np.sum(np.matmul(R_p_r,invG_p_r)*(R_p_r*W_h_r), axis = 1)
   						
     res_h_l = rdrobust_res(eX_l, eY_l, eT_l, eZ_l, predicts_p_l, hii_l, vce, nnmatch, edups_l, edupsid_l, p+1)
     res_h_r = rdrobust_res(eX_r, eY_r, eT_r, eZ_r, predicts_p_r, hii_r, vce, nnmatch, edups_r, edupsid_r, p+1)
@@ -730,4 +724,4 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
                     [N_l,N_r], [N_h_l,N_h_r], [N_b_l,N_b_r], [M_l,M_r],
                     [tau_Y_cl_l,tau_Y_cl_r], [tau_Y_bc_l,tau_Y_bc_r],
                     c, p, q, [bias_l,bias_r], kernel_type, all,
-                    vce_type, bwselect, level, masspoints);
+                    vce_type, bwselect, level, masspoints)

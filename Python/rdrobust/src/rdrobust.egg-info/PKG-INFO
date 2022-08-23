@@ -1,13 +1,11 @@
 Metadata-Version: 2.1
 Name: rdrobust
-Version: 1.0.5
+Version: 1.0.6
 Summary: Implements local polynomial Regression Discontinuity (RD) point estimators with robust bias-corrected confidence intervals and inference procedures.
 Home-page: https://github.com/rdpackages/rdrobust
 Author: Ricardo Masini
 Author-email: rmasini@princeton.edu
-License: UNKNOWN
 Project-URL: Bug Tracker, https://github.com/rdpackages/rdrobust/issues
-Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -110,5 +108,3 @@ Working paper.<br>
 [Supplemental Appendix](https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2021_Bernoulli--Supplement.pdf).
 
 <br><br>
-
-
