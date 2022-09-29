@@ -115,8 +115,10 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
   
   ############## COLLINEARITY
   covs_drop_coll=dZ=0
+  if (!is.null(covs)) dZ = ncol(covs)
   if (covs_drop == TRUE) covs_drop_coll = 1 
-  if (!is.null(covs)) {
+  
+  if (!is.null(covs) & isTRUE(covs_drop)) {
     covs.names = colnames(covs)
     if (is.null(covs.names)) {
       covs.names = paste("z",1:ncol(covs),sep="")
@@ -126,14 +128,10 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
     covs = as.matrix(covs)
     dZ = length(covs.names)
     covs.check = covs_drop_fun(covs)
-    if (covs.check$ncovs < dZ & covs_drop==FALSE) {
-      print("Multicollinearity issue detected in covs. Please rescale and/or remove redundant covariates, or use covs_drop option.")  
-    }
-    if (covs.check$ncovs < dZ & isTRUE(covs_drop)) {
+    if (covs.check$ncovs < dZ) {
       covs  <- as.matrix(covs.check$covs)
       dZ    <- covs.check$ncovs
-      #covs_drop_coll <-1
-      #print("Multicollinearity issue detected in covs. Redundant covariates dropped.")  
+      warning("Multicollinearity issue detected in covs. Redundant covariates dropped.")  
     }
   }
   
@@ -564,8 +562,6 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
 	#start_time <- Sys.time()
 	############################################################################################
 	
-  if (hide=="FALSE") {
-  
     if (is.null(col.lines)) col.lines = "red"
     if (is.null(col.dots))  col.dots  = "darkblue"
     #if (is.null(type.dots)) type.dots = 20
@@ -596,8 +592,9 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
       coord_cartesian(xlim = x.lim, ylim = y.lim) +
       theme(legend.position = "None") +
       geom_vline(xintercept = c, size = 0.5) 
-    print(temp_plot)
-    }
+    
+    if (hide == FALSE) print(temp_plot)
+
 
       
     ############################################################################################
