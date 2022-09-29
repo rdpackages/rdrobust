@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 9.0.4  2022-08-19}{...}
+{* *!version 9.0.5  2022-09-29}{...}
 {viewerjumpto "Syntax" "rdplot##syntax"}{...}
 {viewerjumpto "Description" "rdplot##description"}{...}
 {viewerjumpto "Options" "rdplot##options"}{...}
@@ -114,7 +114,7 @@ Default is {cmd:kernel(uniform)} (i.e., equal/no weighting to all observations o
 
 {p 4 8}{cmd:covs_eval(}{it:covars_eval}{cmd:)} sets the evaluation points for the additional covariates, when included in the estimation. Options are: {opt 0} (default) and {opt mean}.
 
-{p 4 8}{cmd:covs_drop(}{it:covsdropoption}{cmd:)} assess collinearity in additional covariates used for estimation and inference. Options {opt pinv} (default choice) and {opt invsym} drops collinear additional covariates, differing only in the type of inverse function used. Option {opt off} only checks collinear additional covariates but does not drop them.{p_end}
+{p 4 8}{cmd:covs_drop(}{it:covsdropoption}{cmd:)} assess collinearity in additional covariates used for estimation and inference. Options {opt pinv} (default choice) and {opt invsym} drops collinear additional covariates, differing only in the type of inverse function used. Option {opt off} omits the check for collinear additional covariates.{p_end}
 
 {dlgtab:Plot Options}
 
