@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 9.0.5  2022-09-29}{...}
+{* *!version 9.1.0  2022-10-28}{...}
 {viewerjumpto "Syntax" "rdrobust##syntax"}{...}
 {viewerjumpto "Description" "rdrobust##description"}{...}
 {viewerjumpto "Options" "rdrobust##options"}{...}
@@ -244,8 +244,10 @@ Default is {cmd:level(95)}.{p_end}
 {synopt:{cmd:e(kernel)}}kernel choice{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
-{synopt:{cmd:e(beta_p_r)}}conventional p-order local-polynomial estimates to the right of the cutoff{p_end}
-{synopt:{cmd:e(beta_p_l)}}conventional p-order local-polynomial estimates to the left of the cutoff{p_end}
+{synopt:{cmd:e(beta_Y_p_r)}}conventional p-order local-polynomial estimates to the right of the cutoff for the outcome variable{p_end}
+{synopt:{cmd:e(beta_Y_p_l)}}conventional p-order local-polynomial estimates to the left of the cutoff for the outcome variable{p_end}
+{synopt:{cmd:e(beta_T_p_r)}}conventional p-order local-polynomial estimates to the right of the cutoff for the first stage (fuzzy RD){p_end}
+{synopt:{cmd:e(beta_T_p_l)}}conventional p-order local-polynomial estimates to the left of the cutoff for the first stage (fuzzy RD){p_end}
 {synopt:{cmd:e(beta_covs)}}coefficients of the additional covariates, only returned when {cmd:covs()} are used{p_end}
 {synopt:{cmd:e(V_cl_r)}}conventional variance-covariance matrix to the right of the cutoff{p_end}
 {synopt:{cmd:e(V_cl_l)}}conventional variance-covariance matrix to the left of the cutoff{p_end}

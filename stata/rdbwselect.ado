@@ -1,4 +1,4 @@
-*!version 9.0.5  2022-09-29
+*!version 9.1.0  2022-10-28
 
 capture program drop rdbwselect
 program define rdbwselect, eclass
@@ -315,7 +315,7 @@ program define rdbwselect, eclass
 		st_numscalar("M_l", M_l); st_numscalar("M_r", M_r)
 		mass_l = 1-M_l/N_l
 		mass_r = 1-M_r/N_r
-		if (mass_l>=0.1 | mass_r>=0.1){
+		if (mass_l>=0.2 | mass_r>=0.2){
 			masspoints_found = 1
 			display("{err}Mass points detected in the running variable.")
 			if ("`masspoints'"=="adjust" & "`bwcheck'"=="0") bwcheck = 10

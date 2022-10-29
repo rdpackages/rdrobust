@@ -1,4 +1,4 @@
-*!version 9.0.5  2022-09-29
+*!version 9.1.0  2022-10-28
 
 capture program drop rdplot
 program define rdplot, eclass
@@ -228,7 +228,7 @@ program define rdplot, eclass
 			st_numscalar("M_l", M_l); st_numscalar("M_r", M_r)
 			mass_l = 1-M_l/n_l
 			mass_r = 1-M_r/n_r				
-			if (mass_l>=0.1 | mass_r>=0.1){
+			if (mass_l>=0.2 | mass_r>=0.2){
 				masspoints_found = 1
 				display("{err}Mass points detected in the running variable.")
 				if ("`masspoints'"=="adjust") {

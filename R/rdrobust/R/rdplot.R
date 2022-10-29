@@ -500,7 +500,8 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
 	rdplot_mean_bin_l = rowMeans(cbind(matrix(jumps_l[t_ind_l]),matrix(jumps_l[(t_ind_l+1)])))
 	rdplot_mean_bin_r = rowMeans(cbind(matrix(jumps_r[t_ind_r]),matrix(jumps_r[(t_ind_r+1)])))
 
-	rdplot_mean_bin_l = rdplot_mean_bin_l[rev(-rdplot_bin_l)]
+	#rdplot_mean_bin_l = rdplot_mean_bin_l[rev(-rdplot_bin_l)]
+	rdplot_mean_bin_l = rdplot_mean_bin_l[(rdplot_bin_l+J_star_l+1)]
 	rdplot_mean_bin_r = rdplot_mean_bin_r[rdplot_bin_r]
 	
 	bin_x = c(bin_x_l,bin_x_r)

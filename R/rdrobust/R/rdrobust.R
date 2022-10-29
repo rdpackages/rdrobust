@@ -278,7 +278,7 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
       M = M_l + M_r
       mass_l = 1-M_l/N_l
       mass_r = 1-M_r/N_r				
-      if (mass_l>=0.1 | mass_r>=0.1){
+      if (mass_l>=0.2 | mass_r>=0.2){
         warning("Mass points detected in the running variable.")
         if (masspoints=="check") warning("Try using option masspoints=adjust.")
         if (is.null(bwcheck) & masspoints=="adjust") bwcheck <- 10
@@ -611,6 +611,10 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
     bias_l = tau_Y_cl_l-tau_Y_bc_l
     bias_r = tau_Y_cl_r-tau_Y_bc_r 
     
+    beta_Y_p_l = scalepar*factorial(deriv)*beta_p_l[,1]
+    beta_Y_p_r = scalepar*factorial(deriv)*beta_p_r[,1]
+    
+    
     if (!is.null(fuzzy)) {
        tau_T_cl = factorial(deriv)*beta_p[(deriv+1),2]
        tau_T_bc = factorial(deriv)*beta_bc[(deriv+1),2]
@@ -628,6 +632,10 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
        B_F_r = c(tau_Y_cl_r-tau_Y_bc_r, tau_T_cl_r-tau_T_bc_r)
        bias_l = t(s_Y)%*%B_F_l
   		 bias_r = t(s_Y)%*%B_F_r
+  		 
+  		 beta_T_p_l = scalepar*factorial(deriv)*beta_p_l[,2]
+  		 beta_T_p_r = scalepar*factorial(deriv)*beta_p_r[,2]
+  		 
   }	
   } else {	
     ZWD_p_l  = crossprod(eZ_l*W_h_l,D_l)
@@ -655,6 +663,9 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
         tau_Y_bc_r = scalepar*t(s_Y)%*%beta_bc_r[(deriv+1),]
         bias_l = tau_Y_cl_l-tau_Y_bc_l
         bias_r = tau_Y_cl_r-tau_Y_bc_r 
+        
+        beta_Y_p_l = scalepar*tcrossprod(s_Y,beta_p_l)
+        beta_Y_p_r = scalepar*tcrossprod(s_Y,beta_p_r)
 
     } else {
       s_T  = c(1,    -gamma_p[,2])
@@ -674,6 +685,11 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
       tau_T_bc_l = c(factorial(deriv)*t(s_T)%*%c(beta_bc_l[(deriv+1),1],beta_bc_l[(deriv+1),colsZ]))
       tau_T_bc_r = c(factorial(deriv)*t(s_T)%*%c(beta_bc_r[(deriv+1),2],beta_bc_r[(deriv+1),colsZ]))
 
+      beta_Y_p_l = scalepar*factorial(deriv)*t(s_Y)%*%t(cbind(beta_p_l[,1], beta_p_l[,colsZ]))
+      beta_Y_p_r = scalepar*factorial(deriv)*t(s_Y)%*%t(cbind(beta_p_r[,1], beta_p_r[,colsZ]))
+      beta_T_p_l =          factorial(deriv)*t(s_T)%*%t(cbind(beta_p_l[,2], beta_p_l[,colsZ]))
+      beta_T_p_r =          factorial(deriv)*t(s_T)%*%t(cbind(beta_p_r[,2], beta_p_r[,colsZ]))
+      
       tau_cl = tau_Y_cl/tau_T_cl
       B_F   = c(tau_Y_cl-tau_Y_bc,     tau_T_cl-tau_T_bc)
       B_F_l = c(tau_Y_cl_l-tau_Y_bc_l, tau_T_cl_l-tau_T_bc_l)
@@ -806,7 +822,7 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
 
   if (is.null(fuzzy)) { 
   out=list(Estimate=Estimate, bws=bws, coef=coef, se=se, z=z, pv=pv, ci=ci,
-           beta_p_l=beta_p_l[,1], beta_p_r=beta_p_r[,1],
+           beta_Y_p_l = beta_Y_p_l, beta_Y_p_r= beta_Y_p_r,
            V_cl_l=V_Y_cl_l, V_cl_r=V_Y_cl_r, V_rb_l=V_Y_rb_l, V_rb_r=V_Y_rb_r,
            N=c(N_l,N_r), N_h=c(N_h_l,N_h_r), N_b=c(N_b_l,N_b_r), M=c(M_l,M_r),
            tau_cl=c(tau_Y_cl_l,tau_Y_cl_r), tau_bc=c(tau_Y_bc_l,tau_Y_bc_r),
@@ -815,7 +831,8 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
            rdmodel=rdmodel)
   } else {  
     out=list(Estimate=Estimate, bws=bws, coef=coef, se=se, z=z, pv=pv, ci=ci,
-             beta_p_l=beta_p_l[,1], beta_p_r=beta_p_r[,1],
+             beta_Y_p_l = beta_Y_p_l, beta_Y_p_r= beta_Y_p_r,
+             beta_T_p_l = beta_T_p_l, beta_T_p_r= beta_T_p_r,
              tau_T = tau_T, se_T  = se_T, t_T   = t_T, pv_T  = pv_T, ci_T  = ci_T,
              V_cl_l=V_Y_cl_l, V_cl_r=V_Y_cl_r, V_rb_l=V_Y_rb_l, V_rb_r=V_Y_rb_r,
              N=c(N_l,N_r), N_h=c(N_h_l,N_h_r), N_b=c(N_b_l,N_b_r), M=c(M_l,M_r),

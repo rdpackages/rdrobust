@@ -1,4 +1,4 @@
-*!version 9.0.5  2022-09-29
+*!version 9.1.0  2022-10-28
 
 capture program drop rdrobust 
 program define rdrobust, eclass
@@ -382,7 +382,7 @@ masspoints_found = 0
 			st_numscalar("M_l", M_l); st_numscalar("M_r", M_r)
 			mass_l = 1-M_l/N_l
 			mass_r = 1-M_r/N_r				
-			if (mass_l>=0.1 | mass_r>=0.1){
+			if (mass_l>=0.2 | mass_r>=0.2){
 				masspoints_found = 1
 				display("{err}Mass points detected in the running variable.")
 				if ("`masspoints'"=="adjust" & "`bwcheck'"=="0") bwcheck = 10
@@ -632,6 +632,8 @@ masspoints_found = 0
 		beta_q  = beta_q_r  - beta_q_l
 		beta_bc = beta_bc_r - beta_bc_l
 		
+		************************************ No Covariates **********************************
+		
 		if (dZ==0) {		
 				tau_cl = tau_Y_cl = `scalepar'*factorial(`deriv')*beta_p[(`deriv'+1),1]
 				tau_bc = tau_Y_bc = `scalepar'*factorial(`deriv')*beta_bc[(`deriv'+1),1]
@@ -642,10 +644,18 @@ masspoints_found = 0
 				tau_Y_bc_r = `scalepar'*factorial(`deriv')*beta_bc_r[(`deriv'+1),1]				
 				bias_l = tau_Y_cl_l - tau_Y_bc_l
 				bias_r = tau_Y_cl_r - tau_Y_bc_r 		
-				
+	
+				beta_Y_p_l = `scalepar'*factorial(`deriv')*beta_p_l[,1]
+				beta_Y_p_r = `scalepar'*factorial(`deriv')*beta_p_r[,1]
+
+				*** Fuzzy RD ********************
 				if (dT>0) {
 					tau_T_cl =  factorial(`deriv')*beta_p[(`deriv'+1),2]
 					tau_T_bc = 	factorial(`deriv')*beta_bc[(`deriv'+1),2]
+					
+					beta_T_p_l = factorial(`deriv')*beta_p_l[,2]
+					beta_T_p_r = factorial(`deriv')*beta_p_r[,2]
+					
 					s_Y = (1/tau_T_cl \ -(tau_Y_cl/tau_T_cl^2))
 					B_F = tau_Y_cl-tau_Y_bc \ tau_T_cl-tau_T_bc
 					tau_cl = tau_Y_cl/tau_T_cl
@@ -658,12 +668,16 @@ masspoints_found = 0
 					B_F_l = tau_Y_cl_l-tau_Y_bc_l \ tau_T_cl_l-tau_T_bc_l
 					B_F_r = tau_Y_cl_r-tau_Y_bc_r \ tau_T_cl_r-tau_T_bc_r					
 					bias_l = s_Y'*B_F_l
-					bias_r = s_Y'*B_F_r					
+					bias_r = s_Y'*B_F_r		
+		
+				
 				}	
+				
 		}
 		
-		if (dZ>0) {	
-			
+		*********************************** Covariates **********************************
+				
+		if (dZ>0) {				
 			ZWD_p_l  = quadcross(eZ_l,W_h_l,D_l)
 			ZWD_p_r  = quadcross(eZ_r,W_h_r,D_r)
 			colsZ = (2+dT)::(2+dT+dZ-1)
@@ -681,6 +695,7 @@ masspoints_found = 0
 	
 			s_Y = (1 \  -gamma_p[,1])
 			
+			*** Sharp RD ********************
 			if (dT==0) {
 				tau_cl = `scalepar'*s_Y'*beta_p[(`deriv'+1),]'
 				tau_bc = `scalepar'*s_Y'*beta_bc[(`deriv'+1),]'				
@@ -690,8 +705,12 @@ masspoints_found = 0
 				tau_Y_bc_r = `scalepar'*s_Y'*beta_bc_r[(`deriv'+1),]'				
 				bias_l = tau_Y_cl_l-tau_Y_bc_l
 				bias_r = tau_Y_cl_r-tau_Y_bc_r 		
+				
+				beta_Y_p_l = `scalepar'*factorial(`deriv')*(s_Y'*beta_p_l')'
+				beta_Y_p_r = `scalepar'*factorial(`deriv')*(s_Y'*beta_p_r')	'				
 			}
 			
+			*** Fuzzy RD ********************
 			if (dT>0) {
 					s_T  = 1 \ -gamma_p[,2]
 					sV_T = (0 \ 1 \ -gamma_p[,2] )
@@ -701,8 +720,7 @@ masspoints_found = 0
 			
 					tau_Y_bc   = `scalepar'*factorial(`deriv')*s_Y'*vec((beta_bc[  (`deriv'+1),1], beta_bc[  (`deriv'+1),colsZ]))
 					tau_Y_bc_l = `scalepar'*factorial(`deriv')*s_Y'*vec((beta_bc_l[(`deriv'+1),1], beta_bc_l[(`deriv'+1),colsZ]))
-					tau_Y_bc_r = `scalepar'*factorial(`deriv')*s_Y'*vec((beta_bc_r[(`deriv'+1),1], beta_bc_r[(`deriv'+1),colsZ]))
-					
+					tau_Y_bc_r = `scalepar'*factorial(`deriv')*s_Y'*vec((beta_bc_r[(`deriv'+1),1], beta_bc_r[(`deriv'+1),colsZ]))	
 					
 					tau_T_cl   = factorial(`deriv')*s_T'*vec((beta_p[  (`deriv'+1),2], beta_p[  (`deriv'+1),colsZ]))
 					tau_T_cl_l = factorial(`deriv')*s_T'*vec((beta_p_l[(`deriv'+1),2], beta_p_l[(`deriv'+1),colsZ]))
@@ -711,6 +729,12 @@ masspoints_found = 0
 					tau_T_bc =   factorial(`deriv')*s_T'*vec((beta_bc[  (`deriv'+1),2], beta_bc[  (`deriv'+1),colsZ]))
 					tau_T_bc_l = factorial(`deriv')*s_T'*vec((beta_bc_l[(`deriv'+1),2], beta_bc_l[(`deriv'+1),colsZ]))
 					tau_T_bc_r = factorial(`deriv')*s_T'*vec((beta_bc_r[(`deriv'+1),2], beta_bc_r[(`deriv'+1),colsZ]))
+					
+					beta_Y_p_l = `scalepar'*factorial(`deriv')*(s_Y'*(beta_p_l[,1], beta_p_l[,colsZ])')'
+					beta_Y_p_r = `scalepar'*factorial(`deriv')*(s_Y'*(beta_p_r[,1], beta_p_r[,colsZ])')'
+					beta_T_p_l =            factorial(`deriv')*(s_T'*(beta_p_l[,2], beta_p_l[,colsZ])')'
+					beta_T_p_r =            factorial(`deriv')*(s_T'*(beta_p_r[,2], beta_p_r[,colsZ])')'
+					
 					
 					B_F = tau_Y_cl-tau_Y_bc \ tau_T_cl-tau_T_bc
 					s_Y = 1/tau_T_cl \ -(tau_Y_cl/tau_T_cl^2)
@@ -772,6 +796,7 @@ masspoints_found = 0
 			se_tau_T_cl = sqrt(V_T_cl);	se_tau_T_rb = sqrt(V_T_rb)
 		}
 		
+	
 		
 		**** Stored results
 		st_numscalar("N", N)
@@ -798,7 +823,9 @@ masspoints_found = 0
 		st_numscalar("tau_Y_bc_r", tau_Y_bc_r);	st_numscalar("tau_Y_bc_l", tau_Y_bc_l)
 		
 		st_numscalar("bias_l", bias_l);  st_numscalar("bias_r", bias_r)
-		st_matrix("beta_p_r", beta_p_r[,1]); st_matrix("beta_p_l", beta_p_l[,1])
+		
+		st_matrix("beta_Y_p_r", beta_Y_p_r); st_matrix("beta_Y_p_l", beta_Y_p_l)
+		
 		st_matrix("beta_q_r", beta_q_r); st_matrix("beta_q_l", beta_q_l)
 		st_numscalar("g_l",  g_l);       st_numscalar("g_r",   g_r)
 		st_matrix("b", (tau_cl))
@@ -823,6 +850,9 @@ masspoints_found = 0
 			
 			st_numscalar("tau_T_cl_r", tau_T_cl_r); st_numscalar("tau_T_cl_l", tau_T_cl_l)
 			st_numscalar("tau_T_bc_r", tau_T_bc_r);	st_numscalar("tau_T_bc_l", tau_T_bc_l)
+			
+			st_matrix("beta_T_p_r", beta_T_p_r); st_matrix("beta_T_p_l", beta_T_p_l)
+
 		}
 	}
 	
@@ -994,10 +1024,14 @@ masspoints_found = 0
 		ereturn scalar tau_T_cl_r  = scalar(tau_T_cl_r)
 		ereturn scalar tau_T_bc_l  = scalar(tau_T_bc_l)
 		ereturn scalar tau_T_bc_r  = scalar(tau_T_bc_r)
+		
+		ereturn matrix beta_T_p_r = beta_T_p_r
+		ereturn matrix beta_T_p_l = beta_T_p_l
+	
 	}
 	
-	ereturn matrix beta_p_r = beta_p_r
-	ereturn matrix beta_p_l = beta_p_l
+	ereturn matrix beta_Y_p_r = beta_Y_p_r
+	ereturn matrix beta_Y_p_l = beta_Y_p_l
 	
 	if ("`covs'"!="") {
 		ereturn matrix beta_covs = gamma_p

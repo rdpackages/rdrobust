@@ -1,4 +1,0 @@
-gen tar.gz:      R CMD build rdrobust 
-check:           R CMD check rdrobust --as-cran
-pdf manual:      R CMD Rd2pdf rdrobust
-gen zip file:    Rcmd INSTALL --build rdrobust
