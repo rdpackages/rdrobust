@@ -828,7 +828,7 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
            tau_cl=c(tau_Y_cl_l,tau_Y_cl_r), tau_bc=c(tau_Y_bc_l,tau_Y_bc_r),
            c=c, p=p, q=q, bias=c(bias_l,bias_r), kernel=kernel_type, all=all,
            vce=vce_type, bwselect=bwselect, level=level, masspoints=masspoints,
-           rdmodel=rdmodel)
+           rdmodel=rdmodel, beta_covs=gamma_p)
   } else {  
     out=list(Estimate=Estimate, bws=bws, coef=coef, se=se, z=z, pv=pv, ci=ci,
              beta_Y_p_l = beta_Y_p_l, beta_Y_p_r= beta_Y_p_r,
