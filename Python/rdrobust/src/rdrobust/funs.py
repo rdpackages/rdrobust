@@ -374,7 +374,7 @@ def rdrobust_vce(d, s, RX, res, C):
                     
     return w*M	 
 
-def rdrobust_bw (Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale, 
+def rdrobust_bw(Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale, 
                  vce, nnmatch, kernel, dups, dupsid, covs_drop_coll):
     
     

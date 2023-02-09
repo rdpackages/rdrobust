@@ -666,8 +666,7 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     rdplot_mean_bin_l = np.mean(np.column_stack((jumps_l[t_ind_l],jumps_l[t_ind_l+1])),axis=1)
     rdplot_mean_bin_r = np.mean(np.column_stack((jumps_r[t_ind_r],jumps_r[t_ind_r+1])),axis=1)
 
-    # rdplot_mean_bin_l = rdplot_mean_bin_l[np.flip(-rdplot_bin_l)-1]
-    rdplot_mean_bin_l = rdplot_mean_bin_l[rdplot_bin_l + J_star_l]
+    rdplot_mean_bin_l = rdplot_mean_bin_l[np.flip(-rdplot_bin_l)-1]
     rdplot_mean_bin_r = rdplot_mean_bin_r[rdplot_bin_r-1]
 
     bin_x = np.concatenate((bin_x_l,bin_x_r))
