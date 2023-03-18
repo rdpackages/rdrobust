@@ -32,4 +32,8 @@ f rdbwselect_2014.ado
 f rdbwselect_2014.sthlp
 f rdbwselect_2014_functions.do
 f rdbwselect_2014_kconst.ado
+f rdbwselect_2014_cvplot.mo
+f rdbwselect_2014_kweight.mo
+f rdbwselect_2014_rdvce.mo
+f rdbwselect_2014_regconst.mo
 
