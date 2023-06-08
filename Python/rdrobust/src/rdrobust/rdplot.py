@@ -11,7 +11,7 @@ import scipy.stats as sct
 import pandas  as pd
 from sklearn.linear_model import LinearRegression as LR
 from plotnine import *
-from .funs import *  # relative path here .fun to make package
+from rdrobust.funs import *
 
 
 def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None, 

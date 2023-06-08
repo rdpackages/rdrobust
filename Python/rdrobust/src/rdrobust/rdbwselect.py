@@ -8,7 +8,7 @@ Created on Wed Jul  7 18:57:15 2021
 
 import numpy as np
 import pandas as pd
-from .funs import *  # relative path here .funs to make the package
+from rdrobust.funs import *
 
 def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
                covs = None, covs_drop = True, kernel = "tri", weights = None, 

@@ -9,8 +9,8 @@ Created on Wed Jul  7 19:01:48 2021
 import numpy as np
 import pandas  as pd
 import scipy.stats as sct
-from .rdbwselect import rdbwselect    # relative path here .rdbwselect to make package
-from .funs import *  # relative path here .funs to make package
+from rdrobust.rdbwselect import rdbwselect
+from rdrobust.funs import *
      
 def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
              p = None, q = None, h = None, b = None, rho = None, 

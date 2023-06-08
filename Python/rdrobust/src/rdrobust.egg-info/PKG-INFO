@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: rdrobust
-Version: 1.0.8
+Version: 1.0.9
 Summary: Implements local polynomial Regression Discontinuity (RD) point estimators with robust bias-corrected confidence intervals and inference procedures.
 Home-page: https://github.com/rdpackages/rdrobust
 Author: Ricardo Masini

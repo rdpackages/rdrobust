@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from .rdrobust import rdrobust
-from .rdbwselect import rdbwselect
-from .rdplot import rdplot
+from rdrobust.rdrobust import rdrobust
+from rdrobust.rdbwselect import rdbwselect
+from rdrobust.rdplot import rdplot

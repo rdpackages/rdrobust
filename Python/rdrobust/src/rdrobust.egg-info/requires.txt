@@ -1,5 +1,5 @@
 numpy
-pandas
+pandas>=2.0.0
 scipy
-sklearn
+scikit-learn>=1.2.0
 plotnine
