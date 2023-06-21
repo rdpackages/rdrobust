@@ -267,7 +267,7 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
         if weights is not None:
             weights = np.array(weights).reshape(-1,1)
             if subset is not None: weights = weights[subset]
-            na_ok = na_ok & complete_cases(weights) & weights>=0
+            na_ok = na_ok & complete_cases(weights) & (weights>=0).reshape(-1,)
         
         x = x[na_ok]
         y = y[na_ok]
