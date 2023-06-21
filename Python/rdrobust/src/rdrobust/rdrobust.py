@@ -283,7 +283,8 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
         cluster = np.array(cluster).reshape(-1,1)
         if subset is not None:
             cluster = cluster[subset]
-        na_ok = na_ok & complete_cases(cluster)
+        if np.issubdtype(cluster.dtype, np.number):
+            na_ok = na_ok & complete_cases(cluster)
     
     if covs is not None:
         try: covs_names = list(covs.columns)
