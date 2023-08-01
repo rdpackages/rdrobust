@@ -589,7 +589,6 @@ program define rdbwselect_2014, eclass
 	*ereturn scalar b_CV   = b_cv
 	}
 	
-	mata mata clear
 
 end
 
