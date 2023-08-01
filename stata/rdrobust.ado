@@ -1053,6 +1053,5 @@ masspoints_found = 0
 	ereturn local depvar "`y'"
 	ereturn local cmd "rdrobust"
 
-	mata mata clear
  
 end
