@@ -9,8 +9,8 @@ Created on Wed Jul  7 19:01:48 2021
 import numpy as np
 import pandas  as pd
 import scipy.stats as sct
-from .rdbwselect import rdbwselect    # relative path here .rdbwselect to make package
-from .funs import *  # relative path here .funs to make package
+from rdrobust.rdbwselect import rdbwselect
+from rdrobust.funs import *
      
 def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
              p = None, q = None, h = None, b = None, rho = None, 
@@ -283,7 +283,8 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
         cluster = np.array(cluster).reshape(-1,1)
         if subset is not None:
             cluster = cluster[subset]
-        na_ok = na_ok & complete_cases(cluster)
+        if np.issubdtype(cluster.dtype, np.number):
+            na_ok = na_ok & complete_cases(cluster)
     
     if covs is not None:
         try: covs_names = list(covs.columns)
@@ -306,7 +307,7 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
         weights = np.array(weights).reshape(-1,1)
         if subset is not None:
             weights = weights[subset]
-        na_ok = na_ok & complete_cases(weights) & weights>=0
+        na_ok = na_ok & complete_cases(weights) & (weights>=0).reshape(-1,)
     
     x = x[na_ok]
     y = y[na_ok]

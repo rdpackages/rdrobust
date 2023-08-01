@@ -8,7 +8,7 @@ Created on Wed Jul  7 18:57:15 2021
 
 import numpy as np
 import pandas as pd
-from .funs import *  # relative path here .funs to make the package
+from rdrobust.funs import *
 
 def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
                covs = None, covs_drop = True, kernel = "tri", weights = None, 
@@ -267,7 +267,7 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
         if weights is not None:
             weights = np.array(weights).reshape(-1,1)
             if subset is not None: weights = weights[subset]
-            na_ok = na_ok & complete_cases(weights) & weights>=0
+            na_ok = na_ok & complete_cases(weights) & (weights>=0).reshape(-1,)
         
         x = x[na_ok]
         y = y[na_ok]

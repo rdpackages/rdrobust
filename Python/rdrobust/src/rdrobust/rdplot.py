@@ -11,7 +11,7 @@ import scipy.stats as sct
 import pandas  as pd
 from sklearn.linear_model import LinearRegression as LR
 from plotnine import *
-from .funs import *  # relative path here .fun to make package
+from rdrobust.funs import *
 
 
 def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None, 
@@ -234,7 +234,7 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
         weights = np.array(weights).reshape(-1,1)
         if subset is not None:
             weights = weights[subset]
-        na_ok = na_ok & complete_cases(weights) & weights>=0
+        na_ok = na_ok & complete_cases(weights) & (weights>=0).reshape(-1,)
         
     x = x[na_ok]
     y = y[na_ok]    
@@ -359,8 +359,8 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     n_h_r = np.sum(W_h_r>0)
 	
     if weights is not None:
-        fw_l = weights[x<c]
-        fw_r = weights[x>=c]
+        fw_l = weights[x<c].reshape(-1,1)
+        fw_r = weights[x>=c].reshape(-1,1)
         W_h_l = fw_l*W_h_l
         W_h_r = fw_r*W_h_r
 	

@@ -5,7 +5,7 @@
 python3 -m build
 
 # To install a local package
-python3 -m pip install ./dist/SomeProject-X.X.X.tar.gz
+python3 -m pip install ./dist/rdrobust-X.X.X.tar.gz
 
 # To upload to PyPI (Test Version)
 python3 -m twine upload --repository testpypi dist/*
@@ -21,4 +21,3 @@ pip install rdrobust
 
 # To uninstall
 pip uninstall rdrobust
-

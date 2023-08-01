@@ -101,28 +101,27 @@ class rdrobust_output:
         for j in method_id:
             if j==0:
                 print(self.coef.index[j].ljust(fw_l),
-                      str(round(float(self.coef.iloc[j]),n_dec)).rjust(fw_c),
-                      str(round(float(self.se.iloc[j]),n_dec)).rjust(fw_c),
-                      str(round(float(self.t.iloc[j]),n_dec)).rjust(fw_c),
-                      ("{:.3e}".format(float(self.pv.iloc[j]))).rjust(fw_c+3),
-                      ('[' + str(round(float(self.ci.iloc[j,0]),n_dec)) + ', ' + str(round(float(self.ci.iloc[j,1]),n_dec)) + ']').rjust(fw_ci))
+                      str(round(self.coef.iloc[j].item(),n_dec)).rjust(fw_c),
+                      str(round(self.se.iloc[j].item(),n_dec)).rjust(fw_c),
+                      str(round(self.t.iloc[j].item(),n_dec)).rjust(fw_c),
+                      ("{:.3e}".format(self.pv.iloc[j].item())).rjust(fw_c+3),
+                      ('[' + str(round(self.ci.iloc[j,0].item(),n_dec)) + ', ' + str(round(self.ci.iloc[j,1].item(),n_dec)) + ']').rjust(fw_ci))
             else:
                 if self.all:
                     print(self.coef.index[j].ljust(fw_l),
-                      str(round(float(self.coef.iloc[j]),n_dec)).rjust(fw_c),
-                      str(round(float(self.se.iloc[j]),n_dec)).rjust(fw_c),
-                      str(round(float(self.t.iloc[j]),n_dec)).rjust(fw_c),
-                      ("{:.3e}".format(float(self.pv.iloc[j]))).rjust(fw_c+3),
-                      ('[' + str(round(float(self.ci.iloc[j,0]),n_dec)) + ', ' + str(round(float(self.ci.iloc[j,1]),n_dec)) + ']').rjust(fw_ci))
+                      str(round(self.coef.iloc[j].item(),n_dec)).rjust(fw_c),
+                      str(round(self.se.iloc[j].item(),n_dec)).rjust(fw_c),
+                      str(round(self.t.iloc[j].item(),n_dec)).rjust(fw_c),
+                      ("{:.3e}".format(self.pv.iloc[j].item())).rjust(fw_c+3),
+                      ('[' + str(round(self.ci.iloc[j,0].item(),n_dec)) + ', ' + str(round(self.ci.iloc[j,1].item(),n_dec)) + ']').rjust(fw_ci))
                 else:
                     print(self.coef.index[j].ljust(fw_l),
                       '-'.rjust(fw_c),
                       '-'.rjust(fw_c),
-                      str(round(float(self.t.iloc[j]),n_dec)).rjust(fw_c),
-                      ("{:.3e}".format(float(self.pv.iloc[j]))).rjust(fw_c+3),
-                      ('[' + str(round(float(self.ci.iloc[j,0]),n_dec)) + ', ' + str(round(float(self.ci.iloc[j,1]),n_dec)) + ']').rjust(fw_ci))
-
-                
+                      str(round(self.t.iloc[j].item(),n_dec)).rjust(fw_c),
+                      ("{:.3e}".format(self.pv.iloc[j].item())).rjust(fw_c+3),
+                      ('[' + str(round(self.ci.iloc[j,0].item(),n_dec)) + ', ' + str(round(self.ci.iloc[j,1].item(),n_dec)) + ']').rjust(fw_ci))
+        
         return ''
 
 class rdplot_output:
