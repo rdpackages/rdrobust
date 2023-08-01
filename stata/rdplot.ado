@@ -842,7 +842,6 @@ if ("`genvars'"!="") {
 		}
 }
 
-mata mata clear
 end
 
 
