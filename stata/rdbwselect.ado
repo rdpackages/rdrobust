@@ -655,6 +655,5 @@ program define rdbwselect, eclass
 		ereturn scalar b_cercomb2_r = scalar(b_cercomb2_r)
 	}
 	
-	mata mata clear 
 
 end
