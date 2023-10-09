@@ -268,7 +268,7 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     
     if nbins is not None: 
         if np.isscalar(nbins): nbins_l = nbins_r = nbins
-        else: nbins_l, n_bins_r = nbins
+        else: nbins_l, nbins_r = nbins
 
     if h is None:
         h_l = range_l
@@ -627,19 +627,20 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
         else: return np.mean(x)
     
     bin_x_l = np.searchsorted(jumps_l, x_l,side='right') - J_star_l - 1
+    bin_x_l[bin_x_l==0] =-1   # to mimick R behaviour of FindInterval function in R
     bin_x_r = np.searchsorted(jumps_r, x_r,side='left')
+    bin_x_r[bin_x_r==J_star_r] = J_star_r-1  # to mimick R behaviour of FindInterval function in R
 
     aux_l  = pd.DataFrame({'bin_x_l':bin_x_l, 'y_l':y_l, 'x_l':x_l})
     rdplot_l  = aux_l.groupby('bin_x_l').agg({'y_l': 'mean', 'x_l':'mean'}).reset_index()
-    
     rdplot_bin_l =  rdplot_l['bin_x_l'].values
+    rdplot_bin_l = rdplot_bin_l[:J_star_l]
     rdplot_mean_y_l = rdplot_l['y_l'].values
     rdplot_mean_x_l = rdplot_l['x_l'].values
 
     aux_r  = pd.DataFrame({'bin_x_r':bin_x_r, 'y_r':y_r, 'x_r':x_r})
     rdplot_r  = aux_r.groupby('bin_x_r').agg({'y_r': 'mean', 'x_r':'mean'}).reset_index()    
-    
-    rdplot_bin_r =  rdplot_r['bin_x_r'].values  # Only 34 values (insteaf of 35), bin 29 is missing?!?!
+    rdplot_bin_r =  rdplot_r['bin_x_r'].values
     rdplot_mean_y_r = rdplot_r['y_r'].values
     rdplot_mean_x_r = rdplot_r['x_r'].values
 
@@ -666,7 +667,9 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     rdplot_mean_bin_l = np.mean(np.column_stack((jumps_l[t_ind_l],jumps_l[t_ind_l+1])),axis=1)
     rdplot_mean_bin_r = np.mean(np.column_stack((jumps_r[t_ind_r],jumps_r[t_ind_r+1])),axis=1)
 
-    rdplot_mean_bin_l = rdplot_mean_bin_l[np.flip(-rdplot_bin_l)-1]
+    
+    # rdplot_mean_bin_l = rdplot_mean_bin_l[np.flip(-rdplot_bin_l)-1]
+    rdplot_mean_bin_l = rdplot_mean_bin_l[rdplot_bin_l+J_star_l]
     rdplot_mean_bin_r = rdplot_mean_bin_r[rdplot_bin_r-1]
 
     bin_x = np.concatenate((bin_x_l,bin_x_r))

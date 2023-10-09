@@ -362,14 +362,14 @@ def rdrobust_vce(d, s, RX, res, C):
                 M = M + crossprod(Xr,Xr)
         else:
             for i in range(g):
-                ind = C==clusters[i]
+                ind = (C==clusters[i])
                 Xi = RX[ind,:]
                 ri = res[ind,:]
                 MHolder = np.zeros((1+d,k))
-                for l in range(d+1):	
+                for l in range(d+1):
                     MHolder[l,:] = crossprod(Xi,s[l]*ri[:,l]).T
-                    summedvalues = np.sum(MHolder, axis = 0).T
-                    M = M + crossprod(summedvalues,summedvalues)
+                summedvalues = np.sum(MHolder, axis = 0)
+                M = M + np.outer(summedvalues,summedvalues)
                     
     return w*M	 
 
@@ -445,7 +445,7 @@ def rdrobust_bw(Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale,
       
     aux = rdrobust_vce(dT+dZ, s, R_V*eW.reshape(-1,1), res_V, eC)
     V_V = np.matmul(np.matmul(invG_V,aux),invG_V)[nu,nu]
-    
+
     v = crossprod(R_V*eW.reshape(-1,1),((eX-c)/h_V)**(o+1))
     Hp = np.zeros(o+1)
     for j in range(o+1): Hp[j] = h_V**j
