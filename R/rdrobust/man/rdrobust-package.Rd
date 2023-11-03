@@ -9,8 +9,8 @@
 \tabular{ll}{
 Package: \tab rdrobust\cr
 Type: \tab Package\cr
-Version: \tab 2.1.1\cr 
-Date: \tab 2022-12-04\cr
+Version: \tab 2.2\cr 
+Date: \tab 2023-11-03\cr
 License: \tab GPL-2\cr
 }
 Function for statistical inference: \code{\link{rdrobust}}\cr
@@ -22,7 +22,7 @@ Sebastian Calonico, Columbia University, New York, NY.  \email{sebastian.calonic
 
 Matias D. Cattaneo, Princeton University, Princeton, NJ.  \email{cattaneo@princeton.edu}.
 
-Max H. Farrell, University of Chicago, Chicago, IL. \email{max.farrell@chicagobooth.edu}.
+Max H. Farrell, University of California, Santa Barbara, CA. \email{maxhfarrell@ucsb.edu}.
 
 Rocio Titiunik, Princeton University, Princeton, NJ.  \email{titiunik@princeton.edu}.
 }

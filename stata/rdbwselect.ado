@@ -1,4 +1,9 @@
-*!version 9.1.0  2022-10-28
+********************************************************************************
+* RDROBUST STATA PACKAGE -- rdbwselect
+* Authors: Sebastian Calonico, Matias D. Cattaneo, Max Farrell, Rocio Tititunik
+********************************************************************************
+*!version 9.2.0  2023-11-03
+
 
 capture program drop rdbwselect
 program define rdbwselect, eclass

@@ -9,7 +9,7 @@ Extract of the dataset constructed by Cattaneo, Frandsen, and Titiunik (2015), w
 \format{ 
   A data frame with 1390 observations on the following 2 variables.
   \describe{
-    \item{\code{margin}}{a numeric vector.}
+    \item{\code{margin}}{a numeric vector.} 
     \item{\code{vote}}{a numeric vector.}
   }
 }

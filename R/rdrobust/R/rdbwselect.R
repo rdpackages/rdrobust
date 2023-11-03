@@ -291,7 +291,6 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
     ### Step 1: d_bw
     C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw, h_B=range_l, 0, vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol)
     C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw, h_B=range_r, 0, vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol)
-    
     ### TWO
     if  (bwselect=="msetwo" |  bwselect=="certwo" | bwselect=="msecomb2" | bwselect=="cercomb2"  | all=="TRUE")  {		
       d_bw_l = c((  C_d_l$V              /   C_d_l$B^2             )^C_d_l$rate)

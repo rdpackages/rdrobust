@@ -27,7 +27,7 @@ twoway (scatter rdplot_mean_y rdplot_mean_bin, sort msize(small)  mcolor(gs10)) 
 (function `e(eq_l)', range($x_min $c) lcolor(black) sort lwidth(medthin) lpattern(solid)) ///
 (function `e(eq_r)', range($c $x_max) lcolor(black) sort lwidth(medthin) lpattern(solid)), ///
 xline($c, lcolor(black) lwidth(medthin)) xscale(r($x_min $x_max))  /// 
-legend(cols(2) order(1 "Sample average within bin" 2 "Polynomial fit of order 4" )) title("Regression function fit", color(gs0)) 
+legend(pos(6) cols(2) order(1 "Sample average within bin" 2 "Polynomial fit of order 4" )) title("Regression function fit", color(gs0)) 
 
 ********************************************************************************
 ** RDPLOT with confidence intervals
@@ -37,7 +37,7 @@ twoway (rcap rdplot_ci_l rdplot_ci_r rdplot_mean_bin, color(gs11)) ///
 (function `e(eq_l)', range($x_min $c) lcolor(black) sort lwidth(medthin) lpattern(solid)) ///
 (function `e(eq_r)', range($c $x_max) lcolor(black) sort lwidth(medthin) lpattern(solid)), ///
 xline($c, lcolor(black) lwidth(medthin)) xscale(r($x_min $x_max))  /// 
-legend(cols(2) order(1 "Sample average within bin" 2 "Polynomial fit of order 4" )) title("Regression function fit", color(gs0)) 
+legend(pos(6) cols(2) order(1 "Sample average within bin" 2 "Polynomial fit of order 4" )) title("Regression function fit", color(gs0)) 
 
 ********************************************************************************
 ** RDPLOT with shaded confidence intervals
@@ -48,5 +48,5 @@ twoway (rarea rdplot_ci_l rdplot_ci_r rdplot_mean_bin if rdplot_id<0, sort color
 (function `e(eq_l)', range($x_min $c) lcolor(black) sort lwidth(medthin) lpattern(solid)) ///
 (function `e(eq_r)', range($c $x_max) lcolor(black) sort lwidth(medthin) lpattern(solid)), ///
 xline($c, lcolor(black) lwidth(medthin)) xscale(r($x_min $x_max))  /// 
-legend(cols(2) order(1 "Sample average within bin" 2 "Polynomial fit of order 4" )) title("Regression function fit", color(gs0)) 
+legend(pos(6) cols(2) order(1 "Sample average within bin" 2 "Polynomial fit of order 4" )) title("Regression function fit", color(gs0)) 
 

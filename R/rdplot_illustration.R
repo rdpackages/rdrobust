@@ -56,7 +56,7 @@ temp_plot <- ggplot() + theme_bw() +
   labs(title = title, y = y.label, x = x.label) +
   coord_cartesian(xlim = x.lim, ylim = y.lim) +
   theme(legend.position = "None") +
-  geom_vline(xintercept = c, size = 0.5)
+  geom_vline(xintercept = c, linewidth = 0.5)
 temp_plot
 
 ## Add confidence intervals 
@@ -80,7 +80,7 @@ lines(x_plot_r, y_hat_r, type = "l", col = col.lines)
 abline(v=c)
 
 ## Add confidence intervals      
-arrows(rdplot_mean_bin, rdplot_cil_bin, rdplot_mean_bin, rdplot_cir_bin, 
+arrows(x0=rdplot_mean_bin, y0=rdplot_cil_bin, x1=rdplot_mean_bin, y1=rdplot_cir_bin, 
        code = 3, length = 0.1, angle = 90, col = 'grey')
 
 # Add shade  

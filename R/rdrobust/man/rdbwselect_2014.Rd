@@ -4,7 +4,7 @@
 \alias{summary.rdbwselect_2014} 
 \title{Deprecated Bandwidth Selection Procedures for Local-Polynomial Regression-Discontinuity Estimators.}
 \description{\code{\link{rdbwselect_2014}} is a deprecated command implementing three bandwidth selectors for local polynomial Regression Discontinuity (RD) point estimators and inference procedures, as described in Calonico, Cattaneo and Titiunik (2014).
-
+ 
     This command is no longer supported or updated, and it is made available only for backward compatibility purposes. Please use \code{\link{rdbwselect}} instead.
 
     The latest version of the rdrobust package includes the following commands:
@@ -73,7 +73,7 @@ Sebastian Calonico, Columbia University, New York, NY.  \email{sebastian.calonic
 
 Matias D. Cattaneo, Princeton University, Princeton, NJ.  \email{cattaneo@princeton.edu}.
 
-Max H. Farrell, University of Chicago, Chicago, IL. \email{max.farrell@chicagobooth.edu}.
+Max H. Farrell, University of California, Santa Barbara, CA. \email{maxhfarrell@ucsb.edu}.
 
 Rocio Titiunik, Princeton University, Princeton, NJ.  \email{titiunik@princeton.edu}.
 }

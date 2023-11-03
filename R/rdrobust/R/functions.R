@@ -157,7 +157,9 @@ rdrobust_bw = function(Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale, vce, nn
     }
   }	
         res_V = rdrobust_res(eX, eY, eT, eZ, predicts_V, hii, vce, nnmatch, dups_V, dupsid_V, o+1)
-        V_V = (invG_V%*%rdrobust_vce(dT+dZ, s, R_V*eW, res_V, eC)%*%invG_V)[nu+1,nu+1]
+        aux = rdrobust_vce(dT+dZ, s, R_V*eW, res_V, eC)
+        aux2 = R_V*eW
+        V_V = (invG_V%*%aux%*%invG_V)[nu+1,nu+1]
         v = crossprod(R_V*eW,((eX-c)/h_V)^(o+1))
         Hp = 0
         for (j in 1:(o+1)) Hp[j] = h_V^((j-1))
@@ -250,10 +252,11 @@ rdrobust_vce = function(d, s, RX, res, C) {
         Xi = RX[ind,,drop=FALSE]
         ri = res[ind,,drop=FALSE]
         MHolder = matrix(0,1+d,k)
-        for (l in 1:(1+d)) {	
+        for (l in 1:(1+d)) {
           MHolder[l,] = t(crossprod(Xi,s[l]*ri[,l]))
         }	
         summedvalues = t(colSums(MHolder))
+        aux = crossprod(summedvalues,summedvalues)
         M = M + crossprod(summedvalues,summedvalues)
       }
     }
@@ -262,9 +265,6 @@ rdrobust_vce = function(d, s, RX, res, C) {
 }
 
 J.fun = function(B,V,n) {ceiling((((2*B)/V)*n)^(1/3))}
-
-
-
 
 
 

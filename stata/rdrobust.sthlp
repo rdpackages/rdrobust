@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 9.1.0  2022-10-28}{...}
+{* *!version 9.2.0  2023-11-03}{...}
 {viewerjumpto "Syntax" "rdrobust##syntax"}{...}
 {viewerjumpto "Description" "rdrobust##description"}{...}
 {viewerjumpto "Options" "rdrobust##options"}{...}
@@ -302,8 +302,8 @@ Default is {cmd:level(95)}.{p_end}
 {p 4 8}Matias D. Cattaneo, Princeton University, Princeton, NJ.
 {browse "mailto:cattaneo@princeton.edu":cattaneo@princeton.edu}.{p_end}
 
-{p 4 8}Max H. Farrell, University of Chicago, Chicago, IL.
-{browse "mailto:max.farrell@chicagobooth.edu":max.farrell@chicagobooth.edu}.{p_end}
+{p 4 8}Max H. Farrell, University of California, Santa Barbara, CA.
+{browse "mailto:maxhfarrell@ucsb.edu":maxhfarrell@ucsb.edu}.{p_end}
 
 {p 4 8}Rocio Titiunik, Princeton University, Princeton, NJ.
 {browse "mailto:titiunik@princeton.edu":titiunik@princeton.edu}.{p_end}

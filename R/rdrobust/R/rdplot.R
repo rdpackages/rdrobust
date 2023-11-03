@@ -18,6 +18,9 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
   if (!is.null(covs)){
     if (!is.null(subset))  covs <- subset(covs,subset)
     na.ok <- na.ok & complete.cases(covs)
+    
+    print("covs option is meant to be used when plotting RDROBUST estimates. If the option is used for global polynomial fitting, it may deliver results that are not visually compatible with the local binned means depicted due to the underlying assumptions used.")
+    
   } 
   
   if (!is.null(weights)){
@@ -592,7 +595,7 @@ rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL
     temp_plot <- temp_plot + labs(x = x.label, y = y.label) + ggtitle(title)+
       coord_cartesian(xlim = x.lim, ylim = y.lim) +
       theme(legend.position = "None") +
-      geom_vline(xintercept = c, size = 0.5) 
+      geom_vline(xintercept = c, linewidth = 0.5) 
     
     if (hide == FALSE) print(temp_plot)
 

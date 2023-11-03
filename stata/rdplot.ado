@@ -1,9 +1,13 @@
-*!version 9.1.0  2022-10-28
+********************************************************************************
+* RDROBUST STATA PACKAGE -- rdplot
+* Authors: Sebastian Calonico, Matias D. Cattaneo, Max Farrell, Rocio Tititunik
+********************************************************************************
+*!version 9.2.0  2023-11-03
 
 capture program drop rdplot
 program define rdplot, eclass
-	syntax anything [if] [, c(real 0) p(integer 4) nbins(string) covs(string) covs_eval(string) covs_drop(string)  binselect(string) scale(string) kernel(string) weights(string) h(string) support(string) masspoints(string) genvars hide ci(real 0) shade graph_options(string) nochecks  *]
-
+	syntax anything [if] [, c(real 0) p(integer 4) nbins(string) covs(string) covs_eval(string) covs_drop(string)  binselect(string) scale(string) kernel(string) weights(string) h(string) support(string) masspoints(string) genvars hide ci(real 0) shade graph_options(string asis) nochecks  *]
+	
 	marksample touse
 	tokenize "`anything'"
 	local y `1'
@@ -82,6 +86,9 @@ program define rdplot, eclass
 		foreach z in `covs_list' {
 			qui drop if mi(`z')
 		}
+		
+		 di as error "{err}covs() option is meant to be used when plotting RDROBUST estimates. If the option is used for global polynomial fitting, it may deliver results that are not visually compatible with the local binned means depicted due to the underlying assumptions used."  
+
 	}
 		
 	if ("`weights'"~="") {
@@ -591,6 +598,10 @@ mata {
 	}		 
 
 
+	
+	
+	
+	
 mata {
 	
 	
@@ -791,7 +802,7 @@ if  ("`covs_eval'"=="mean" & "`covs'"!="") {
 				twoway (scatter rdplot_mean_y rdplot_mean_bin, sort msize(small)  mcolor(gs10)) ///
 				(line y_plot_l x_plot_l, lcolor(black) sort lwidth(medthin) lpattern(solid) ) ///
 				(line y_plot_r x_plot_r, lcolor(black) sort lwidth(medthin) lpattern(solid) ),  ///
-				xline(`c', lcolor(black) lwidth(medthin)) xscale(r(`x_min' `x_max'))  legend(cols(2) order(1 "Sample average within bin" 2 "Polynomial fit of order `p'" )) `graph_options'
+				xline(`c', lcolor(black) lwidth(medthin)) xscale(r(`x_min' `x_max'))  legend(pos(6) cols(2) order(1 "Sample average within bin" 2 "Polynomial fit of order `p'" )) `graph_options'
 		}
 		else {
 			if ("`shade'"==""){
@@ -799,7 +810,7 @@ if  ("`covs_eval'"=="mean" & "`covs'"!="") {
 				(scatter rdplot_mean_y rdplot_mean_bin, sort msize(small)  mcolor(gs10)) ///
 				(line y_plot_l x_plot_l, lcolor(black) sort lwidth(medthin) lpattern(solid))   ///
 				(line y_plot_r x_plot_r, lcolor(black) sort lwidth(medthin) lpattern(solid)),  ///
-				xline(`c', lcolor(black) lwidth(medthin)) xscale(r(`x_min' `x_max')) legend(cols(2) order(2 "Sample average within bin" 3 "Polynomial fit of order `p'" )) `graph_options'
+				xline(`c', lcolor(black) lwidth(medthin)) xscale(r(`x_min' `x_max')) legend(pos(6) cols(2) order(2 "Sample average within bin" 3 "Polynomial fit of order `p'" )) `graph_options'
 			}
 			else {
 				twoway (rarea rdplot_ci_l rdplot_ci_r rdplot_mean_bin if rdplot_id<0, sort color(gs11)) ///
@@ -807,7 +818,7 @@ if  ("`covs_eval'"=="mean" & "`covs'"!="") {
 				(scatter rdplot_mean_y rdplot_mean_bin, sort msize(small)  mcolor(gs10)) ///
 				(line y_plot_l x_plot_l, lcolor(black) sort lwidth(medthin) lpattern(solid)) ///
 				(line y_plot_r x_plot_r, lcolor(black) sort lwidth(medthin) lpattern(solid)) ,  ///
-				xline(`c', lcolor(black) lwidth(medthin)) xscale(r(`x_min' `x_max')) legend(cols(2) order(2 "Sample average within bin" 3 "Polynomial fit of order `p'" )) `graph_options'
+				xline(`c', lcolor(black) lwidth(medthin)) xscale(r(`x_min' `x_max')) legend(pos(6) cols(2) order(2 "Sample average within bin" 3 "Polynomial fit of order `p'" )) `graph_options'
 			}						
 		}
 	}

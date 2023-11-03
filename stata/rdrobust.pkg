@@ -3,10 +3,10 @@ d STATA Package: RDROBUST
 d 
 d Authors: Sebastian Calonico, Department of Health Policy and Management, Columbia University, sebastian.calonico@columbia.edu
 d          Matias D. Cattaneo, Operations Research and Financial Engineering, Princeton University, cattaneo@princeton.edu
-d          Max H. Farrell, Booth School of Business, University of Chicago, max.farrell@chicagobooth.edu
+d          Max H. Farrell, Department of Economics, University of California, Santa Barbara, maxhfarrell@ucsb.edu
 d          Rocio Titiunik, Department of Politics, Princeton University, titiunik@princeton.edu
 d
-d Distribution-Date: 20221028
+d Distribution-Date: 20231103
 d 
 f rdbwselect.ado
 f rdplot.ado

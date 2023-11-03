@@ -52,7 +52,7 @@ rdplot(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv",
   \item{h}{specifies the bandwidth used to construct the (global) polynomial fits given the kernel choice \code{kernel}.
 If not specified, the bandwidths are chosen to span the full support of the data. If two bandwidths are specified, the first bandwidth is used for the data below the cutoff and the second bandwidth is used for the data above the cutoff.}
   \item{covs}{specifies additional covariates to be used in the polynomial regression.}
-  \item{covs_eval}{sets the evaluation points for the additional covariates, when included in the estimation. Options are: \code{covs_eval = 0} (default) and \code{covs_eval = "mean"}}
+  \item{covs_eval}{sets the evaluation points for the additional covariates, when included in the estimation. Options are: \code{covs_eval = 0} and \code{covs_eval = "mean"} (default)}
   \item{covs_drop}{if TRUE, it checks for collinear additional covariates and drops them. Default is TRUE.}
     \item{ginv.tol}{tolerance used to invert matrices involving covariates when \code{covs_drop=TRUE}.}
   \item{support}{specifies an optional extended support of the running variable to be used in the construction of the bins;  default is the sample range.}
@@ -115,7 +115,7 @@ Sebastian Calonico, Columbia University, New York, NY.  \email{sebastian.calonic
 
 Matias D. Cattaneo, Princeton University, Princeton, NJ.  \email{cattaneo@princeton.edu}.
 
-Max H. Farrell, University of Chicago, Chicago, IL. \email{max.farrell@chicagobooth.edu}.
+Max H. Farrell, University of California, Santa Barbara, CA. \email{maxhfarrell@ucsb.edu}.
 
 Rocio Titiunik, Princeton University, Princeton, NJ.  \email{titiunik@princeton.edu}.
 }

@@ -160,7 +160,7 @@ Sebastian Calonico, Columbia University, New York, NY.  \email{sebastian.calonic
 
 Matias D. Cattaneo, Princeton University, Princeton, NJ.  \email{cattaneo@princeton.edu}.
 
-Max H. Farrell, University of Chicago, Chicago, IL. \email{max.farrell@chicagobooth.edu}.
+Max H. Farrell, University of California, Santa Barbara, CA. \email{maxhfarrell@ucsb.edu}.
 
 Rocio Titiunik, Princeton University, Princeton, NJ.  \email{titiunik@princeton.edu}.
 }
