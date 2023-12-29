@@ -588,21 +588,24 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
         J_IMSE = J_qs_chk_dw
         J_MV   = J_qs_chk_mv
 
-    J_star_l = int(scale_l*J_star_orig[0])
-    J_star_r = int(scale_r*J_star_orig[1])
+    J_star_l = scale_l*J_star_orig[0]
+    if not np.isnan(J_star_l): J_star_l = int(J_star_l)
+    J_star_r = scale_r*J_star_orig[1]
+    if not np.isnan(J_star_r): J_star_r = int(J_star_r)
 
     if nbins is not None:
-        J_star_l = nbins_l
-        J_star_r = nbins_r
+        if not np.isnan(J_star_l): J_star_l = int(nbins_l)
+        if not np.isnan(J_star_r): J_star_r = int(nbins_r)
         binselect_type="manually evenly spaced"
   
-    if var_y_l==0:
+    if var_y_l==0.0:
         J_star_l  = 1
         print("Warning: not enough variability in the outcome variable below the threshold")
       
-    if var_y_r==0:
+    if var_y_r==0.0:
         J_star_r = 1
         print("Warning: not enough variability in the outcome variable above the threshold")
+    
     rscale_l = J_star_l / J_IMSE[0]
     rscale_r = J_star_r / J_IMSE[1]
   

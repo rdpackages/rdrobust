@@ -10,7 +10,7 @@ Sebastian Calonico (<sebastian.calonico@columbia.edu>)
 
 Matias D. Cattaneo (<cattaneo@princeton.edu>)
 
-Max H. Farrell (<max.farrell@chicagobooth.edu>)
+Max H. Farrell (<maxhfarrell@ucsb.edu>)
 
 Ricardo Masini (<rmasini@princeton.edu>)
 
@@ -89,8 +89,8 @@ _Review of Economics and Statistics_ 101(3): 442-451.<br>
 _Econometrics Journal_ 23(2): 192-210.<br>
 [Supplemental Appendix](https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2020_ECTJ--Supplement.pdf).
 
-- Calonico, Cattaneo and Farrell (2021): [Coverage Error Optimal Confidence Intervals for Local Polynomial Regression](https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2021_Bernoulli.pdf).<br>
+- Calonico, Cattaneo and Farrell (2021): [Coverage Error Optimal Confidence Intervals for Local Polynomial Regression](https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2022_Bernoulli.pdf).<br>
 Working paper.<br>
-[Supplemental Appendix](https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2021_Bernoulli--Supplement.pdf).
+[Supplemental Appendix](https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2022_Bernoulli--Supplement.pdf).
 
 <br><br>
