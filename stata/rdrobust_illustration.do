@@ -25,7 +25,7 @@ sum vote margin class termshouse termssenate population, sep(2)
 ********************************************************************************
 rdplot vote margin, binselect(es) ci(95) ///
        graph_options(title("RD Plot: U.S. Senate Election Data") ///
-                     ytitle(Vote Share in Election at time t+2) ///
+                     ytitle(Vote Share in Election at time t+1) ///
                      xtitle(Vote Share in Election at time t) ///
                      graphregion(color(white)))
 
