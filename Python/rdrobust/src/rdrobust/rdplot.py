@@ -740,7 +740,7 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
                       theme(legend_position = "None") +
                       geom_vline(xintercept = c, size = 0.5)) 
         
-        print(temp_plot)
+        ggplot.show(temp_plot)
   
     rdplot_min_bin_l = jumps_l[0:J_star_l]
     rdplot_max_bin_l = jumps_l[1:(J_star_l + 1)]

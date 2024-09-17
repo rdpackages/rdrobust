@@ -9,6 +9,7 @@ Created on Sat Jun  5 14:07:58 2021
 """
 
 import numpy as np
+import math
 from scipy.linalg import qr
 
 class rdrobust_output:
@@ -417,16 +418,16 @@ def rdrobust_bw(Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale,
         
     beta_V = np.matmul(invG_V,crossprod(R_V*eW.reshape(-1,1),D_V))	
     if Z is None and T is not None:	
-        tau_Y = np.math.factorial(nu)*beta_V[nu,0]
-        tau_T = np.math.factorial(nu)*beta_V[nu,1]
+        tau_Y = math.factorial(nu)*beta_V[nu,0]
+        tau_T = math.factorial(nu)*beta_V[nu,1]
         s = np.array([1/tau_T , -(tau_Y/tau_T**2)])
     
     if Z is not None and T is not None:
         s_T = np.append(1, -gamma[:,1])
         beta_Y = np.append(beta_V[nu,0],beta_V[nu,colsZ])
-        tau_Y = np.math.factorial(nu)*np.matmul(s, beta_Y)
+        tau_Y = math.factorial(nu)*np.matmul(s, beta_Y)
         beta_T = np.append(beta_V[nu,1],beta_V[nu,colsZ])
-        tau_T = np.math.factorial(nu)*np.matmul(s_T, beta_T)
+        tau_T = math.factorial(nu)*np.matmul(s_T, beta_T)
         s = (np.hstack([1/tau_T , -(tau_Y/tau_T**2) , 
             -(1/tau_T)*gamma[:,0] + (tau_Y/tau_T**2)*gamma[:,1]]))
     

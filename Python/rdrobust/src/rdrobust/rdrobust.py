@@ -8,6 +8,7 @@ Created on Wed Jul  7 19:01:48 2021
 
 import numpy as np
 import pandas  as pd
+import math
 import scipy.stats as sct
 from rdrobust.rdbwselect import rdbwselect
 from rdrobust.funs import *
@@ -551,30 +552,30 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
     
 
     if covs is None:
-        tau_cl = scalepar*np.math.factorial(deriv)*beta_p[deriv,0]
+        tau_cl = scalepar*math.factorial(deriv)*beta_p[deriv,0]
         tau_Y_cl = tau_cl.copy()
-        tau_bc = scalepar*np.math.factorial(deriv)*beta_bc[deriv,0]
+        tau_bc = scalepar*math.factorial(deriv)*beta_bc[deriv,0]
         tau_Y_bc = tau_bc.copy()
         s_Y = 1        
-        tau_Y_cl_l = scalepar*np.math.factorial(deriv)*beta_p_l[deriv,0]
-        tau_Y_cl_r = scalepar*np.math.factorial(deriv)*beta_p_r[deriv,0]
-        tau_Y_bc_l = scalepar*np.math.factorial(deriv)*beta_bc_l[deriv,0]
-        tau_Y_bc_r = scalepar*np.math.factorial(deriv)*beta_bc_r[deriv,0]
+        tau_Y_cl_l = scalepar*math.factorial(deriv)*beta_p_l[deriv,0]
+        tau_Y_cl_r = scalepar*math.factorial(deriv)*beta_p_r[deriv,0]
+        tau_Y_bc_l = scalepar*math.factorial(deriv)*beta_bc_l[deriv,0]
+        tau_Y_bc_r = scalepar*math.factorial(deriv)*beta_bc_r[deriv,0]
         bias_l = tau_Y_cl_l-tau_Y_bc_l
         bias_r = tau_Y_cl_r-tau_Y_bc_r 
       
         if fuzzy is not None:
-            tau_T_cl = np.math.factorial(deriv)*beta_p[deriv,1]
-            tau_T_bc = np.math.factorial(deriv)*beta_bc[deriv,1]
+            tau_T_cl = math.factorial(deriv)*beta_p[deriv,1]
+            tau_T_bc = math.factorial(deriv)*beta_bc[deriv,1]
             tau_cl   = tau_Y_cl/tau_T_cl
             s_Y      = np.array([1/tau_T_cl , -(tau_Y_cl/tau_T_cl**2)])
             B_F      = np.array([tau_Y_cl-tau_Y_bc , tau_T_cl-tau_T_bc])
             tau_bc   = tau_cl - np.matmul(s_Y.T,B_F)
             
-            tau_T_cl_l = np.math.factorial(deriv)*beta_p_l[deriv,1]
-            tau_T_cl_r = np.math.factorial(deriv)*beta_p_l[deriv,1]
-            tau_T_bc_l = np.math.factorial(deriv)*beta_bc_l[deriv,1]
-            tau_T_bc_r = np.math.factorial(deriv)*beta_bc_r[deriv,1]
+            tau_T_cl_l = math.factorial(deriv)*beta_p_l[deriv,1]
+            tau_T_cl_r = math.factorial(deriv)*beta_p_l[deriv,1]
+            tau_T_bc_l = math.factorial(deriv)*beta_bc_l[deriv,1]
+            tau_T_bc_r = math.factorial(deriv)*beta_bc_r[deriv,1]
             B_F_l = np.array([tau_Y_cl_l-tau_Y_bc_l, tau_T_cl_l-tau_T_bc_l])
             B_F_r = np.array([tau_Y_cl_r-tau_Y_bc_r, tau_T_cl_r-tau_T_bc_r])
             bias_l = np.matmul(s_Y.T,B_F_l)
@@ -609,40 +610,40 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
         else:
             s_T  = np.append(1,-gamma_p[:,1])
             
-            tau_Y_cl = float(np.matmul(scalepar*np.math.factorial(deriv)*s_Y.T,
+            tau_Y_cl = float(np.matmul(scalepar*math.factorial(deriv)*s_Y.T,
                         np.append(beta_p[deriv,0], beta_p[deriv,colsZ]).reshape(-1,1)))
         
-            tau_T_cl = float(np.matmul(np.math.factorial(deriv)*s_T.T,
+            tau_T_cl = float(np.matmul(math.factorial(deriv)*s_T.T,
                         np.append(beta_p[deriv,1], beta_p[deriv,colsZ]).reshape(-1,1))) 
             
-            tau_Y_bc = float(np.matmul(scalepar*np.math.factorial(deriv)*s_Y.T,
+            tau_Y_bc = float(np.matmul(scalepar*math.factorial(deriv)*s_Y.T,
                         np.append(beta_bc[deriv,0], beta_bc[deriv,colsZ]).reshape(-1,1)))
         
-            tau_T_bc = float(np.matmul(np.math.factorial(deriv)*s_T.T,
+            tau_T_bc = float(np.matmul(math.factorial(deriv)*s_T.T,
                         np.append(beta_bc[deriv,1], beta_bc[deriv,colsZ]).reshape(-1,1))) 
         
-            tau_Y_cl_l = float(np.matmul(scalepar*np.math.factorial(deriv)*s_Y.T,
+            tau_Y_cl_l = float(np.matmul(scalepar*math.factorial(deriv)*s_Y.T,
                         np.append(beta_p_l[deriv,0], beta_p_l[deriv,colsZ]).reshape(-1,1)))
             
-            tau_Y_cl_r = float(np.matmul(scalepar*np.math.factorial(deriv)*s_Y.T,
+            tau_Y_cl_r = float(np.matmul(scalepar*math.factorial(deriv)*s_Y.T,
                         np.append(beta_p_r[deriv,0], beta_p_r[deriv,colsZ]).reshape(-1,1)))
 
-            tau_Y_bc_l = float(np.matmul(scalepar*np.math.factorial(deriv)*s_Y.T,
+            tau_Y_bc_l = float(np.matmul(scalepar*math.factorial(deriv)*s_Y.T,
                         np.append(beta_bc_l[deriv,0], beta_bc_l[deriv,colsZ]).reshape(-1,1)))
             
-            tau_Y_bc_r = float(np.matmul(scalepar*np.math.factorial(deriv)*s_Y.T,
+            tau_Y_bc_r = float(np.matmul(scalepar*math.factorial(deriv)*s_Y.T,
                         np.append(beta_bc_r[deriv,0], beta_bc_r[deriv,colsZ]).reshape(-1,1)))
    
-            tau_T_cl_l = float(np.matmul(np.math.factorial(deriv)*s_T.T,
+            tau_T_cl_l = float(np.matmul(math.factorial(deriv)*s_T.T,
                         np.append(beta_p_l[deriv,1], beta_p_l[deriv,colsZ]).reshape(-1,1)))
             
-            tau_T_cl_r = float(np.matmul(np.math.factorial(deriv)*s_T.T,
+            tau_T_cl_r = float(np.matmul(math.factorial(deriv)*s_T.T,
                         np.append(beta_p_r[deriv,1], beta_p_r[deriv,colsZ]).reshape(-1,1)))
             
-            tau_T_bc_l = float(np.matmul(np.math.factorial(deriv)*s_T.T,
+            tau_T_bc_l = float(np.matmul(math.factorial(deriv)*s_T.T,
                         np.append(beta_bc_l[deriv,0], beta_bc_l[deriv,colsZ]).reshape(-1,1))) 
             
-            tau_T_bc_r = float(np.matmul(np.math.factorial(deriv)*s_T.T,
+            tau_T_bc_r = float(np.matmul(math.factorial(deriv)*s_T.T,
                         np.append(beta_bc_r[deriv,1], beta_bc_r[deriv,colsZ]).reshape(-1,1))) 
        
             tau_cl = tau_Y_cl/tau_T_cl
@@ -684,8 +685,8 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
     V_Y_cl_r = np.matmul(invG_p_r,np.matmul(rdrobust_vce(dT+dZ, s_Y, R_p_r*W_h_r, res_h_r, eC_r),invG_p_r))
     V_Y_rb_l = np.matmul(invG_p_l,np.matmul(rdrobust_vce(dT+dZ, s_Y, Q_q_l, res_b_l, eC_l),invG_p_l))
     V_Y_rb_r = np.matmul(invG_p_r,np.matmul(rdrobust_vce(dT+dZ, s_Y, Q_q_r, res_b_r, eC_r),invG_p_r))
-    V_tau_cl = scalepar**2*np.math.factorial(deriv)**2*(V_Y_cl_l+V_Y_cl_r)[deriv,deriv]
-    V_tau_rb = scalepar**2*np.math.factorial(deriv)**2*(V_Y_rb_l+V_Y_rb_r)[deriv,deriv]
+    V_tau_cl = scalepar**2*math.factorial(deriv)**2*(V_Y_cl_l+V_Y_cl_r)[deriv,deriv]
+    V_tau_rb = scalepar**2*math.factorial(deriv)**2*(V_Y_rb_l+V_Y_rb_r)[deriv,deriv]
     se_tau_cl = np.sqrt(V_tau_cl)
     se_tau_rb = np.sqrt(V_tau_rb)
      

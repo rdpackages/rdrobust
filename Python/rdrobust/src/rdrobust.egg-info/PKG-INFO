@@ -1,10 +1,10 @@
 Metadata-Version: 2.1
 Name: rdrobust
-Version: 1.2.1
+Version: 1.3.0
 Summary: Implements local polynomial Regression Discontinuity (RD) point estimators with robust bias-corrected confidence intervals and inference procedures.
 Home-page: https://github.com/rdpackages/rdrobust
 Author: Ricardo Masini
-Author-email: rmasini@princeton.edu
+Author-email: rmasini@ucdavis.edu
 Project-URL: Bug Tracker, https://github.com/rdpackages/rdrobust/issues
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
@@ -15,7 +15,8 @@ Requires-Dist: numpy
 Requires-Dist: pandas>=2.0.0
 Requires-Dist: scipy
 Requires-Dist: scikit-learn>=1.2.0
-Requires-Dist: plotnine
+Requires-Dist: plotnine>=0.13.6
+Requires-Dist: matplotlib>=3.9.2
 
 # RDROBUST
 
@@ -25,13 +26,13 @@ This work was supported in part by the National Science Foundation through grant
 
 ## Authors
  
-Sebastian Calonico (<sebastian.calonico@columbia.edu>)
+Sebastian Calonico (<scalonico@ucdavis.edu>)
 
 Matias D. Cattaneo (<cattaneo@princeton.edu>)
 
 Max H. Farrell (<maxhfarrell@ucsb.edu>)
 
-Ricardo Masini (<rmasini@princeton.edu>)
+Ricardo Masini (<rmasini@ucdavis.edu>)
 
 Rocio Titiunik (<titiunik@princeton.edu>)
 

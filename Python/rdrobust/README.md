@@ -6,13 +6,13 @@ This work was supported in part by the National Science Foundation through grant
 
 ## Authors
  
-Sebastian Calonico (<sebastian.calonico@columbia.edu>)
+Sebastian Calonico (<scalonico@ucdavis.edu>)
 
 Matias D. Cattaneo (<cattaneo@princeton.edu>)
 
 Max H. Farrell (<maxhfarrell@ucsb.edu>)
 
-Ricardo Masini (<rmasini@princeton.edu>)
+Ricardo Masini (<rmasini@ucdavis.edu>)
 
 Rocio Titiunik (<titiunik@princeton.edu>)
 
