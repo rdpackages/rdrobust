@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 9.2.0  2023-11-03}{...}
+{* *!version 10.0.0  2025-06-30}{...}
 {viewerjumpto "Syntax" "rdrobust##syntax"}{...}
 {viewerjumpto "Description" "rdrobust##description"}{...}
 {viewerjumpto "Options" "rdrobust##options"}{...}
@@ -38,6 +38,7 @@
 {cmd:stdvars(}{it:stdopt}{cmd:)}
 {cmd:vce(}{it:vcetype [vceopt1 vceopt2]}{cmd:)}
 {cmd:level(}{it:#}{cmd:)}
+{cmd:detail} 
 {cmd:all} 
 ]{p_end}
 
@@ -172,6 +173,9 @@ Default is {cmd:level(95)}.{p_end}
 {p 8 12}  (ii) bias-corrected RD estimates with conventional variance estimator.{p_end}
 {p 8 12} (iii) bias-corrected RD estimates with robust variance estimator.{p_end}
 
+{p 4 8}{cmd:detail} if specified, {cmd:rdrobust} reports the original output up to version 9.2.0{p_end}
+
+
    {hline}
 
 
@@ -296,8 +300,8 @@ Default is {cmd:level(95)}.{p_end}
 {marker authors}{...}
 {title:Authors}
 
-{p 4 8}Sebastian Calonico, Columbia University, New York, NY.
-{browse "mailto:sebastian.calonico@columbia.edu":sebastian.calonico@columbia.edu}.{p_end}
+{p 4 8}Sebastian Calonico, University of California, Davis, CA.
+{browse "mailto:scalonico@ucdavis.edu":scalonico@ucdavis.edu}.{p_end}
 
 {p 4 8}Matias D. Cattaneo, Princeton University, Princeton, NJ.
 {browse "mailto:cattaneo@princeton.edu":cattaneo@princeton.edu}.{p_end}

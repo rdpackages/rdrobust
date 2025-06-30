@@ -151,4 +151,3 @@ rdbwselect vote margin, covs(class) bwselect(msetwo) vce(hc2) all
 
 
 
-

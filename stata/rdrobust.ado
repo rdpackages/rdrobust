@@ -2,12 +2,11 @@
 * RDROBUST STATA PACKAGE -- rdrobust
 * Authors: Sebastian Calonico, Matias D. Cattaneo, Max Farrell, Rocio Tititunik
 ********************************************************************************
-*!version 9.2.0  2023-11-03
-
+*!version 10.0.0  2025-06-30
 
 capture program drop rdrobust 
 program define rdrobust, eclass
-	syntax anything [if] [in] [, c(real 0) fuzzy(string) deriv(real 0) p(string) q(real 0) h(string) b(string) rho(real 0) covs(string) covs_drop(string) kernel(string) weights(string) bwselect(string) vce(string) level(real 95) all scalepar(real 1) scaleregul(real 1) nochecks masspoints(string) bwcheck(real 0) bwrestrict(string) stdvars(string)]
+	syntax anything [if] [in] [, c(real 0) fuzzy(string) deriv(real 0) p(string) q(real 0) h(string) b(string) rho(real 0) covs(string) covs_drop(string) kernel(string) weights(string) bwselect(string) vce(string) level(real 95) all scalepar(real 1) scaleregul(real 1) nochecks masspoints(string) bwcheck(real 0) bwrestrict(string) stdvars(string) detail vleverage]
 	*disp in yellow "Preparing data." 
 	marksample touse
 	preserve
@@ -759,7 +758,7 @@ masspoints_found = 0
 		**************************************************************************
 		************ Computing variance-covariance matrix ************************
 		**************************************************************************
-		hii_l=hii_r=predicts_p_l=predicts_p_r=predicts_q_l=predicts_q_r=0
+		hii_p_l=hii_p_r=hii_q_l=hii_q_r=predicts_p_l=predicts_p_r=predicts_q_l=predicts_q_r=0
 		if ("`vce_select'"=="hc0" | "`vce_select'"=="hc1" | "`vce_select'"=="hc2" | "`vce_select'"=="hc3") {
 			predicts_p_l=R_p_l*beta_p_l
 			predicts_p_r=R_p_r*beta_p_r
@@ -767,20 +766,38 @@ masspoints_found = 0
 			predicts_q_r=R_q_r*beta_q_r
 			
 			if ("`vce_select'"=="hc2" | "`vce_select'"=="hc3") {
-				hii_l = rowsum((R_p_l*invG_p_l):*(R_p_l:*W_h_l))
-				hii_r = rowsum((R_p_r*invG_p_r):*(R_p_r:*W_h_r))
+				hii_p_l = rowsum((R_p_l*invG_p_l):*(R_p_l:*W_h_l))
+				hii_p_r = rowsum((R_p_r*invG_p_r):*(R_p_r:*W_h_r))
+				
+				
+				if ("`vleverage'"=="") {
+				
+					hii_q_l = rowsum((R_q_l*invG_q_l):*(R_q_l:*W_b_l))
+					hii_q_r = rowsum((R_q_r*invG_q_r):*(R_q_r:*W_b_r))
+				
+				}
+				else {
+				
+					hii_q_l = hii_p_l
+					hii_q_r = hii_p_r
+				
+				}
+				
 			}
 			
 		}
 			
-		res_h_l = rdrobust_res(eX_l, eY_l, eT_l, eZ_l, predicts_p_l, hii_l, "`vce_select'", `nnmatch', edups_l, edupsid_l, `p'+1)
-		res_h_r = rdrobust_res(eX_r, eY_r, eT_r, eZ_r, predicts_p_r, hii_r, "`vce_select'", `nnmatch', edups_r, edupsid_r, `p'+1)
+		res_h_l = rdrobust_res(eX_l, eY_l, eT_l, eZ_l, predicts_p_l, hii_p_l, "`vce_select'", `nnmatch', edups_l, edupsid_l, `p'+1)
+		res_h_r = rdrobust_res(eX_r, eY_r, eT_r, eZ_r, predicts_p_r, hii_p_r, "`vce_select'", `nnmatch', edups_r, edupsid_r, `p'+1)
+		
 		if ("`vce_select'"=="nn") {
 				res_b_l = res_h_l;	res_b_r = res_h_r
 		}
 		else {
-				res_b_l = rdrobust_res(eX_l, eY_l, eT_l, eZ_l, predicts_q_l, hii_l, "`vce_select'", `nnmatch', edups_l, edupsid_l, `q'+1)
-				res_b_r = rdrobust_res(eX_r, eY_r, eT_r, eZ_r, predicts_q_r, hii_r, "`vce_select'", `nnmatch', edups_r, edupsid_r, `q'+1)
+		
+				res_b_l = rdrobust_res(eX_l, eY_l, eT_l, eZ_l, predicts_q_l, hii_q_l, "`vce_select'", `nnmatch', edups_l, edupsid_l, `q'+1)
+				res_b_r = rdrobust_res(eX_r, eY_r, eT_r, eZ_r, predicts_q_r, hii_q_r, "`vce_select'", `nnmatch', edups_r, edupsid_r, `q'+1)
+		
 		}
 
 		V_Y_cl_l = invG_p_l*rdrobust_vce(dT+dZ, s_Y, R_p_l:*W_h_l, res_h_l, eC_l, indC_l)*invG_p_l
@@ -907,21 +924,32 @@ masspoints_found = 0
 	if ("`cluster'"!="")                               disp in smcl in gr "{ralign 18:Number of clusters}" _col(19) " {c |} " _col(21) as result %9.0f scalar(g_l)           _col(34) %9.0f  scalar(g_r)                         
 	disp ""
 			
-	if ("`fuzzy'"~="") {
+	if ("`fuzzy'"~="") {		
 		disp in yellow "First-stage estimates. Outcome: `fuzzyvar'. Running variable: `x'."
 		disp in smcl in gr "{hline 19}{c TT}{hline 60}"
-	    disp in smcl in gr "{ralign 18:Method}"  _col(19) " {c |} " _col(24) "Coef."  _col(33) `"Std. Err."'   _col(46) "z"    _col(52) "P>|z|"   _col(61) `"[`level'% Conf. Interval]"'
-		disp in smcl in gr "{hline 19}{c +}{hline 60}"
 		
-		if ("`all'"=="") {
-			disp in smcl in gr "{ralign 18:Conventional}"      _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_T_cl) _col(33) %7.0g scalar(se_tau_T_cl) _col(43) %5.4f scalar(tau_T_cl/se_tau_T_cl) _col(52) %5.3f  scalar(2*normal(-abs(tau_T_cl/se_tau_T_cl)))  _col(60) %8.0g  scalar(tau_T_cl) - scalar(quant*se_tau_T_cl) _col(73) %8.0g scalar(tau_T_cl + quant*se_tau_T_cl) 
-			disp in smcl in gr "{ralign 18:Robust}"            _col(19) " {c |} " _col(22) in ye %7.0g "    -"  _col(33) %7.0g "    -"     _col(43) %5.4f scalar(tau_T_bc/se_tau_T_rb) _col(52) %5.3f  scalar(2*normal(-abs(tau_T_bc/se_tau_T_rb)))  _col(60) %8.0g  scalar(tau_T_bc - quant*se_tau_T_rb) _col(73) %8.0g scalar(tau_T_bc + quant*se_tau_T_rb) 
-		}
-		else {
+		
+		if ("`all'"!="") {
+			disp in smcl in gr "{ralign 18:Method}"  _col(19) " {c |} " _col(24) "Coef."  _col(33) `"Std. Err."'   _col(46) "z"    _col(52) "P>|z|"   _col(61) `"[`level'% Conf. Interval]"'
+			disp in smcl in gr "{hline 19}{c +}{hline 60}"
 			disp in smcl in gr "{ralign 18:Conventional}"      _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_T_cl) _col(33) %7.0g scalar(se_tau_T_cl) _col(43) %5.4f scalar(tau_T_cl/se_tau_T_cl) _col(52) %5.3f  scalar(2*normal(-abs(tau_T_cl/se_tau_T_cl))) _col(60) %8.0g  scalar(tau_T_cl - quant*se_tau_T_cl) _col(73) %8.0g scalar(tau_T_cl + quant*se_tau_T_cl)  
 			disp in smcl in gr "{ralign 18:Bias-corrected}"    _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_T_bc) _col(33) %7.0g scalar(se_tau_T_cl) _col(43) %5.4f scalar(tau_T_bc/se_tau_T_cl) _col(52) %5.3f  scalar(2*normal(-abs(tau_T_bc/se_tau_T_cl))) _col(60) %8.0g  scalar(tau_T_bc - quant*se_tau_T_cl) _col(73) %8.0g scalar(tau_T_bc + quant*se_tau_T_cl) 
 			disp in smcl in gr "{ralign 18:Robust}"            _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_T_bc) _col(33) %7.0g scalar(se_tau_T_rb) _col(43) %5.4f scalar(tau_T_bc/se_tau_T_rb) _col(52) %5.3f  scalar(2*normal(-abs(tau_T_bc/se_tau_T_rb))) _col(60) %8.0g  scalar(tau_T_bc - quant*se_tau_T_rb) _col(73) %8.0g scalar(tau_T_bc + quant*se_tau_T_rb) 
 		}
+		else if ("`detail'"!="") {
+			disp in smcl in gr "{ralign 18:Method}"  _col(19) " {c |} " _col(24) "Coef."  _col(33) `"Std. Err."'   _col(46) "z"    _col(52) "P>|z|"   _col(61) `"[`level'% Conf. Interval]"'
+			disp in smcl in gr "{hline 19}{c +}{hline 60}"
+			disp in smcl in gr "{ralign 18:Conventional}"      _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_T_cl) _col(33) %7.0g scalar(se_tau_T_cl) _col(43) %5.4f scalar(tau_T_cl/se_tau_T_cl) _col(52) %5.3f  scalar(2*normal(-abs(tau_T_cl/se_tau_T_cl)))  _col(60) %8.0g  scalar(tau_T_cl) - scalar(quant*se_tau_T_cl) _col(73) %8.0g scalar(tau_T_cl + quant*se_tau_T_cl) 
+			disp in smcl in gr "{ralign 18:Robust}"            _col(19) " {c |} " _col(22) in ye %7.0g "    -"  _col(33) %7.0g "    -"     _col(43) %5.4f scalar(tau_T_bc/se_tau_T_rb) _col(52) %5.3f  scalar(2*normal(-abs(tau_T_bc/se_tau_T_rb)))  _col(60) %8.0g  scalar(tau_T_bc - quant*se_tau_T_rb) _col(73) %8.0g scalar(tau_T_bc + quant*se_tau_T_rb) 
+		}
+		else {
+			disp in smcl in gr "{ralign 18:}"                   _col(19) " {c |} " _col(22) "Point"    _col(35) " {c |} "    "Robust Inference" 
+			disp in smcl in gr "{ralign 18:}"                   _col(19) " {c |} " _col(22) "Estimate" _col(35) " {c |} "    "z-stat"       _col(52) "P>|z|"    _col(61) `"[`level'% Conf. Interval]"'
+			disp in smcl in gr "{hline 19}{c +}{hline 60}"			 
+			disp in smcl in gr "{ralign 18:RD Effect}"          _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_T_cl)  _col(35) " {c |} "  %5.4f scalar(tau_T_bc/se_tau_T_rb)  _col(52) %5.3f  scalar(2*normal(-abs(tau_T_bc/se_tau_T_rb))) _col(61) %8.0g scalar(tau_T_cl - quant*se_tau_T_cl)  _col(73)  %8.0g scalar(tau_T_cl + quant*se_tau_T_cl)			
+
+		}
+		
 			disp in smcl in gr "{hline 19}{c BT}{hline 60}"
 			disp ""
 	}
@@ -930,17 +958,33 @@ masspoints_found = 0
 	else               disp in yellow "Treatment effect estimates. Outcome: `y'. Running variable: `x'. Treatment Status: `fuzzyvar'."
 		
 	disp in smcl in gr "{hline 19}{c TT}{hline 60}"
-	disp in smcl in gr "{ralign 18:Method}"             _col(19) " {c |} " _col(24) "Coef."               _col(33) `"Std. Err."'    _col(46) "z"                    _col(52) "P>|z|"                                  _col(61) `"[`level'% Conf. Interval]"'
-	disp in smcl in gr "{hline 19}{c +}{hline 60}"
-
-	if ("`all'"=="") {
-		disp in smcl in gr "{ralign 18:Conventional}"   _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_cl)    _col(33) %7.0g scalar(se_tau_cl)  _col(43) %5.4f scalar(tau_cl/se_tau_cl) _col(52) %5.3f  scalar(2*normal(-abs(tau_cl/se_tau_cl)))  _col(60) %8.0g scalar(tau_cl - quant*se_tau_cl) _col(73) %8.0g scalar(tau_cl + quant*se_tau_cl) 
-		disp in smcl in gr "{ralign 18:Robust}"         _col(19) " {c |} " _col(22) in ye %7.0g "    -"   _col(33) %7.0g "    -"    _col(43) %5.4f scalar(tau_bc/se_tau_rb) _col(52) %5.3f  scalar(2*normal(-abs(tau_bc/se_tau_rb)))  _col(60) %8.0g scalar(tau_bc - quant*se_tau_rb) _col(73) %8.0g scalar(tau_bc + quant*se_tau_rb) 
-	}
-	else {
+		
+	if ("`all'"!="") {
+		disp in smcl in gr "{ralign 18:Method}"         _col(19) " {c |} " _col(24) "Coef."               _col(33) `"Std. Err."'    _col(46) "z"                    _col(52) "P>|z|"                                  _col(61) `"[`level'% Conf. Interval]"'
+		disp in smcl in gr "{hline 19}{c +}{hline 60}"
 		disp in smcl in gr "{ralign 18:Conventional}"   _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_cl)    _col(33) %7.0g scalar(se_tau_cl) _col(43) %5.4f scalar(tau_cl/se_tau_cl) _col(52) %5.3f  scalar(2*normal(-abs(tau_cl/se_tau_cl))) _col(60) %8.0g  scalar(tau_cl - quant*se_tau_cl) _col(73) %8.0g scalar(tau_cl + quant*se_tau_cl)  
 		disp in smcl in gr "{ralign 18:Bias-corrected}" _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_bc)    _col(33) %7.0g scalar(se_tau_cl) _col(43) %5.4f scalar(tau_bc/se_tau_cl) _col(52) %5.3f  scalar(2*normal(-abs(tau_bc/se_tau_cl))) _col(60) %8.0g  scalar(tau_bc - quant*se_tau_cl) _col(73) %8.0g scalar(tau_bc + quant*se_tau_cl)  
 		disp in smcl in gr "{ralign 18:Robust}"         _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_bc)    _col(33) %7.0g scalar(se_tau_rb) _col(43) %5.4f scalar(tau_bc/se_tau_rb) _col(52) %5.3f  scalar(2*normal(-abs(tau_bc/se_tau_rb))) _col(60) %8.0g  scalar(tau_bc - quant*se_tau_rb) _col(73) %8.0g scalar(tau_bc + quant*se_tau_rb)  
+	}
+	else if ("`detail'"!="") {
+		disp in smcl in gr "{ralign 18:Method}"         _col(19) " {c |} " _col(24) "Coef."               _col(33) `"Std. Err."'    _col(46) "z"                    _col(52) "P>|z|"                                  _col(61) `"[`level'% Conf. Interval]"'
+		disp in smcl in gr "{hline 19}{c +}{hline 60}"
+		disp in smcl in gr "{ralign 18:Conventional}"   _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_cl)    _col(33) %7.0g scalar(se_tau_cl)  _col(43) %5.4f scalar(tau_cl/se_tau_cl) _col(52) %5.3f  scalar(2*normal(-abs(tau_cl/se_tau_cl)))  _col(60) %8.0g scalar(tau_cl - quant*se_tau_cl) _col(73) %8.0g scalar(tau_cl + quant*se_tau_cl) 
+		disp in smcl in gr "{ralign 18:Robust}"         _col(19) " {c |} " _col(22) in ye %7.0g "    -"           _col(33) %7.0g "    -"            _col(43) %5.4f scalar(tau_bc/se_tau_rb) _col(52) %5.3f  scalar(2*normal(-abs(tau_bc/se_tau_rb)))  _col(60) %8.0g scalar(tau_bc - quant*se_tau_rb) _col(73) %8.0g scalar(tau_bc + quant*se_tau_rb) 
+	} 
+	else {
+*		disp in smcl in gr "{ralign 18:}"                   _col(19) " {c |} " _col(22) "Estimate"     _col(35) "P>|z|"     _col(47)   `"[`level'% Robust CI]"'
+*		disp in smcl in gr "{hline 19}{c +}{hline 60}"
+*		disp in smcl in gr "{ralign 18:RD Effect}"   _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_cl)    _col(35)   %5.3f  scalar(2*normal(-abs(tau_bc/se_tau_rb)))   _col(45) %8.0g scalar(tau_bc - quant*se_tau_rb)   _col(55)  %8.0g scalar(tau_bc + quant*se_tau_rb) 
+*		disp in smcl in gr "{hline 19}{c BT}{hline 60}"
+*		disp ""
+*		disp ""
+		*disp in smcl in gr "{hline 19}{c TT}{hline 60}"
+		disp in smcl in gr "{ralign 18:}"                   _col(19) " {c |} " _col(22) "Point"    _col(35) " {c |} "    "Robust Inference" 
+		disp in smcl in gr "{ralign 18:}"                   _col(19) " {c |} " _col(22) "Estimate" _col(35) " {c |} "    "z-stat"       _col(52) "P>|z|"    _col(61) `"[`level'% Conf. Interval]"'
+		disp in smcl in gr "{hline 19}{c +}{hline 60}"
+		disp in smcl in gr "{ralign 18:RD Effect}"          _col(19) " {c |} " _col(22) in ye %7.0g scalar(tau_cl) _col(35) " {c |} "   %5.4f scalar(tau_bc/se_tau_rb)   _col(52) %5.3f scalar(2*normal(-abs(tau_bc/se_tau_rb))) _col(61) %8.0g scalar(tau_bc - quant*se_tau_rb)  _col(73) %8.0g scalar(tau_bc + quant*se_tau_rb) 
+		
 	}
 		disp in smcl in gr "{hline 19}{c BT}{hline 60}"
 

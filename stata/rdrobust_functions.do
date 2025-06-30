@@ -2,8 +2,7 @@
 * RDROBUST STATA PACKAGE -- rdrobust_functions
 * Authors: Sebastian Calonico, Matias D. Cattaneo, Max Farrell, Rocio Tititunik
 ********************************************************************************
-*!version 9.2.0  2023-11-03
-
+*!version 10.0.0  2025-06-30
    
 capture mata mata drop rdrobust_res()
 mata
@@ -240,7 +239,7 @@ real matrix rdrobust_vce(real scalar d, real matrix s, real matrix RX, real matr
 		res_o = res[ind,]
 		info  = panelsetup(C_o,1)
 		g     = rows(info)
-		w=((n-1)/(n-k))*(g/(g-1))
+		w = ((n-1) / (n-k)) * (g / (g-1))
 		if (d==0){
 			for (i=1; i<=g; i++) {
 				Xi = panelsubmatrix(RX_o,  i, info)
@@ -275,17 +274,21 @@ real colvector rdrobust_groupid(real colvector x, real vector at)
         real colvector result, p
         result = J(rows(x),1,.)
         j = length(at)
-                for (i=rows(x); i>0; i--) {
+		
+        for (i=rows(x); i>0; i--) {
                         if (x[i]>=.) continue
-                        for (; j>0; j--) {
-                                if (at[j]<=x[i]) break
-                        }
-                        if (j>0) result[i,1] = j
-                }
-                return(result)
+         
+			for (; j>0; j--) {
+				if (at[j]<=x[i]) break
+			}
+            if (j>0) result[i,1] = j
+        }
+		
+        return(result)
 }
 mata mosave rdrobust_groupid(), replace 
 end
+
 
 capture mata mata drop rdrobust_median()
 mata
@@ -316,12 +319,14 @@ real matrix rdrobust_collapse(real matrix x, real colvector id)
 	g     = rows(info)
 	mean = J(g,2,.)
 	var  = J(g,1,.)
-		for (i=1; i<=g; i++) {
-				Xi       = panelsubmatrix(x,  i, info)
-				mean[i,] = mean(Xi)
-				var[i]   = variance(Xi[,2])
-		}
-		nobs =  (info[,2]-info[,1]):+1
+	
+	for (i=1; i<=g; i++) {
+			Xi       = panelsubmatrix(x,  i, info)
+			mean[i,] = mean(Xi)
+			var[i]   = variance(Xi[,2])
+	}
+		
+		nobs =  (info[,2]-info[,1]) :+ 1
 		result = nobs, mean, var	
 		return(result)  		
 }	

@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 9.2.0  2023-11-03}{...}
+{* *!version 10.0.0  2025-06-30}{...}
 {viewerjumpto "Syntax" "rdplot##syntax"}{...}
 {viewerjumpto "Description" "rdplot##description"}{...}
 {viewerjumpto "Options" "rdplot##options"}{...}
@@ -207,8 +207,8 @@ Default is {cmd:kernel(uniform)} (i.e., equal/no weighting to all observations o
 {marker authors}{...}
 {title:Authors}
 
-{p 4 8}Sebastian Calonico, Columbia University, New York, NY.
-{browse "mailto:sebastian.calonico@columbia.edu":sebastian.calonico@columbia.edu}.{p_end}
+{p 4 8}Sebastian Calonico, University of California, Davis, CA.
+{browse "mailto:scalonico@ucdavis.edu":scalonico@ucdavis.edu}.{p_end}
 
 {p 4 8}Matias D. Cattaneo, Princeton University, Princeton, NJ.
 {browse "mailto:cattaneo@princeton.edu":cattaneo@princeton.edu}.{p_end}

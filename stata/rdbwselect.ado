@@ -2,8 +2,7 @@
 * RDROBUST STATA PACKAGE -- rdbwselect
 * Authors: Sebastian Calonico, Matias D. Cattaneo, Max Farrell, Rocio Tititunik
 ********************************************************************************
-*!version 9.2.0  2023-11-03
-
+*!version 10.0.0  2025-06-30
 
 capture program drop rdbwselect
 program define rdbwselect, eclass
@@ -231,7 +230,12 @@ program define rdbwselect, eclass
 		}
 	}	
 	
-
+	
+	
+	
+	
+	
+*************************************************************************************************************************************
 	mata{
 	c = `c'
 	p = `p'
@@ -423,6 +427,8 @@ program define rdbwselect, eclass
 	}	
 	
 	
+	mat_h   = J(1, 2, .)
+	mat_b   = J(1, 2, .)
 	
 	if (C_b_l[1]==0 | C_b_l[2]==0 | C_b_r[1]==0 | C_b_r[2]==0 |C_b_l[1]==. | C_b_l[2]==. | C_b_l[3]==. | C_b_r[1]==. | C_b_r[2]==. | C_b_r[3]==.) printf("{err}Not enough variability to compute the bias bandwidth (b). Try checking for mass points with option {cmd:masspoints(check)}. \n")  
 	if (C_h_l[1]==0 | C_h_l[2]==0 | C_h_r[1]==0 | C_h_r[2]==0 |C_h_l[1]==. | C_h_l[2]==. | C_h_l[3]==. | C_h_r[1]==. | C_h_r[2]==. | C_h_r[3]==.) printf("{err}Not enough variability to compute the loc. poly. bandwidth (h). Try checking for mass points with option {cmd:masspoints(check)}.\n") 
@@ -440,11 +446,20 @@ program define rdbwselect, eclass
 		h_mserd = x_sd*h_bw_d
 		b_mserd = x_sd*b_bw_d
 		st_numscalar("h_mserd", h_mserd); st_numscalar("b_mserd", b_mserd)
+		mat_h[1, 1] = h_mserd
+		mat_h[1, 2] = h_mserd
+		mat_b[1, 1] = b_mserd
+		mat_b[1, 2] = b_mserd
+		
 	}	
 	if  ("`bwselect'"=="msesum" | "`bwselect'"=="cersum" |  "`bwselect'"=="msecomb1" | "`bwselect'"=="msecomb2" |  "`bwselect'"=="cercomb1" | "`bwselect'"=="cercomb2"  |  "`all'"!="")  {
 		h_msesum = x_sd*h_bw_s
 		b_msesum = x_sd*b_bw_s
 		st_numscalar("h_msesum", h_msesum); st_numscalar("b_msesum", b_msesum)
+		mat_h[1, 1] = h_msesum
+		mat_h[1, 2] = h_msesum
+		mat_b[1, 1] = b_msesum
+		mat_b[1, 2] = b_msesum
 		}
 	if  ("`bwselect'"=="msetwo" |  "`bwselect'"=="certwo" | "`bwselect'"=="msecomb2" | "`bwselect'"=="cercomb2"  | "`all'"!="")  {		
 		h_msetwo_l = x_sd*h_bw_l
@@ -453,11 +468,19 @@ program define rdbwselect, eclass
 		b_msetwo_r = x_sd*b_bw_r
 		st_numscalar("h_msetwo_l", h_msetwo_l); st_numscalar("h_msetwo_r", h_msetwo_r)
 		st_numscalar("b_msetwo_l", b_msetwo_l); st_numscalar("b_msetwo_r", b_msetwo_r)
+		mat_h[1, 1] = h_msetwo_l
+		mat_h[1, 2] = h_msetwo_r
+		mat_b[1, 1] = b_msetwo_l
+		mat_b[1, 2] = b_msetwo_r		
 		}
 	if  ("`bwselect'"=="msecomb1" | "`bwselect'"=="cercomb1" | "`all'"!="" ) {
 		h_msecomb1 = min((h_mserd,h_msesum))
 		b_msecomb1 = min((b_mserd,b_msesum))
 		st_numscalar("h_msecomb1", h_msecomb1);  st_numscalar("b_msecomb1", b_msecomb1) 
+		mat_h[1, 1] = h_msecomb1
+		mat_h[1, 2] = h_msecomb1
+		mat_b[1, 1] = b_msecomb1
+		mat_b[1, 2] = b_msecomb1
 		}
 	if  ("`bwselect'"=="msecomb2" | "`bwselect'"=="cercomb2" |  "`all'"!="" ) {
 		h_msecomb2_l = (sort((h_mserd,h_msesum,h_msetwo_l)',1))[2]
@@ -466,6 +489,10 @@ program define rdbwselect, eclass
 		b_msecomb2_r = (sort((b_mserd,b_msesum,b_msetwo_r)',1))[2]
 		st_numscalar("h_msecomb2_l", h_msecomb2_l); st_numscalar("h_msecomb2_r", h_msecomb2_r);
 		st_numscalar("b_msecomb2_l", b_msecomb2_l); st_numscalar("b_msecomb2_r", b_msecomb2_r);
+		mat_h[1, 1] = h_msecomb2_l
+		mat_h[1, 2] = h_msecomb2_r
+		mat_b[1, 1] = b_msecomb2_l
+		mat_b[1, 2] = b_msecomb2_r
 	}
 	
 	cer_h = N^(-(`p'/((3+`p')*(3+2*`p'))))
@@ -476,11 +503,19 @@ program define rdbwselect, eclass
 		h_cerrd = h_mserd*cer_h
 		b_cerrd = b_mserd*cer_b
 		st_numscalar("h_cerrd", h_cerrd); st_numscalar("b_cerrd", b_cerrd)
+		mat_h[1, 1] = h_cerrd
+		mat_h[1, 2] = h_cerrd
+		mat_b[1, 1] = b_cerrd
+		mat_b[1, 2] = b_cerrd
 		}
 	if  ("`bwselect'"=="cersum" | "`all'"!="" ){
 		h_cersum = h_msesum*cer_h
 		b_cersum=  b_msesum*cer_b
 		st_numscalar("h_cersum", h_cersum); st_numscalar("b_cersum", b_cersum)
+		mat_h[1, 1] = h_cersum
+		mat_h[1, 2] = h_cersum
+		mat_b[1, 1] = b_cersum
+		mat_b[1, 2] = b_cersum
 		}
 	if  ("`bwselect'"=="certwo" | "`all'"!="" ){
 		h_certwo_l   = h_msetwo_l*cer_h
@@ -489,11 +524,19 @@ program define rdbwselect, eclass
 		b_certwo_r   = b_msetwo_r*cer_b
 		st_numscalar("h_certwo_l", h_certwo_l); st_numscalar("h_certwo_r", h_certwo_r);
 		st_numscalar("b_certwo_l", b_certwo_l); st_numscalar("b_certwo_r", b_certwo_r);
+		mat_h[1, 1] = h_cersum
+		mat_h[1, 2] = h_cersum
+		mat_b[1, 1] = b_cersum
+		mat_b[1, 2] = b_cersum
 		}
 	if  ("`bwselect'"=="cercomb1" | "`all'"!="" ){
 		h_cercomb1 = h_msecomb1*cer_h
 		b_cercomb1 = b_msecomb1*cer_b
 		st_numscalar("h_cercomb1", h_cercomb1);	st_numscalar("b_cercomb1", b_cercomb1)
+		mat_h[1, 1] = h_cercomb1
+		mat_h[1, 2] = h_cercomb1
+		mat_b[1, 1] = b_cercomb1
+		mat_b[1, 2] = b_cercomb1
 		}
 	if  ("`bwselect'"=="cercomb2" | "`all'"!="" ){
 		h_cercomb2_l = h_msecomb2_l*cer_h
@@ -502,8 +545,21 @@ program define rdbwselect, eclass
 		b_cercomb2_r = b_msecomb2_r*cer_b
 		st_numscalar("h_cercomb2_l", h_cercomb2_l); st_numscalar("h_cercomb2_r", h_cercomb2_r);
 		st_numscalar("b_cercomb2_l", b_cercomb2_l); st_numscalar("b_cercomb2_r", b_cercomb2_r);
-	}	
+		mat_h[1, 1] = h_cercomb2_l
+		mat_h[1, 2] = h_cercomb2_r
+		mat_b[1, 1] = b_cercomb2_l
+		mat_b[1, 2] = b_cercomb2_r
+	}
+	
+	
+		st_matrix("mat_h", mat_h)
+		st_matrix("mat_b", mat_b)
+
 }
+* close mata
+
+
+
 
 	*******************************************************************************
 	disp ""
@@ -611,6 +667,9 @@ program define rdbwselect, eclass
 	ereturn local depvar "`y'"
 	ereturn local cmd "rdbwselect"
 
+	ereturn matrix mat_h = mat_h
+	ereturn matrix mat_b = mat_b
+	
 	if  ("`bwselect'"=="mserd" | "`bwselect'"=="" | "`all'"!="" ) {
 		ereturn scalar h_mserd = scalar(h_mserd)
 		ereturn scalar b_mserd = scalar(b_mserd)

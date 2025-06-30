@@ -42,7 +42,7 @@
 {title:Description}
 
 {p 4 8}{cmd:rdbwselect_2014} is a deprecated command implementing three bandwidth selectors for local polynomial Regression Discontinuity (RD) point estimators and inference procedures, as described in
-{browse "https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Titiunik_2014_Stata.pdf":Calonico, Cattaneo and Titiunik (2014)}.
+{browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Titiunik_2014_Stata.pdf":Calonico, Cattaneo and Titiunik (2014a)}.
 This command is no longer supported or updated, and it is made available only for backward compatibility purposes.{p_end}
 {p 8 8}This command uses compiled MATA functions given in
 {it:rdbwselect_2014_functions.do}.{p_end}
@@ -53,7 +53,7 @@ This command is no longer supported or updated, and it is made available only fo
 {p 8 8}{help rdplot:rdplot} for data-driven RD plots.{p_end}
 
 {p 4 8}For more details, and related Stata and R packages useful for analysis of RD designs, visit:
-{browse "https://sites.google.com/site/rdpackages/"}{p_end}
+{browse "https://rdpackages.github.io/"}{p_end}
 
 
 {marker options}{...}
@@ -78,7 +78,7 @@ Default is {opt triangular}.
 
 {p 4 8}{cmd:bwselect(}{it:bwmethod}{cmd:)} specifies the bandwidth selection procedure to be used. By default it computes both {it:h} and {it:b}, unless {it:rho} is specified, in which case it only computes {it:h} and sets {it:b}={it:h}/{it:rho}.
 Options are:{p_end}
-{p 8 12}{opt CCT} for bandwidth selector proposed by Calonico, Cattaneo and Titiunik (2014a). This is the default option.{p_end}
+{p 8 12}{opt CCT} for bandwidth selector proposed by {browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Titiunik_2014_ECMA.pdf":Calonico, Cattaneo and Titiunik (2014b)}. This is the default option.{p_end}
 {p 8 12}{opt IK} for bandwidth selector proposed by Imbens and Kalyanaraman (2012) (only available for Sharp RD design).{p_end}
 {p 8 12}{opt CV} for cross-validation method proposed by Ludwig and Miller (2007) (only available for Sharp RD design).{p_end}
 
@@ -104,30 +104,32 @@ Options are:{p_end}
 {p 4 8}{cmd:matches(}{it:#}{cmd:)} specifies the number of matches in the nearest-neighbor based variance-covariance matrix estimator. This option is used only when nearest-neighbor matches residuals are employed.
 Default is {cmd:matches(3)}.
 
-{p 4 8}{cmd:all} if specified, {cmd:rdbwselect} reports three different procedures:{p_end}
-{p 8 12}{opt CCT} for bandwidth selector proposed by Calonico, Cattaneo and Titiunik (2014).{p_end}
-{p 8 12}{opt IK} for bandwidth selector proposed by Imbens and Kalyanaraman (2012).{p_end}
-{p 8 12}{opt CV} for cross-validation method proposed by Ludwig and Miller (2007).{p_end}
+{p 4 8}{cmd:all} if specified, {cmd:rdbwselect} reports all three available procedures: {opt CCT}, {opt IK}, and {opt CV}{p_end}
+
 	
     {hline}
 
 	
 {title:References}
 
-{p 4 8}Calonico, S., Cattaneo, M. D., and R. Titiunik. 2014. Robust Data-Driven Inference in the Regression-Discontinuity Design. {it:Stata Journal} 14(4): 909-946. 
-{browse "https://sites.google.com/site/rdpackages/rdrobust/Calonico-Cattaneo-Titiunik_2014_Stata.pdf"}.
+{p 4 8}Calonico, S., M. D. Cattaneo, and R. Titiunik. 2014a.
+{browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Titiunik_2014_Stata.pdf":Robust Data-Driven Inference in the Regression-Discontinuity Design}.
+{it:Stata Journal} 14(4): 909-946.{p_end}
 
+{p 4 8}Calonico, S., M. D. Cattaneo, and R. Titiunik. 2014b.
+{browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Titiunik_2014_ECMA.pdf":Robust Nonparametric Confidence Intervals for Regression-Discontinuity Designs}.
+{it:Econometrica} 82(6): 2295-2326.{p_end}
 
 {title:Authors}
 
-{p 4 8}Sebastian Calonico, Columbia University, New York, NY.
-{browse "mailto:sebastian.calonico@columbia.edu":sebastian.calonico@columbia.edu}.{p_end}
+{p 4 8}Sebastian Calonico, University of California, Davis, CA.
+{browse "mailto:scalonico@ucdavis.edu":scalonico@ucdavis.edu}.{p_end}
 
 {p 4 8}Matias D. Cattaneo, Princeton University, Princeton, NJ.
 {browse "mailto:cattaneo@princeton.edu":cattaneo@princeton.edu}.{p_end}
 
-{p 4 8}Max H. Farrell, University of Chicago, Chicago, IL.
-{browse "mailto:max.farrell@chicagobooth.edu":max.farrell@chicagobooth.edu}.{p_end}
+{p 4 8}Max H. Farrell, University of California, Santa Barbara, CA.
+{browse "mailto:maxhfarrell@ucsb.edu":maxhfarrell@ucsb.edu}.{p_end}
 
 {p 4 8}Rocio Titiunik, Princeton University, Princeton, NJ.
 {browse "mailto:titiunik@princeton.edu":titiunik@princeton.edu}.{p_end}

@@ -2,7 +2,7 @@
 * RDROBUST STATA PACKAGE -- rdplot
 * Authors: Sebastian Calonico, Matias D. Cattaneo, Max Farrell, Rocio Tititunik
 ********************************************************************************
-*!version 9.2.0  2023-11-03
+*!version 10.0.0  2025-06-30
 
 capture program drop rdplot
 program define rdplot, eclass
@@ -818,7 +818,7 @@ if  ("`covs_eval'"=="mean" & "`covs'"!="") {
 				(scatter rdplot_mean_y rdplot_mean_bin, sort msize(small)  mcolor(gs10)) ///
 				(line y_plot_l x_plot_l, lcolor(black) sort lwidth(medthin) lpattern(solid)) ///
 				(line y_plot_r x_plot_r, lcolor(black) sort lwidth(medthin) lpattern(solid)) ,  ///
-				xline(`c', lcolor(black) lwidth(medthin)) xscale(r(`x_min' `x_max')) legend(pos(6) cols(2) order(2 "Sample average within bin" 3 "Polynomial fit of order `p'" )) `graph_options'
+				xline(`c', lcolor(black) lwidth(medthin)) xscale(r(`x_min' `x_max')) legend(pos(6) cols(2) order(3 "Sample average within bin" 4 "Polynomial fit of order `p'" )) `graph_options'
 			}						
 		}
 	}
