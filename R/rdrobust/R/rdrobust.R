@@ -4,8 +4,8 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
                     kernel = "tri", weights = NULL, bwselect = "mserd",
                     vce = "nn", cluster = NULL, nnmatch = 3, level = 95, 
                     scalepar = 1, scaleregul = 1, sharpbw = FALSE, 
-                    all = NULL, subset = NULL, masspoints = "adjust",
-                    bwcheck = NULL, bwrestrict=TRUE, stdvars=FALSE) {
+                    detail = NULL, all = NULL, subset = NULL, masspoints = "adjust",
+                    bwcheck = NULL, bwrestrict = TRUE, stdvars = FALSE) {
  
   #print("Start Code")
   #start_time <- Sys.time()
@@ -53,9 +53,10 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   } 
   
   if (!is.null(covs)){
-    if (!is.null(subset))  covs <- subset(covs,subset)
+    #if (!is.null(subset))  covs <- subset(covs,subset)
+    if (!is.null(subset)) covs <- covs[subset, ,drop=FALSE]
     na.ok <- na.ok & complete.cases(covs)
-  } 
+    } 
   
   if (!is.null(fuzzy)){
     if (!is.null(subset)) fuzzy <- fuzzy[subset]
@@ -75,12 +76,12 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   if (!is.null(cluster)) cluster = as.matrix(cluster[na.ok])
   if (!is.null(weights)) weights = as.matrix(weights[na.ok])
   
-  if (is.null(masspoints)) masspoints=FALSE
+  if (is.null(masspoints)) masspoints <- FALSE
 
   if (vce=="nn" | masspoints=="check" |masspoints=="adjust") {
-    order_x = order(x)
-    x = x[order_x,,drop=FALSE]
-    y = y[order_x,,drop=FALSE]
+    order_x <- order(x)
+    x <- x[order_x,,drop=FALSE]
+    y <- y[order_x,,drop=FALSE]
     if (!is.null(covs))    covs    =  as.matrix(covs)[order_x,,drop=FALSE]
     if (!is.null(fuzzy))   fuzzy   =   fuzzy[order_x,,drop=FALSE]
     if (!is.null(cluster)) cluster = cluster[order_x,,drop=FALSE]
@@ -109,9 +110,9 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
     }
   }
   
-  kernel   = tolower(kernel)
-  bwselect = tolower(bwselect)
-  vce      = tolower(vce)
+  kernel   <- tolower(kernel)
+  bwselect <- tolower(bwselect)
+  vce      <- tolower(vce)
   
   if (is.null(h)) {
     x_iq = quantile(x,.75,type=2) - quantile(x,.25,type=2)
@@ -709,26 +710,30 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   #print("Computing variance-covariance matrix.")
   #start_time <- Sys.time()
 
-  hii_l = hii_r = predicts_p_l = predicts_p_r = predicts_q_l = predicts_q_r = 0
+  hii_p_l = hii_p_r = hii_q_l = hii_q_r = predicts_p_l = predicts_p_r = predicts_q_l = predicts_q_r = 0
   if (vce=="hc0" | vce=="hc1" | vce=="hc2" | vce=="hc3") {
-    predicts_p_l=R_p_l%*%beta_p_l
-    predicts_p_r=R_p_r%*%beta_p_r
-    predicts_q_l=R_q_l%*%beta_q_l
-    predicts_q_r=R_q_r%*%beta_q_r
+    predicts_p_l = R_p_l%*%beta_p_l
+    predicts_p_r = R_p_r%*%beta_p_r
+    predicts_q_l = R_q_l%*%beta_q_l
+    predicts_q_r = R_q_r%*%beta_q_r
+    
     if (vce=="hc2" | vce=="hc3") {
-      hii_l = rowSums((R_p_l%*%invG_p_l)*(R_p_l*W_h_l))
-      hii_r = rowSums((R_p_r%*%invG_p_r)*(R_p_r*W_h_r))
+      hii_p_l = rowSums((R_p_l%*%invG_p_l)*(R_p_l*W_h_l))
+      hii_p_r = rowSums((R_p_r%*%invG_p_r)*(R_p_r*W_h_r))
+      
+      hii_q_l = rowSums((R_q_l%*%invG_q_l)*(R_q_l*W_b_l))
+      hii_q_r = rowSums((R_q_r%*%invG_q_r)*(R_q_r*W_b_r))
     }
   }
   
-	res_h_l = rdrobust_res(eX_l, eY_l, eT_l, eZ_l, predicts_p_l, hii_l, vce, nnmatch, edups_l, edupsid_l, p+1)
-	res_h_r = rdrobust_res(eX_r, eY_r, eT_r, eZ_r, predicts_p_r, hii_r, vce, nnmatch, edups_r, edupsid_r, p+1)
+	res_h_l = rdrobust_res(eX_l, eY_l, eT_l, eZ_l, predicts_p_l, hii_p_l, vce, nnmatch, edups_l, edupsid_l, p+1)
+	res_h_r = rdrobust_res(eX_r, eY_r, eT_r, eZ_r, predicts_p_r, hii_p_r, vce, nnmatch, edups_r, edupsid_r, p+1)
 
 		if (vce=="nn") {
 			res_b_l = res_h_l;	res_b_r = res_h_r
 	} 	else {
-			res_b_l = rdrobust_res(eX_l, eY_l, eT_l, eZ_l, predicts_q_l, hii_l, vce, nnmatch, edups_l, edupsid_l, q+1)
-			res_b_r = rdrobust_res(eX_r, eY_r, eT_r, eZ_r, predicts_q_r, hii_r, vce, nnmatch, edups_r, edupsid_r, q+1)
+			res_b_l = rdrobust_res(eX_l, eY_l, eT_l, eZ_l, predicts_q_l, hii_q_l, vce, nnmatch, edups_l, edupsid_l, q+1)
+			res_b_r = rdrobust_res(eX_r, eY_r, eT_r, eZ_r, predicts_q_r, hii_q_r, vce, nnmatch, edups_r, edupsid_r, q+1)
   }
 			                       
 	V_Y_cl_l = invG_p_l%*%rdrobust_vce(dT+dZ, s_Y, as.matrix(R_p_l*W_h_l), res_h_l, eC_l)%*%invG_p_l
@@ -821,23 +826,23 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   Estimate[1,] <- c(tau_cl,tau_bc, se_tau_cl, se_tau_rb) 
 
   if (is.null(fuzzy)) { 
-  out=list(Estimate=Estimate, bws=bws, coef=coef, se=se, z=z, pv=pv, ci=ci,
-           beta_Y_p_l = beta_Y_p_l, beta_Y_p_r= beta_Y_p_r,
+  out <- list(Estimate = Estimate, bws = bws, coef = coef, se = se, z = z, pv = pv, ci = ci,
+           beta_Y_p_l = beta_Y_p_l, beta_Y_p_r = beta_Y_p_r,
            V_cl_l=V_Y_cl_l, V_cl_r=V_Y_cl_r, V_rb_l=V_Y_rb_l, V_rb_r=V_Y_rb_r,
            N=c(N_l,N_r), N_h=c(N_h_l,N_h_r), N_b=c(N_b_l,N_b_r), M=c(M_l,M_r),
            tau_cl=c(tau_Y_cl_l,tau_Y_cl_r), tau_bc=c(tau_Y_bc_l,tau_Y_bc_r),
-           c=c, p=p, q=q, bias=c(bias_l,bias_r), kernel=kernel_type, all=all,
+           c=c, p=p, q=q, bias=c(bias_l,bias_r), kernel=kernel_type, detail=detail, all=all,
            vce=vce_type, bwselect=bwselect, level=level, masspoints=masspoints,
            rdmodel=rdmodel, beta_covs=gamma_p)
   } else {  
-    out=list(Estimate=Estimate, bws=bws, coef=coef, se=se, z=z, pv=pv, ci=ci,
-             beta_Y_p_l = beta_Y_p_l, beta_Y_p_r= beta_Y_p_r,
-             beta_T_p_l = beta_T_p_l, beta_T_p_r= beta_T_p_r,
+    out <- list(Estimate = Estimate, bws = bws, coef = coef, se = se, z = z, pv = pv, ci = ci,
+             beta_Y_p_l = beta_Y_p_l, beta_Y_p_r = beta_Y_p_r,
+             beta_T_p_l = beta_T_p_l, beta_T_p_r = beta_T_p_r,
              tau_T = tau_T, se_T  = se_T, t_T   = t_T, pv_T  = pv_T, ci_T  = ci_T,
              V_cl_l=V_Y_cl_l, V_cl_r=V_Y_cl_r, V_rb_l=V_Y_rb_l, V_rb_r=V_Y_rb_r,
              N=c(N_l,N_r), N_h=c(N_h_l,N_h_r), N_b=c(N_b_l,N_b_r), M=c(M_l,M_r),
              tau_cl=c(tau_Y_cl_l,tau_Y_cl_r), tau_bc=c(tau_Y_bc_l,tau_Y_bc_r),
-             c=c, p=p, q=q, bias=c(bias_l,bias_r), kernel=kernel_type, all=all,
+             c=c, p=p, q=q, bias=c(bias_l,bias_r), kernel=kernel_type, detail=detail, all=all,
              vce=vce_type, bwselect=bwselect, level=level, masspoints=masspoints,
              rdmodel=rdmodel, beta_covs=gamma_p)
     }
@@ -892,7 +897,6 @@ summary.rdrobust <- function(object,...) {
   cat("\n")
 
   ### compute CI
-  #z    <- qnorm(100 - level / 2)
   z <- -qnorm(abs((1-(x$level/100))/2))
   
   CI_us_l <- x$Estimate[, "tau.us"] - x$Estimate[, "se.us"] * z;
@@ -917,7 +921,12 @@ summary.rdrobust <- function(object,...) {
     cat(paste("","\n", sep=""))    
     
     ### print output
-    cat(paste(rep("=", 14 + 10 + 8 + 10 + 10 + 25), collapse="")); cat("\n")
+
+    if (!is.null(x$detail) | !is.null(x$all)) {
+    
+    llength = 14 + 10 + 8 + 10 + 10 +  25
+    
+    cat(paste(rep("=", llength), collapse="")); cat("\n")
     
     cat(format("Method"          , width=14, justify="right"))
     cat(format("Coef."           , width=10, justify="right"))
@@ -927,8 +936,39 @@ summary.rdrobust <- function(object,...) {
     cat(format(paste("[ ", x$level, "%", " C.I. ]", sep=""), width=25, justify="centre"))
     cat("\n")
     
-    cat(paste(rep("=", 14 + 10 + 8 + 10 + 10 + 25), collapse="")); cat("\n")
+    cat(paste(rep("=", llength), collapse="")); cat("\n")
+    } else {
+      
+      llength = 14 + 10  + 10 + 10 + 25
+      
+      cat(paste(rep("=", llength), collapse="")); cat("\n")
+      
+      cat(format(""          , width=14, justify="right"))
+      cat(format("Point"           , width=10, justify="right"))
+      cat(format("Robust Inference"               , width=20, justify="right"))
+      cat("\n")
+      
+      cat(format(""          , width=14, justify="right"))
+      cat(format("Estimate"           , width=10, justify="right"))
+      cat(format("z"               , width=10, justify="right"))
+      cat(format("P>|z|"           , width=10, justify="right"))
+      cat(format(paste("[ ", x$level, "%", " C.I. ]", sep=""), width=25, justify="centre"))
+      cat("\n")
+      
+      cat(paste(rep("=", llength), collapse="")); cat("\n")
     
+    
+      cat(format("Rd Effect", width=14, justify="right"))
+      cat(format(      sprintf("%3.3f", x$tau_T[1]) , width=10, justify="right"))
+      cat(format(sprintf("%3.3f", x$t_T[3]) , width=10, justify="right"))
+      cat(format(sprintf("%3.3f", x$pv_T[3]), width=10, justify="right"))
+      cat(format(paste("[", sprintf("%3.3f", x$ci_T[3,1]), " , ", sep="")  , width=14, justify="right"))
+      cat(format(paste(sprintf("%3.3f", x$ci_T[3,2]), "]", sep=""), width=11, justify="left"))
+     cat("\n")
+    }
+    
+    if (!is.null(x$detail)) {
+        
     cat(format("Conventional", width=14, justify="right"))
     cat(format(      sprintf("%3.3f", x$tau_T[1]) , width=10, justify="right"))
     cat(format(paste(sprintf("%3.3f", x$se_T[1]), sep=""), width=10, justify="right"))
@@ -937,8 +977,8 @@ summary.rdrobust <- function(object,...) {
     cat(format(paste("[", sprintf("%3.3f", x$ci_T[1,1]), " , ", sep="")  , width=14, justify="right"))
     cat(format(paste(     sprintf("%3.3f", x$ci_T[1,2]), "]", sep=""), width=11, justify="left"))
     cat("\n")
-    
-    if (is.null(x$all)) {
+
+        
       cat(format("Robust", width=14, justify="right"))
       cat(format("-", width=10, justify="right"))
       cat(format("-", width=10, justify="right"))
@@ -947,7 +987,19 @@ summary.rdrobust <- function(object,...) {
       cat(format(paste("[", sprintf("%3.3f", x$ci_T[3,1]), " , ", sep="")  , width=14, justify="right"))
       cat(format(paste(sprintf("%3.3f", x$ci_T[3,2]), "]", sep=""), width=11, justify="left"))
       cat("\n") 
-    } else {
+      }
+      
+    if (!is.null(x$all)) {
+      
+      cat(format("Conventional", width=14, justify="right"))
+      cat(format(      sprintf("%3.3f", x$tau_T[1]) , width=10, justify="right"))
+      cat(format(paste(sprintf("%3.3f", x$se_T[1]), sep=""), width=10, justify="right"))
+      cat(format(      sprintf("%3.3f", x$t_T[1]) , width=10, justify="right"))
+      cat(format(      sprintf("%3.3f", x$pv_T[1]), width=10, justify="right"))
+      cat(format(paste("[", sprintf("%3.3f", x$ci_T[1,1]), " , ", sep="")  , width=14, justify="right"))
+      cat(format(paste(     sprintf("%3.3f", x$ci_T[1,2]), "]", sep=""), width=11, justify="left"))
+      cat("\n")
+      
       cat(format("Bias-Corrected", width=14, justify="right"))
       cat(format(sprintf("%3.3f", x$tau_T[2]) , width=10, justify="right"))
       cat(format(paste(sprintf("%3.3f", x$se_T[2]), sep=""), width=10, justify="right"))
@@ -967,7 +1019,7 @@ summary.rdrobust <- function(object,...) {
       cat("\n")
     }
     
-    cat(paste(rep("=", 14 + 10 + 8 + 10 + 10 + 25), collapse="")); cat("\n")
+    cat(paste(rep("=", llength), collapse="")); cat("\n")
     
     cat(paste("","\n", sep="")) 
     cat(paste("Treatment effect estimates.","\n", sep=""))
@@ -975,18 +1027,53 @@ summary.rdrobust <- function(object,...) {
   }
   
   ### print output
-  cat(paste(rep("=", 14 + 10 + 8 + 10 + 10 + 25), collapse="")); cat("\n")
+  if (!is.null(x$detail) | !is.null(x$all)) {
+    
+    llength = 14 + 10 + 8 + 10 + 10 + 10 + 25
+    cat(paste(rep("=", llength), collapse="")); cat("\n")
+    
+    cat(format("Method"          , width=14, justify="right"))
+    cat(format("Coef."           , width=10, justify="right"))
+    cat(format("Std. Err."       , width=10 , justify="right"))
+    cat(format("z"               , width=10, justify="right"))
+    cat(format("P>|z|"           , width=10, justify="right"))
+    cat(format(paste("[ ", x$level, "%", " C.I. ]", sep=""), width=25, justify="centre"))
+    cat("\n")
+    
+    cat(paste(rep("=", llength), collapse="")); cat("\n")
+  } else {
+    
+    llength = 14 + 10 + 10+ 10+ 25
+    cat(paste(rep("=", llength), collapse="")); cat("\n")
+    
+    
+    cat(format(""          , width=14, justify="right"))
+    cat(format("Point"           , width=10, justify="right"))
+    cat(format("Robust Inference"               , width=20, justify="right"))
+    cat("\n")
+    
+    
+    cat(format(""               , width=14, justify="right"))
+    cat(format("Estimate"       , width=10, justify="right"))
+    cat(format("z"              , width=10, justify="right"))
+    cat(format("P>|z|"          , width=10, justify="right"))
+    cat(format(paste("[ ", x$level, "%", " C.I. ]", sep=""), width=25, justify="centre"))
+    cat("\n")
+    
+    cat(paste(rep("-", llength), collapse="")); cat("\n")
   
-  cat(format("Method"          , width=14, justify="right"))
-  cat(format("Coef."           , width=10, justify="right"))
-  cat(format("Std. Err."       , width=10 , justify="right"))
-  cat(format("z"               , width=10, justify="right"))
-  cat(format("P>|z|"           , width=10, justify="right"))
-  cat(format(paste("[ ", x$level, "%", " C.I. ]", sep=""), width=25, justify="centre"))
-  cat("\n")
-  
-  cat(paste(rep("=", 14 + 10 + 8 + 10 + 10 + 25), collapse="")); cat("\n")
-  
+    cat(format("RD Effect", width=14, justify="right"))
+    cat(format(sprintf("%3.3f", x$Estimate[1, "tau.us"]) , width=10, justify="right"))
+    cat(format(sprintf("%3.3f", t_rb) , width=10, justify="right"))
+    cat(format(sprintf("%3.3f", pv_rb), width=10, justify="right"))
+    cat(format(paste("[", sprintf("%3.3f", CI_rb_l[1]), " , ", sep="")  , width=14, justify="right"))
+    cat(format(paste(sprintf("%3.3f", CI_rb_r[1]), "]", sep=""), width=11, justify="left"))
+    cat("\n") 
+    
+  }
+    
+    if (!is.null(x$detail)) {
+      
     cat(format("Conventional", width=14, justify="right"))
     cat(format(sprintf("%3.3f", x$Estimate[1, "tau.us"]) , width=10, justify="right"))
     cat(format(paste(sprintf("%3.3f", x$Estimate[1, "se.us"]), sep=""), width=10, justify="right"))
@@ -995,19 +1082,29 @@ summary.rdrobust <- function(object,...) {
     cat(format(paste("[", sprintf("%3.3f", CI_us_l[1]), " , ", sep="")  , width=14, justify="right"))
     cat(format(paste(sprintf("%3.3f", CI_us_r[1]), "]", sep=""), width=11, justify="left"))
     cat("\n")
-    
-    if (is.null(x$all)) {
+  
       cat(format("Robust", width=14, justify="right"))
       cat(format("-", width=10, justify="right"))
       cat(format("-", width=10, justify="right"))
-      #cat(format(sprintf("%3.3f", x$Estimate[1, "tau.bc"]) , width=10, justify="right"))
-      #cat(format(paste(sprintf("%3.3f", x$Estimate[1, "se.rb"]), sep=""), width=10, justify="right"))
       cat(format(sprintf("%3.3f", t_rb) , width=10, justify="right"))
       cat(format(sprintf("%3.3f", pv_rb), width=10, justify="right"))
       cat(format(paste("[", sprintf("%3.3f", CI_rb_l[1]), " , ", sep="")  , width=14, justify="right"))
       cat(format(paste(sprintf("%3.3f", CI_rb_r[1]), "]", sep=""), width=11, justify="left"))
       cat("\n") 
-    } else {
+  
+    }      
+      
+      if (!is.null(x$all)) {
+        
+        cat(format("Conventional", width=14, justify="right"))
+        cat(format(sprintf("%3.3f", x$Estimate[1, "tau.us"]) , width=10, justify="right"))
+        cat(format(paste(sprintf("%3.3f", x$Estimate[1, "se.us"]), sep=""), width=10, justify="right"))
+        cat(format(sprintf("%3.3f", t_us) , width=10, justify="right"))
+        cat(format(sprintf("%3.3f", pv_us), width=10, justify="right"))
+        cat(format(paste("[", sprintf("%3.3f", CI_us_l[1]), " , ", sep="")  , width=14, justify="right"))
+        cat(format(paste(sprintf("%3.3f", CI_us_r[1]), "]", sep=""), width=11, justify="left"))
+        cat("\n")
+        
       cat(format("Bias-Corrected", width=14, justify="right"))
       cat(format(sprintf("%3.3f", x$Estimate[1, "tau.bc"]) , width=10, justify="right"))
       cat(format(paste(sprintf("%3.3f", x$Estimate[1, "se.us"]), sep=""), width=10, justify="right"))
@@ -1027,7 +1124,7 @@ summary.rdrobust <- function(object,...) {
       cat("\n")
     }
     
-  cat(paste(rep("=", 14 + 10 + 8 + 10 + 10 + 25), collapse="")); cat("\n")
+  cat(paste(rep("=", llength), collapse="")); cat("\n")
 }
 
 

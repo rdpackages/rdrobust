@@ -124,7 +124,7 @@ Calonico, S., M. D. Cattaneo, and R. Titiunik. 2015b. \href{https://rdpackages.g
 Cattaneo, M. D., B. Frandsen, and R. Titiunik. 2015. \href{https://rdpackages.github.io/references/Cattaneo-Frandsen-Titiunik_2015_JCI.pdf}{Randomization Inference in the Regression Discontinuity Design: An Application to the Study of Party Advantages in the U.S. Senate.} \emph{Journal of Causal Inference} 3(1): 1-24.
 }
 \author{
-Sebastian Calonico, Columbia University, New York, NY.  \email{sebastian.calonico@columbia.edu}.
+Sebastian Calonico, University of California, Davis, CA.  \email{scalonico@ucdavis.edu}.
 
 Matias D. Cattaneo, Princeton University, Princeton, NJ.  \email{cattaneo@princeton.edu}.
 
@@ -133,8 +133,8 @@ Max H. Farrell, University of California, Santa Barbara, CA. \email{maxhfarrell@
 Rocio Titiunik, Princeton University, Princeton, NJ.  \email{titiunik@princeton.edu}.
 }
 \examples{
-x<-runif(1000,-1,1)
-y<-5+3*x+2*(x>=0)+rnorm(1000)
+x <- runif(1000,-1,1)
+y <- 5 + 3*x + 2*(x>=0) + rnorm(1000)
 rdbwselect(y,x)
 }
 \seealso{

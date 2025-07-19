@@ -21,7 +21,7 @@ For more details, and related Stata and R packages useful for analysis of RD des
           kernel = "tri", weights = NULL, bwselect = "mserd", 
           vce = "nn", cluster = NULL, 
           nnmatch = 3, level = 95, scalepar = 1, scaleregul = 1, 
-          sharpbw = FALSE, all = NULL, subset = NULL,
+          sharpbw = FALSE, detail = NULL, all = NULL, subset = NULL,
           masspoints = "adjust", bwcheck = NULL,
           bwrestrict = TRUE, stdvars = FALSE)}
 \arguments{
@@ -35,7 +35,7 @@ For more details, and related Stata and R packages useful for analysis of RD des
   \item{h}{specifies the main bandwidth used to construct the RD point estimator. If not specified, bandwidth \code{h} is computed by the companion command \code{\link{rdbwselect}}. If two bandwidths are specified, the first bandwidth is used for the data below the cutoff and the second bandwidth is used for the data above the cutoff.}
   \item{b}{specifies the bias bandwidth used to construct the bias-correction estimator. If not specified, bandwidth \code{b} is computed by the companion command \code{\link{rdbwselect}}. If two bandwidths are specified, the first bandwidth is used for the data below the cutoff and the second bandwidth is used for the data above the cutoff.}
   \item{rho}{specifies the value of \code{rho}, so that the bias bandwidth \code{b} equals \code{h/rho}. Default is \code{rho = 1} if \code{h} is specified but \code{b} is not.}
-  \item{covs}{specifies additional covariates to be used for estimation and inference.}
+  \item{covs}{additional covariates to be used for efficiency improvements.}
   \item{covs_drop}{if TRUE, it checks for collinear additional covariates and drops them. Default is TRUE.}
   \item{ginv.tol}{tolerance used to invert matrices involving covariates when \code{covs_drop=TRUE}.}
   \item{kernel}{is the kernel function used to construct the local-polynomial estimator(s). Options are \code{triangular} (default option), \code{epanechnikov} and \code{uniform}.}
@@ -86,7 +86,8 @@ Default is \code{vce=nn}.}
   \item{level}{sets the confidence level for confidence intervals; default is \code{level = 95}.}
   \item{scalepar}{specifies scaling factor for RD parameter of interest. This option is useful when the population parameter of interest involves a known multiplicative factor (e.g., sharp kink RD).  Default is \code{scalepar = 1} (no scaling).}
   \item{scaleregul}{specifies scaling factor for the regularization term added to the denominator of the bandwidth selectors. Setting \code{scaleregul = 0} removes the regularization term from the bandwidth selectors; default is \code{scaleregul = 1}.}
-   \item{sharpbw}{option to perform fuzzy RD estimation using a bandwidth selection procedure for the sharp RD model. This option is automatically selected if there is perfect compliance at either side of the cutoff.}
+  \item{sharpbw}{option to perform fuzzy RD estimation using a bandwidth selection procedure for the sharp RD model. This option is automatically selected if there is perfect compliance at either side of the cutoff.}
+  \item{detail}{if specified, \code{\link{rdrobust}} reports the output from versions 2.2.0 and earlier.}
   \item{all}{if specified, \code{\link{rdrobust}} reports three different procedures:
   
   (i) conventional RD estimates with conventional standard errors.
@@ -156,7 +157,7 @@ Calonico, S., M. D. Cattaneo, and R. Titiunik. 2015b. \href{https://rdpackages.g
 Cattaneo, M. D., B. Frandsen, and R. Titiunik. 2015. \href{https://rdpackages.github.io/references/Cattaneo-Frandsen-Titiunik_2015_JCI.pdf}{Randomization Inference in the Regression Discontinuity Design: An Application to the Study of Party Advantages in the U.S. Senate.} \emph{Journal of Causal Inference} 3(1): 1-24.
 }
 \author{
-Sebastian Calonico, Columbia University, New York, NY.  \email{sebastian.calonico@columbia.edu}.
+Sebastian Calonico, University of California, Davis, CA.  \email{scalonico@ucdavis.edu}.
 
 Matias D. Cattaneo, Princeton University, Princeton, NJ.  \email{cattaneo@princeton.edu}.
 
@@ -165,8 +166,8 @@ Max H. Farrell, University of California, Santa Barbara, CA. \email{maxhfarrell@
 Rocio Titiunik, Princeton University, Princeton, NJ.  \email{titiunik@princeton.edu}.
 }
 \examples{ 
-x<-runif(1000,-1,1)
-y<-5+3*x+2*(x>=0)+rnorm(1000)
+x <- runif(1000,-1,1)
+y <- 5 + 3*x + 2*(x>=0) + rnorm(1000)
 rdrobust(y,x)
 }
 \keyword{ RDD }

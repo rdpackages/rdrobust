@@ -4,7 +4,7 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
                       vce = "nn", cluster = NULL, 
                       nnmatch = 3,  scaleregul = 1, sharpbw = FALSE,  
                       all = NULL, subset = NULL, masspoints = "adjust",
-                      bwcheck = NULL, bwrestrict=TRUE, stdvars=FALSE){
+                      bwcheck = NULL, bwrestrict = TRUE, stdvars = FALSE){
   
   if (!is.null(subset)) { 
     x <- x[subset]
@@ -53,7 +53,8 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
   } 
   
   if (!is.null(covs)){
-    if (!is.null(subset))  covs <- subset(covs,subset)
+    #if (!is.null(subset))  covs <- subset(covs,subset)
+    if (!is.null(subset)) covs <- covs[subset, ,drop=FALSE]
     na.ok <- na.ok & complete.cases(covs)
   } 
   
@@ -123,7 +124,7 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
     mass_l = 1-M_l/N_l
     mass_r = 1-M_r/N_r				
     if (mass_l>=0.2 | mass_r>=0.2){
-      warning("Mass points detected in the running variable.")
+      #warning("Mass points detected in the running variable.")
       if (masspoints=="check") warning("Try using option masspoints=adjust.")
       if (is.null(bwcheck) & masspoints=="adjust") bwcheck <- 10
     }				
@@ -459,9 +460,17 @@ if (all==FALSE){
     bws[10,]=c(h_cercomb2_l, h_cercomb2_r, b_cercomb2_l, b_cercomb2_r)
   }
 
+
+
+### Eff N
+w_h_l <- rdrobust_kweight(X_l,c,bws[1,1],kernel)
+w_h_r <- rdrobust_kweight(X_r,c,bws[1,2],kernel)
+N_h_l <- sum(w_h_l> 0)
+N_h_r <- sum(w_h_r> 0)
+
   out = list(bws=bws, 
              bwselect=bwselect, bw_list=bw_list, kernel=kernel_type, p=p, q=q, c=c,
-             N=c(N_l,N_r), M=c(M_l,M_r), vce=vce_type, masspoints=masspoints)
+             N=c(N_l,N_r), N_h = c(N_h_l,N_h_r),  M=c(M_l,M_r), vce=vce_type, masspoints=masspoints)
   out$call <- match.call()
   class(out) <- "rdbwselect"
   return(out)

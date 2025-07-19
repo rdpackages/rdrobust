@@ -9,16 +9,16 @@
 \tabular{ll}{
 Package: \tab rdrobust\cr
 Type: \tab Package\cr
-Version: \tab 2.2\cr 
-Date: \tab 2023-11-03\cr
-License: \tab GPL-2\cr
+Version: \tab 3.0.0\cr 
+Date: \tab 2025-07-19\cr
+License: \tab GPL-3\cr
 }
 Function for statistical inference: \code{\link{rdrobust}}\cr
 Function for bandwidths selection: \code{\link{rdbwselect}}\cr
 Function for exploratory data analysis (RD plots): \code{\link{rdplot}}
 }
 \author{
-Sebastian Calonico, Columbia University, New York, NY.  \email{sebastian.calonico@columbia.edu}.
+Sebastian Calonico, University of California, Davis, CA.  \email{scalonico@ucdavis.edu}.
 
 Matias D. Cattaneo, Princeton University, Princeton, NJ.  \email{cattaneo@princeton.edu}.
 

@@ -1,7 +1,7 @@
 \name{rdbwselect_2014}
 \alias{rdbwselect_2014}
 \alias{print.rdbwselect_2014}
-\alias{summary.rdbwselect_2014} 
+\alias{summary.rdbwselect_2014}
 \title{Deprecated Bandwidth Selection Procedures for Local-Polynomial Regression-Discontinuity Estimators.}
 \description{\code{\link{rdbwselect_2014}} is a deprecated command implementing three bandwidth selectors for local polynomial Regression Discontinuity (RD) point estimators and inference procedures, as described in Calonico, Cattaneo and Titiunik (2014).
  
@@ -69,7 +69,7 @@
         Calonico, S., Cattaneo, M. D., and R. Titiunik. 2014. \href{https://rdpackages.github.io/references/Calonico-Cattaneo-Titiunik_2014_Stata.pdf}{Robust Nonparametric Confidence Intervals for Regression-Discontinuity Designs.} \emph{Econometrica} 82(6): 2295-2326.   .
 }
 \author{
-Sebastian Calonico, Columbia University, New York, NY.  \email{sebastian.calonico@columbia.edu}.
+Sebastian Calonico, University of California, Davis, CA.  \email{scalonico@ucdavis.edu}.
 
 Matias D. Cattaneo, Princeton University, Princeton, NJ.  \email{cattaneo@princeton.edu}.
 

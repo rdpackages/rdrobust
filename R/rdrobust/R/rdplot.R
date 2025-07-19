@@ -1,4 +1,4 @@
-rdplot = function(y, x, c=0, p=4, nbins = NULL, binselect = "esmv", scale = NULL, 
+rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = NULL, 
                   kernel = "uni", weights = NULL, h = NULL, 
                   covs = NULL,  covs_eval = "mean", covs_drop = TRUE, ginv.tol = 1e-20,
                   support = NULL, subset = NULL, masspoints = "adjust",
