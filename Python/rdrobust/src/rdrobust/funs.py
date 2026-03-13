@@ -12,6 +12,16 @@ import numpy as np
 import math
 from scipy.linalg import qr
 
+try:
+    from rdrobust._numba_core import (
+        nn_residuals as _nn_res_jit,
+        nn_residuals_parallel as _nn_res_parallel,
+        PARALLEL_THRESHOLD,
+    )
+    _HAS_NUMBA = True
+except ImportError:
+    _HAS_NUMBA = False
+
 class rdrobust_output:
     def __init__(self, Estimate, bws, coef, se, t, pv, ci, beta_p_l, beta_p_r,
                  V_cl_l, V_cl_r, V_rb_l, V_rb_r, N, N_h, N_b, M,
@@ -282,15 +292,29 @@ def rdrobust_kweight(X, c, h, kernel):
     return w
 
 def rdrobust_res(X, y, T, Z, m, hii, vce, matches, dups, dupsid, d):
-    
+
     n = len(y)
     dT = dZ =  0
     if T is not None:
         dT = 1
     if Z is not None:
-        dZ = ncol(Z)  
+        dZ = ncol(Z)
     res = nanmat(n,1+dT+dZ)
     if vce=="nn":
+        if _HAS_NUMBA:
+            X_flat = np.ascontiguousarray(np.asarray(X).ravel(), dtype=np.float64)
+            D = np.ascontiguousarray(np.asarray(y).reshape(-1, 1), dtype=np.float64)
+            if T is not None:
+                D = np.column_stack((D, np.asarray(T).ravel()))
+            if Z is not None:
+                D = np.column_stack((D, np.asarray(Z)))
+            D = np.ascontiguousarray(D, dtype=np.float64)
+            dups_i = np.ascontiguousarray(np.asarray(dups), dtype=np.int64)
+            dupsid_i = np.ascontiguousarray(np.asarray(dupsid), dtype=np.int64)
+            ncols = D.shape[1]
+            if n > PARALLEL_THRESHOLD:
+                return _nn_res_parallel(X_flat, D, matches, dups_i, dupsid_i, n, ncols)
+            return _nn_res_jit(X_flat, D, matches, dups_i, dupsid_i, n, ncols)
         for pos in range(n):
             rpos = dups[pos] - dupsid[pos]
             lpos = dupsid[pos] - 1
