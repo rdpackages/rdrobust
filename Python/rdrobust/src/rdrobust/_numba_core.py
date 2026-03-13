@@ -12,7 +12,7 @@ from numba import njit, prange
 
 
 @njit(cache=True)
-def nn_residuals(X, D, matches, dups, dupsid, n, ncols):
+def nn_residuals(X, D, matches, dups, dupsid):
     """
     Compute nearest-neighbor residuals for all data columns.
 
@@ -28,15 +28,13 @@ def nn_residuals(X, D, matches, dups, dupsid, n, ncols):
         Number of duplicate X values at each position.
     dupsid : int64 array (n,)
         Cumulative duplicate ID at each position.
-    n : int
-        Number of observations.
-    ncols : int
-        Number of columns in D.
 
     Returns
     -------
     res : float64 array (n, ncols)
     """
+    n = X.shape[0]
+    ncols = D.shape[1]
     res = np.empty((n, ncols))
     target = min(matches, n - 1)
 
@@ -79,8 +77,10 @@ def nn_residuals(X, D, matches, dups, dupsid, n, ncols):
 
 
 @njit(cache=True, parallel=True)
-def nn_residuals_parallel(X, D, matches, dups, dupsid, n, ncols):
+def nn_residuals_parallel(X, D, matches, dups, dupsid):
     """Parallel version of nn_residuals using prange."""
+    n = X.shape[0]
+    ncols = D.shape[1]
     res = np.empty((n, ncols))
     target = min(matches, n - 1)
 

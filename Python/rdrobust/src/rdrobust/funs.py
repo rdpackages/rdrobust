@@ -12,15 +12,27 @@ import numpy as np
 import math
 from scipy.linalg import qr
 
-try:
-    from rdrobust._numba_core import (
-        nn_residuals as _nn_res_jit,
-        nn_residuals_parallel as _nn_res_parallel,
-        PARALLEL_THRESHOLD,
-    )
-    _HAS_NUMBA = True
-except ImportError:
-    _HAS_NUMBA = False
+_HAS_NUMBA = None  # lazy: None = not yet checked
+_nn_res_jit = _nn_res_parallel = PARALLEL_THRESHOLD = None
+
+def _try_numba():
+    """Lazy Numba import. Only runs once, on first vce=='nn' call."""
+    global _HAS_NUMBA, _nn_res_jit, _nn_res_parallel, PARALLEL_THRESHOLD
+    if _HAS_NUMBA is not None:
+        return _HAS_NUMBA
+    try:
+        from rdrobust._numba_core import (
+            nn_residuals,
+            nn_residuals_parallel,
+            PARALLEL_THRESHOLD as pt,
+        )
+        _nn_res_jit = nn_residuals
+        _nn_res_parallel = nn_residuals_parallel
+        PARALLEL_THRESHOLD = pt
+        _HAS_NUMBA = True
+    except Exception:
+        _HAS_NUMBA = False
+    return _HAS_NUMBA
 
 class rdrobust_output:
     def __init__(self, Estimate, bws, coef, se, t, pv, ci, beta_p_l, beta_p_r,
@@ -301,7 +313,9 @@ def rdrobust_res(X, y, T, Z, m, hii, vce, matches, dups, dupsid, d):
         dZ = ncol(Z)
     res = nanmat(n,1+dT+dZ)
     if vce=="nn":
-        if _HAS_NUMBA:
+        if _try_numba():
+            # float64 cast: rdrobust's pipeline always produces float64;
+            # explicit here for Numba JIT type stability and cache reuse
             X_flat = np.ascontiguousarray(np.asarray(X).ravel(), dtype=np.float64)
             D = np.ascontiguousarray(np.asarray(y).reshape(-1, 1), dtype=np.float64)
             if T is not None:
@@ -311,10 +325,9 @@ def rdrobust_res(X, y, T, Z, m, hii, vce, matches, dups, dupsid, d):
             D = np.ascontiguousarray(D, dtype=np.float64)
             dups_i = np.ascontiguousarray(np.asarray(dups), dtype=np.int64)
             dupsid_i = np.ascontiguousarray(np.asarray(dupsid), dtype=np.int64)
-            ncols = D.shape[1]
             if n > PARALLEL_THRESHOLD:
-                return _nn_res_parallel(X_flat, D, matches, dups_i, dupsid_i, n, ncols)
-            return _nn_res_jit(X_flat, D, matches, dups_i, dupsid_i, n, ncols)
+                return _nn_res_parallel(X_flat, D, matches, dups_i, dupsid_i)
+            return _nn_res_jit(X_flat, D, matches, dups_i, dupsid_i)
         for pos in range(n):
             rpos = dups[pos] - dupsid[pos]
             lpos = dupsid[pos] - 1
