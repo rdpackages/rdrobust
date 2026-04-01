@@ -21,200 +21,200 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
                   hide = False, ci = None, shade = False, 
                   title = None, x_label = None, y_label = None, x_lim = None,
                   y_lim = None, col_dots = None, col_lines = None):
-    
-    '''
+
+    r"""
     Implements several data-driven Regression Discontinuity (RD) plots, using either evenly-spaced or quantile-spaced partitioning. Two type of RD plots are constructed: (i) RD plots with binned sample means tracing out the underlying regression function, and (ii) RD plots with binned sample means mimicking the underlying variability of the data. For technical and methodological details see Calonico, Cattaneo and Titiunik (2015a).
-    
+
     Companion commands are: rdrobust for point estimation and inference procedures, and rdbwselect for data-driven bandwidth selection.
-    
+
     A detailed introduction to this command is given in Calonico, Cattaneo and Titiunik (2015b) and Calonico, Cattaneo, Farrell and Titiunik (2017). A companion Stata package is described in Calonico, Cattaneo and Titiunik (2014).
-    
+
     For more details, and related Stata and R packages useful for analysis of RD designs, visit https://rdpackages.github.io/
-    
-    
+
+
     Parameters
     ----------
-    y	
+    y
     is the dependent variable.
-    
-    x	
+
+    x
     is the running variable (a.k.a. score or forcing variable).
-    
-    c	
+
+    c
     specifies the RD cutoff in x; default is c = 0.
-    
-    p	
+
+    p
     specifies the order of the global-polynomial used to approximate the population conditional mean functions for control and treated units; default is p = 4.
-    
-    nbins	
+
+    nbins
     specifies the number of bins used to the left of the cutoff, denoted J_-, and to the right of the cutoff, denoted J_+, respectively. If not specified, J_+ and J_- are estimated using the method and options chosen below.
-    
-    binselect	
+
+    binselect
     specifies the procedure to select the number of bins. This option is available only if J_- and J_+ are not set manually. Options are:
-    
+
     es: IMSE-optimal evenly-spaced method using spacings estimators.
-    
+
     espr: IMSE-optimal evenly-spaced method using polynomial regression.
-    
+
     esmv: mimicking variance evenly-spaced method using spacings estimators. This is the default option.
-    
+
     esmvpr: mimicking variance evenly-spaced method using polynomial regression.
-    
+
     qs: IMSE-optimal quantile-spaced method using spacings estimators.
-    
+
     qspr: IMSE-optimal quantile-spaced method using polynomial regression.
-    
+
     qsmv: mimicking variance quantile-spaced method using spacings estimators.
-    
+
     qsmvpr: mimicking variance quantile-spaced method using polynomial regression.
-    
-    scale	
+
+    scale
     specifies a multiplicative factor to be used with the optimal numbers of bins selected. Specifically, the number of bins used for the treatment and control groups will be scale\times \hat{J}_+ and scale\times \hat{J}_-, where \hat{J}_\cdot denotes the estimated optimal numbers of bins originally computed for each group; default is scale = 1.
-    
-    kernel	
+
+    kernel
     specifies the kernel function used to construct the local-polynomial estimator(s). Options are: triangular, epanechnikov, and uniform. Default is kernel=uniform (i.e., equal/no weighting to all observations on the support of the kernel).
-    
-    weights	
+
+    weights
     is the variable used for optional weighting of the estimation procedure. The unit-specific weights multiply the kernel function.
-    
-    h	
+
+    h
     specifies the bandwidth used to construct the (global) polynomial fits given the kernel choice kernel. If not specified, the bandwidths are chosen to span the full support of the data. If two bandwidths are specified, the first bandwidth is used for the data below the cutoff and the second bandwidth is used for the data above the cutoff.
-    
-    covs	
+
+    covs
     specifies additional covariates to be used in the polynomial regression.
-    
-    covs_eval	
+
+    covs_eval
     sets the evaluation points for the additional covariates, when included in the estimation. Options are: covs_eval = 0 (default) and covs_eval = "mean"
-    
-    covs_drop	
+
+    covs_drop
     if TRUE, it checks for collinear additional covariates and drops them. Default is TRUE.
-    
-    support	
+
+    support
     specifies an optional extended support of the running variable to be used in the construction of the bins; default is the sample range.
-    
-    subset	
+
+    subset
     an optional vector specifying a subset of observations to be used.
-    
-    masspoints	
+
+    masspoints
     checks and controls for repeated observations in the running variable. Options are:
-    
+
     (i) off: ignores the presence of mass points;
-    
+
     (ii) check: looks for and reports the number of unique observations at each side of the cutoff.
-    
+
     (iii) adjust: sets binselect() as polynomial regression when mass points are present.
-    
+
     Default option is masspoints=adjust.
-    
-    hide	
+
+    hide
     logical. If TRUE, it omits the RD plot; default is hide = FALSE.
-    
-    ci	
+
+    ci
     optional graphical option to display confidence intervals of selected level for each bin.
-    
-    shade	
+
+    shade
     optional graphical option to replace confidence intervals with shaded areas.
-    
-    title	
+
+    title
     optional title for the RD plot.
-    
-    x_label	
+
+    x_label
     optional label for the x-axis of the RD plot.
-    
-    y_label	
+
+    y_label
     optional label for the y-axis of the RD plot.
-    
-    x_lim	
+
+    x_lim
     optional setting for the range of the x-axis in the RD plot.
-    
-    y_lim	
+
+    y_lim
     optional setting for the range of the y-axis in the RD plot.
-    
-    col_dots	
+
+    col_dots
     optional setting for the color of the dots in the RD plot.
-    
-    col_lines	
+
+    col_lines
     optional setting for the color of the lines in the RD plot.
-    
+
     Returns
     -------
-    binselect	
+    binselect
     method used to compute the optimal number of bins.
-    
-    N	
+
+    N
     sample sizes used to the left and right of the cutoff.
-    
-    Nh	
+
+    Nh
     effective sample sizes used to the left and right of the cutoff.
-    
-    c	
+
+    c
     cutoff value.
-    
-    p	
+
+    p
     order of the global polynomial used.
-    
-    h	
+
+    h
     bandwidth used to the left and right of the cutoff.
-    
-    kernel	
+
+    kernel
     kernel used.
-    
-    J	
+
+    J
     selected number of bins to the left and right of the cutoff.
-    
-    J_IMSE	
+
+    J_IMSE
     IMSE optimal number of bins to the left and right of the cutoff.
-    
-    J_MV	
+
+    J_MV
     Mimicking variance number of bins to the left and right of the cutoff.
-    
-    coef	
+
+    coef
     matrix containing the coefficients of the p^{th} order global polynomial estimated both sides of the cutoff.
-    
-    scale	
+
+    scale
     selected scale value.
-    
-    rscale	
+
+    rscale
     implicit scale value.
-    
-    bin_avg	
+
+    bin_avg
     average bin length.
-    
-    bin_med	
+
+    bin_med
     median bin length.
-    
-    vars_bins	
+
+    vars_bins
     data frame containing the variables used to construct the bins: bin id, cutoff values, mean of x and y within each bin, cutoff points and confidence interval bounds.
-    
-    vars_poly	
+
+    vars_poly
     data frame containing the variables used to construct the global polynomial plot.
-    
-    rdplot	
+
+    rdplot
     a standard ggplot object that can be used for further customization.
-    
+
     References
     ----------
     Calonico, S., M. D. Cattaneo, M. H. Farrell, and R. Titiunik. 2017. rdrobust: Software for Regression Discontinuity Designs. Stata Journal 17(2): 372-404.
-    
+
     Calonico, S., M. D. Cattaneo, and R. Titiunik. 2014. Robust Data-Driven Inference in the Regression-Discontinuity Design. Stata Journal 14(4): 909-946.
-    
+
     Calonico, S., M. D. Cattaneo, and R. Titiunik. 2015a. Optimal Data-Driven Regression Discontinuity Plots. Journal of the American Statistical Association 110(512): 1753-1769.
-    
+
     Calonico, S., M. D. Cattaneo, and R. Titiunik. 2015b. rdrobust: An R Package for Robust Nonparametric Inference in Regression-Discontinuity Designs. R Journal 7(1): 38-51.
-    
+
     Cattaneo, M. D., B. Frandsen, and R. Titiunik. 2015. Randomization Inference in the Regression Discontinuity Design: An Application to the Study of Party Advantages in the U.S. Senate. Journal of Causal Inference 3(1): 1-24.
-    
+
     See Also
     --------
     rdbwselect, rdrobust
-    
-    
+
+
     Example
     -------
     >>> x = numpy.random.uniform(low=-1, high=1, size=1000)
     >>> y = 5+3*x+2*(x>=0) + numpy.random.uniform(size = 1000)
     >>> rdplot(y,x)
-    '''
+    """
     
     # Tidy the Input and remove NAN
     x = np.array(x).reshape(-1,1)

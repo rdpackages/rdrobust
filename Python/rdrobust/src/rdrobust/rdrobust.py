@@ -21,216 +21,216 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
              scalepar = 1, scaleregul = 1, sharpbw = False, 
              all = None, subset = None, masspoints = "adjust",
              bwcheck = None, bwrestrict = True, stdvars = False):
-    
-    '''
+
+    r"""
     Implements local polynomial Regression Discontinuity (RD) point estimators with robust bias-corrected confidence intervals and inference procedures developed in Calonico, Cattaneo and Titiunik (2014a), Calonico, Cattaneo and Farrell (2018), Calonico, Cattaneo, Farrell and Titiunik (2019), and Calonico, Cattaneo and Farrell (2020). It also computes alternative estimation and inference procedures available in the literature.
-   
+
     Parameters
     ----------
-    y: array	
+    y: array
     is the dependent variable.
-    
-    x	
+
+    x
     is the running variable (a.k.a. score or forcing variable).
-    
-    c	
+
+    c
     specifies the RD cutoff in x; default is c = 0.
-    
-    fuzzy	
+
+    fuzzy
     specifies the treatment status variable used to implement fuzzy RD estimation (or Fuzzy Kink RD if deriv=1 is also specified). Default is Sharp RD design and hence this option is not used.
-    
-    deriv	
+
+    deriv
     specifies the order of the derivative of the regression functions to be estimated. Default is deriv=0 (for Sharp RD, or for Fuzzy RD if fuzzy is also specified). Setting deriv=1 results in estimation of a Kink RD design (up to scale), or Fuzzy Kink RD if fuzzy is also specified.
-    
-    p	
+
+    p
     specifies the order of the local-polynomial used to construct the point-estimator; default is p = 1 (local linear regression).
-    
-    q	
+
+    q
     specifies the order of the local-polynomial used to construct the bias-correction; default is q = 2 (local quadratic regression).
-    
-    h	
+
+    h
     specifies the main bandwidth used to construct the RD point estimator. If not specified, bandwidth h is computed by the companion command rdbwselect. If two bandwidths are specified, the first bandwidth is used for the data below the cutoff and the second bandwidth is used for the data above the cutoff.
-    
-    b	
+
+    b
     specifies the bias bandwidth used to construct the bias-correction estimator. If not specified, bandwidth b is computed by the companion command rdbwselect. If two bandwidths are specified, the first bandwidth is used for the data below the cutoff and the second bandwidth is used for the data above the cutoff.
-    
-    rho	
+
+    rho
     specifies the value of rho, so that the bias bandwidth b equals h/rho. Default is rho = 1 if h is specified but b is not.
-    
-    covs	
+
+    covs
     specifies additional covariates to be used for estimation and inference.
-    
-    covs_drop	
+
+    covs_drop
     if TRUE, it checks for collinear additional covariates and drops them. Default is TRUE.
-    
-    kernel	
+
+    kernel
     is the kernel function used to construct the local-polynomial estimator(s). Options are triangular (default option), epanechnikov and uniform.
-    
-    weights	
+
+    weights
     is the variable used for optional weighting of the estimation procedure. The unit-specific weights multiply the kernel function.
-    
-    bwselect	
+
+    bwselect
     specifies the bandwidth selection procedure to be used. By default it computes both h and b, unless rho is specified, in which case it only computes h and sets b=h/rho.
-    
+
     Options are:
-    
+
     mserd one common MSE-optimal bandwidth selector for the RD treatment effect estimator.
-    
+
     msetwo two different MSE-optimal bandwidth selectors (below and above the cutoff) for the RD treatment effect estimator.
-    
+
     msesum one common MSE-optimal bandwidth selector for the sum of regression estimates (as opposed to difference thereof).
-    
+
     msecomb1 for min(mserd,msesum).
-    
+
     msecomb2 for median(msetwo,mserd,msesum), for each side of the cutoff separately.
-    
+
     cerrd one common CER-optimal bandwidth selector for the RD treatment effect estimator.
-    
+
     certwo two different CER-optimal bandwidth selectors (below and above the cutoff) for the RD treatment effect estimator.
-    
+
     cersum one common CER-optimal bandwidth selector for the sum of regression estimates (as opposed to difference thereof).
-    
+
     cercomb1 for min(cerrd,cersum).
-    
+
     cercomb2 for median(certwo,cerrd,cersum), for each side of the cutoff separately.
-    
+
     Note: MSE = Mean Square Error; CER = Coverage Error Rate. Default is bwselect=mserd. For details on implementation see Calonico, Cattaneo and Titiunik (2014a), Calonico, Cattaneo and Farrell (2018), and Calonico, Cattaneo, Farrell and Titiunik (2019), and the companion software articles.
-    
-    vce	
+
+    vce
     specifies the procedure used to compute the variance-covariance matrix estimator. Options are:
-    
+
     nn for heteroskedasticity-robust nearest neighbor variance estimator with nnmatch the (minimum) number of neighbors to be used.
-    
+
     hc0 for heteroskedasticity-robust plug-in residuals variance estimator without weights.
-    
+
     hc1 for heteroskedasticity-robust plug-in residuals variance estimator with hc1 weights.
-    
+
     hc2 for heteroskedasticity-robust plug-in residuals variance estimator with hc2 weights.
-    
+
     hc3 for heteroskedasticity-robust plug-in residuals variance estimator with hc3 weights.
-    
+
     Default is vce=nn.
-    
-    cluster	
+
+    cluster
     indicates the cluster ID variable used for cluster-robust variance estimation with degrees-of-freedom weights. By default it is combined with vce=nn for cluster-robust nearest neighbor variance estimation. Another option is plug-in residuals combined with vce=hc0.
-    
-    nnmatch	
+
+    nnmatch
     to be combined with for vce=nn for heteroskedasticity-robust nearest neighbor variance estimator with nnmatch indicating the minimum number of neighbors to be used. Default is nnmatch=3
-    
-    level	
+
+    level
     sets the confidence level for confidence intervals; default is level = 95.
-    
-    scalepar	
+
+    scalepar
     specifies scaling factor for RD parameter of interest. This option is useful when the population parameter of interest involves a known multiplicative factor (e.g., sharp kink RD). Default is scalepar = 1 (no scaling).
-    
-    scaleregul	
+
+    scaleregul
     specifies scaling factor for the regularization term added to the denominator of the bandwidth selectors. Setting scaleregul = 0 removes the regularization term from the bandwidth selectors; default is scaleregul = 1.
-    
-    sharpbw	
+
+    sharpbw
     option to perform fuzzy RD estimation using a bandwidth selection procedure for the sharp RD model. This option is automatically selected if there is perfect compliance at either side of the cutoff.
-    
-    all	
+
+    all
     if specified, rdrobust reports three different procedures:
-    
+
     (i) conventional RD estimates with conventional standard errors.
-    
+
     (ii) bias-corrected estimates with conventional standard errors.
-    
+
     (iii) bias-corrected estimates with robust standard errors.
-    
-    subset	
+
+    subset
     an optional vector specifying a subset of observations to be used.
-    
-    masspoints	
+
+    masspoints
     checks and controls for repeated observations in the running variable. Options are:
-    
+
     (i) off: ignores the presence of mass points;
-    
+
     (ii) check: looks for and reports the number of unique observations at each side of the cutoff.
-    
+
     (iii) adjust: controls that the preliminary bandwidths used in the calculations contain a minimal number of unique observations. By default it uses 10 observations, but it can be manually adjusted with the option bwcheck).
-    
+
     Default option is masspoints=adjust.
-    
-    bwcheck	
+
+    bwcheck
     if a positive integer is provided, the preliminary bandwidth used in the calculations is enlarged so that at least bwcheck unique observations are used.
-    
-    bwrestrict	
+
+    bwrestrict
     if TRUE, computed bandwidths are restricted to lie within the range of x; default is bwrestrict = TRUE.
-    
-    stdvars	
+
+    stdvars
     if TRUE, x and y are standardized before computing the bandwidths; default is stdvars = FALSE.
-    
+
     Returns
     -------
-    N	
+    N
     vector with the sample sizes used to the left and to the right of the cutoff.
-    
-    N_h	
+
+    N_h
     vector with the effective sample sizes used to the left and to the right of the cutoff.
-    
-    c	
+
+    c
     cutoff value.
-    
-    p	
+
+    p
     order of the polynomial used for estimation of the regression function.
-    
-    q	
+
+    q
     order of the polynomial used for estimation of the bias of the regression function.
-    
-    bws	
+
+    bws
     matrix containing the bandwidths used.
-    
-    tau_cl	
+
+    tau_cl
     conventional local-polynomial estimate to the left and to the right of the cutoff.
-    
-    tau_bc	
+
+    tau_bc
     bias-corrected local-polynomial estimate to the left and to the right of the cutoff.
-    
-    coef	
+
+    coef
     vector containing conventional and bias-corrected local-polynomial RD estimates.
-    
-    se	
+
+    se
     vector containing conventional and robust standard errors of the local-polynomial RD estimates.
-    
-    bias	
+
+    bias
     estimated bias for the local-polynomial RD estimator below and above the cutoff.
-    
-    beta_p_l	
+
+    beta_p_l
     conventional p-order local-polynomial estimates to the left of the cutoff.
-    
-    beta_p_r	
+
+    beta_p_r
     conventional p-order local-polynomial estimates to the right of the cutoff.
-    
-    V_cl_l	
+
+    V_cl_l
     conventional variance-covariance matrix estimated below the cutoff.
-    
-    V_cl_r	
+
+    V_cl_r
     conventional variance-covariance matrix estimated above the cutoff.
-    
-    V_rb_l	
+
+    V_rb_l
     robust variance-covariance matrix estimated below the cutoff.
-    
-    V_rb_r	
+
+    V_rb_r
     robust variance-covariance matrix estimated above the cutoff.
-    
-    pv	
+
+    pv
     vector containing the p-values associated with conventional, bias-corrected and robust local-polynomial RD estimates.
-    
-    ci	
+
+    ci
     matrix containing the confidence intervals associated with conventional, bias-corrected and robust local-polynomial RD estimates.
-    
-    
+
+
     See Also
     --------
     rdbwselect, rdplot
-    
+
     Example
-    ------- 
+    -------
     >>> x = numpy.random.uniform(low=-1, high=1, size=1000)
     >>> y = 5+3*x+2*(x>=0) + numpy.random.uniform(size = 1000)
     >>> rdrobust(y,x)
-    '''
+    """
     
     # Check for errors in the INPUT
     if p is None and deriv is not None: p = deriv + 1

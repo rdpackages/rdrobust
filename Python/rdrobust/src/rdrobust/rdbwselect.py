@@ -16,187 +16,187 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
                scaleregul = 1, sharpbw = False, all = None, subset = None,
                masspoints = "adjust", bwcheck = None, bwrestrict = True,
                stdvars = False, prchk = True):
-        
-    
-    '''
+
+
+    r"""
      Implements bandwidth selectors for local polynomial Regression Discontinuity (RD) point estimators and inference procedures developed in Calonico, Cattaneo and Titiunik (2014a), Calonico, Cattaneo and Farrell (2018), Calonico, Cattaneo, Farrell and Titiunik (2019) and Calonico, Cattaneo and Farrell (2020).
-    
+
     Companion commands are: rdrobust for point estimation and inference procedures, and rdplot for data-driven RD plots (see Calonico, Cattaneo and Titiunik (2015a) for details).
-    
+
     A detailed introduction to this command is given in Calonico, Cattaneo and Titiunik (2015b) and Calonico, Cattaneo, Farrell and Titiunik (2019). A companion Stata package is described in Calonico, Cattaneo and Titiunik (2014b).
-    
+
     For more details, and related Stata and R packages useful for analysis of RD designs, visit https://rdpackages.github.io/
-    
-   
+
+
     Parameters
     ----------
-    y	
+    y
     is the dependent variable.
-    
-    x	
+
+    x
     is the running variable (a.k.a. score or forcing variable).
-    
-    c	
+
+    c
     specifies the RD cutoff in x; default is c = 0.
-    
-    fuzzy	
+
+    fuzzy
     specifies the treatment status variable used to implement fuzzy RD estimation (or Fuzzy Kink RD if deriv=1 is also specified). Default is Sharp RD design and hence this option is not used.
-    
-    deriv	
+
+    deriv
     specifies the order of the derivative of the regression functions to be estimated. Default is deriv=0 (for Sharp RD, or for Fuzzy RD if fuzzy is also specified). Setting deriv=1 results in estimation of a Kink RD design (up to scale), or Fuzzy Kink RD if fuzzy is also specified.
-    
-    p	
+
+    p
     specifies the order of the local-polynomial used to construct the point-estimator; default is p = 1 (local linear regression).
-    
-    q	
+
+    q
     specifies the order of the local-polynomial used to construct the bias-correction; default is q = 2 (local quadratic regression).
-    
-    covs	
+
+    covs
     specifies additional covariates to be used for estimation and inference.
-    
-    covs_drop	
+
+    covs_drop
     if TRUE, it checks for collinear additional covariates and drops them. Default is TRUE.
-    
-    kernel	
+
+    kernel
     is the kernel function used to construct the local-polynomial estimator(s). Options are triangular (default option), epanechnikov and uniform.
-    
-    weights	
+
+    weights
     is the variable used for optional weighting of the estimation procedure. The unit-specific weights multiply the kernel function.
-    
-    bwselect	
+
+    bwselect
     specifies the bandwidth selection procedure to be used. Options are:
-    
+
     mserd one common MSE-optimal bandwidth selector for the RD treatment effect estimator.
-    
+
     msetwo two different MSE-optimal bandwidth selectors (below and above the cutoff) for the RD treatment effect estimator.
-    
+
     msesum one common MSE-optimal bandwidth selector for the sum of regression estimates (as opposed to difference thereof).
-    
+
     msecomb1 for min(mserd,msesum).
-    
+
     msecomb2 for median(msetwo,mserd,msesum), for each side of the cutoff separately.
-    
+
     cerrd one common CER-optimal bandwidth selector for the RD treatment effect estimator.
-    
+
     certwo two different CER-optimal bandwidth selectors (below and above the cutoff) for the RD treatment effect estimator.
-    
+
     cersum one common CER-optimal bandwidth selector for the sum of regression estimates (as opposed to difference thereof).
-    
+
     cercomb1 for min(cerrd,cersum).
-    
+
     cercomb2 for median(certwo,cerrd,cersum), for each side of the cutoff separately.
-    
+
     Note: MSE = Mean Square Error; CER = Coverage Error Rate. Default is bwselect=mserd. For details on implementation see Calonico, Cattaneo and Titiunik (2014a), Calonico, Cattaneo and Farrell (2018), and Calonico, Cattaneo, Farrell and Titiunik (2017), and the companion software articles.
-    
-    vce	
+
+    vce
     specifies the procedure used to compute the variance-covariance matrix estimator. Options are:
-    
+
     nn for heteroskedasticity-robust nearest neighbor variance estimator with nnmatch the (minimum) number of neighbors to be used.
-    
+
     hc0 for heteroskedasticity-robust plug-in residuals variance estimator without weights.
-    
+
     hc1 for heteroskedasticity-robust plug-in residuals variance estimator with hc1 weights.
-    
+
     hc2 for heteroskedasticity-robust plug-in residuals variance estimator with hc2 weights.
-    
+
     hc3 for heteroskedasticity-robust plug-in residuals variance estimator with hc3 weights.
-    
+
     Default is vce=nn.
-    
-    cluster	
+
+    cluster
     indicates the cluster ID variable used for cluster-robust variance estimation with degrees-of-freedom weights. By default it is combined with vce=nn for cluster-robust nearest neighbor variance estimation. Another option is plug-in residuals combined with vce=hc0.
-    
-    nnmatch	
+
+    nnmatch
     to be combined with for vce=nn for heteroskedasticity-robust nearest neighbor variance estimator with nnmatch indicating the minimum number of neighbors to be used. Default is nnmatch=3
-    
-    scaleregul	
+
+    scaleregul
     specifies scaling factor for the regularization term added to the denominator of the bandwidth selectors. Setting scaleregul = 0 removes the regularization term from the bandwidth selectors; default is scaleregul = 1.
-    
-    sharpbw	
+
+    sharpbw
     option to perform fuzzy RD estimation using a bandwidth selection procedure for the sharp RD model. This option is automatically selected if there is perfect compliance at either side of the threshold.
-    
-    all	
+
+    all
     if specified, rdbwselect reports all available bandwidth selection procedures.
-    
-    subset	
+
+    subset
     an optional vector specifying a subset of observations to be used.
-    
-    masspoints	
+
+    masspoints
     checks and controls for repeated observations in the running variable. Options are:
-    
+
     (i) off: ignores the presence of mass points;
-    
+
     (ii) check: looks for and reports the number of unique observations at each side of the cutoff.
-    
+
     (iii) adjust: controls that the preliminary bandwidths used in the calculations contain a minimal number of unique observations. By default it uses 10 observations, but it can be manually adjusted with the option bwcheck).
-    
+
     Default option is masspoints=adjust.
-    
-    bwcheck	
+
+    bwcheck
     if a positive integer is provided, the preliminary bandwidth used in the calculations is enlarged so that at least bwcheck unique observations are used.
-    
-    bwrestrict	
+
+    bwrestrict
     if TRUE, computed bandwidths are restricted to lie within the range of x; default is bwrestrict = TRUE.
-    
-    stdvars	
+
+    stdvars
     if TRUE, x and y are standardized before computing the bandwidths; default is stdvars = FALSE.
-    
-    prchk	
+
+    prchk
     internal check function.
-    
+
     Returns
     -------
-    N	
+    N
     vector with sample sizes to the left and to the righst of the cutoff.
-    
-    c	
+
+    c
     cutoff value.
-    
-    p	
+
+    p
     order of the local-polynomial used to construct the point-estimator.
-    
-    q	
+
+    q
     order of the local-polynomial used to construct the bias-correction estimator.
-    
-    bws	
+
+    bws
     matrix containing the estimated bandwidths for each selected procedure.
-    
-    bwselect	
+
+    bwselect
     bandwidth selection procedure employed.
-    
-    kernel	
+
+    kernel
     kernel function used to construct the local-polynomial estimator(s).
-    
-    
+
+
     References
     ----------
     Calonico, S., M. D. Cattaneo, and M. H. Farrell. 2018. On the Effect of Bias Estimation on Coverage Accuracy in Nonparametric Inference. Journal of the American Statistical Association, 113(522): 767-779.
-    
+
     Calonico, S., M. D. Cattaneo, and M. H. Farrell. 2020. Optimal Bandwidth Choice for Robust Bias Corrected Inference in Regression Discontinuity Designs. Econometrics Journal, 23(2): 192-210.
-    
+
     Calonico, S., M. D. Cattaneo, M. H. Farrell, and R. Titiunik. 2017. rdrobust: Software for Regression Discontinuity Designs. Stata Journal 17(2): 372-404.
-    
+
     Calonico, S., M. D. Cattaneo, M. H. Farrell, and R. Titiunik. 2019. Regression Discontinuity Designs using Covariates. Review of Economics and Statistics, 101(3): 442-451.
-    
+
     Calonico, S., M. D. Cattaneo, and R. Titiunik. 2014a. Robust Nonparametric Confidence Intervals for Regression-Discontinuity Designs. Econometrica 82(6): 2295-2326.
-    
+
     Calonico, S., M. D. Cattaneo, and R. Titiunik. 2014b. Robust Data-Driven Inference in the Regression-Discontinuity Design. Stata Journal 14(4): 909-946.
-    
+
     Calonico, S., M. D. Cattaneo, and R. Titiunik. 2015a. Optimal Data-Driven Regression Discontinuity Plots. Journal of the American Statistical Association 110(512): 1753-1769.
-    
+
     Calonico, S., M. D. Cattaneo, and R. Titiunik. 2015b. rdrobust: An R Package for Robust Nonparametric Inference in Regression-Discontinuity Designs. R Journal 7(1): 38-51.
-    
+
     Cattaneo, M. D., B. Frandsen, and R. Titiunik. 2015. Randomization Inference in the Regression Discontinuity Design: An Application to the Study of Party Advantages in the U.S. Senate. Journal of Causal Inference 3(1): 1-24.
-    
+
     See Also
     rdrobust, rdplot
-    
+
     Example
     -------
     >>> x = numpy.random.uniform(low=-1, high=1, size=1000)
     >>> y = 5+3*x+2*(x>=0) + numpy.random.uniform(size = 1000)
     >>> rdbwselect(y,x)
-    '''
+    """
     
     if prchk:
         x = np.array(x).reshape(-1,1)
