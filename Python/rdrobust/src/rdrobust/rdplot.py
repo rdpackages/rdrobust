@@ -689,8 +689,8 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     rdplot_N_r    = aux_r['y']['count'].values
     rdplot_sd_y_r = aux_r['y']['std'].values
 		
-    rdplot_sd_y_l[np.isnan(rdplot_sd_y_l)] = 0
-    rdplot_sd_y_r[np.isnan(rdplot_sd_y_r)] = 0
+    rdplot_sd_y_l = np.nan_to_num(rdplot_sd_y_l)
+    rdplot_sd_y_r = np.nan_to_num(rdplot_sd_y_r)
     rdplot_sd_y = np.concatenate([rdplot_sd_y_l[::-1],rdplot_sd_y_r])
     rdplot_N = np.concatenate([rdplot_N_l[::-1],rdplot_N_r])
 	
