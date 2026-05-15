@@ -2,13 +2,21 @@
 * RDROBUST STATA PACKAGE -- rdplot
 * Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell, Rocio Titiunik
 ********************************************************************************
-*!version 10.0.0  2026-05-15
+*!rdrobust Stata package v11.0.0  2026-05-13
 
 capture program drop rdplot
 program define rdplot, eclass
+	version 16.0
 	syntax anything [if] [, c(real 0) p(integer 4) nbins(string) covs(string) covs_eval(string) covs_drop(string)  binselect(string) scale(string) kernel(string) weights(string) h(string) support(string) masspoints(string) genvars hide ci(real 0) shade graph_options(string asis) nochecks  *]
-	
+
 	marksample touse
+
+	* Snapshot Mata externals so we can drop only the variables WE create,
+	* leaving the user's Mata workspace and the loaded rdrobust_*.mo
+	* library functions untouched.
+	mata: _mtx = direxternal("*"); st_local("_mata_before", rows(_mtx) ? invtokens(_mtx') : "")
+	mata: mata drop _mtx
+
 	tokenize "`anything'"
 	local y `1'
 	local x `2'
@@ -71,30 +79,38 @@ program define rdplot, eclass
 	}	
 
 	*****************************************
-	preserve
+
+	* M1: do all work in an isolated temp frame instead of preserve+keep.
+	* Only the touse=1 subset is copied (in-memory, no disk I/O), and the
+	* user's frame is restored even on error or Ctrl-Break via nobreak.
+	local _orig_frame `c(frame)'
+	tempname _work_frame
+	capture frame drop `_work_frame'
+	frame put * if `touse', into(`_work_frame')
+
+	nobreak {
+	cwf `_work_frame'
+	capture noisily {
 	sort `x', stable
-	qui keep if `touse'
-	
+
 	*************************************************************
 	**** DROP MISSINGS ******************************************
 	*************************************************************
-	qui drop if mi(`y') | mi(`x')	
 	if ("`covs'"~="") {
 		qui ds `covs'
 		local covs_list = r(varlist)
-		local ncovs: word count `covs_list'	
-		foreach z in `covs_list' {
-			qui drop if mi(`z')
+		local ncovs: word count `covs_list'
+		if (`p'>1) {
+			di as text "Note: covs() is meant for plotting rdrobust estimates (local linear). With p>1, results may not be visually compatible with the binned means depicted due to the underlying assumptions used."
 		}
-		
-		 di as error "{err}covs() option is meant to be used when plotting RDROBUST estimates. If the option is used for global polynomial fitting, it may deliver results that are not visually compatible with the local binned means depicted due to the underlying assumptions used."  
-
 	}
-		
-	if ("`weights'"~="") {
-	    qui drop if mi(`weights')
-		qui drop if `weights'<=0
+	* Combine all missing-value drops into a single scan.
+	local drop_cond "mi(`y') | mi(`x')"
+	foreach z of local covs_list {
+		local drop_cond "`drop_cond' | mi(`z')"
 	}
+	if ("`weights'"!="") local drop_cond "`drop_cond' | mi(`weights') | `weights'<=0"
+	qui drop if `drop_cond'
 		
 	**** CHECK colinearity ******************************************
 	local covs_drop_coll = 0	
@@ -186,23 +202,44 @@ program define rdplot, eclass
 		local binselect = "esmv" 
 	}
 	
-	if ("`nochecks'"=="") {
+	if ("`checks'"=="") {
 		if (`c'<=`x_min' | `c'>=`x_max'){
 			di as error  "{err}{cmd:c()} should be set within the range of `x'"  
 		exit 125
 		}
 
 		if ("`p'"<"0" | "`nbins_l'"<"0" | "`nbins_r'"<"0"){
-			di as error  "{err}{cmd:p()} and {cmd:nbins()} should be a positive integers"  
+			di as error  "{err}{cmd:p()} and {cmd:nbins()} should be a positive integers"
 			exit 411
+		}
+
+		if ("`masspoints'" != "" & ///
+		    !inlist("`masspoints'", "check", "adjust", "off", "false")) {
+			di as error "{err}{cmd:masspoints()} must be one of check, adjust, off"
+			exit 125
 		}
 			
 	
 		if (`n'<20){
-			 di as error "{err}Not enough observations to perform bin calculations"  
+			 di as error "{err}Not enough observations to perform bin calculations"
 			 exit 2001
 		}
 	}
+	}
+	* End of validation-only capture block. Splitting validation from the
+	* Mata-work block sidesteps a Stata quirk where `exit N` inside an `if{}`
+	* inside `capture noisily { ... }` does NOT halt the noisily block when
+	* later `mata { ... }` blocks exist at the same scope; control jumps past
+	* the first mata block and lands in the second, leaking transient Mata
+	* externals and surfacing a misleading rc=3499 instead of the real
+	* validation error. See rdrobust.ado for the same pattern.
+	local _rc = _rc
+	if `_rc' {
+		cwf `_orig_frame'
+		frame drop `_work_frame'
+		exit `_rc'
+	}
+	capture noisily {
 
 	*******************************
 	****** Start MATA *************
@@ -729,9 +766,13 @@ if  ("`covs_eval'"=="mean" & "`covs'"!="") {
 	qui getmata x_plot_l x_plot_r y_plot_l y_plot_r rdplot_id rdplot_mean_bin rdplot_mean_x rdplot_mean_y rdplot_N rdplot_min_bin rdplot_max_bin rdplot_se_y rdplot_ci_l rdplot_ci_r, replace force
 	
 	ereturn clear
-	ereturn scalar N_l = `n_l'
-	ereturn scalar N_r = `n_r'
+	ereturn scalar N     = `n'
+	ereturn scalar N_l   = `n_l'
+	ereturn scalar N_r   = `n_r'
+	ereturn scalar N_h_l = `n_h_l'
+	ereturn scalar N_h_r = `n_h_r'
 	ereturn scalar c = `c'
+	ereturn scalar p = `p'
 	ereturn scalar J_star_l = J_star_l
 	ereturn scalar J_star_r = J_star_r
 	ereturn matrix coef_l = gamma_p1_l
@@ -739,7 +780,12 @@ if  ("`covs_eval'"=="mean" & "`covs'"!="") {
 	if ("`covs'"!="") {
 		ereturn matrix coef_covs = gamma_p
 	}
-	ereturn local binselect = "`binselect'"
+	ereturn local binselect  = "`binselect'"
+	ereturn local depvar     "`y'"
+	ereturn local runningvar "`x'"
+	ereturn local cmdline    "rdplot `0'"
+	ereturn local title      "RD plot"
+	ereturn local cmd        "rdplot"
 
 	****** polynomial equation for plots ******************
 	mat coef_l = e(coef_l)
@@ -822,8 +868,22 @@ if  ("`covs_eval'"=="mean" & "`covs'"!="") {
 			}						
 		}
 	}
-	
-restore
+
+	}
+	local _rc = _rc
+	cwf `_orig_frame'
+	frame drop `_work_frame'
+	if `_rc' {
+		* Error path: best-effort per-name Mata cleanup before reraising.
+		capture mata: _mtx = direxternal("*"); st_local("_mata_after", rows(_mtx) ? invtokens(_mtx') : "")
+		capture mata: mata drop _mtx
+		local _mata_new : list _mata_after - _mata_before
+		foreach _mname of local _mata_new {
+			capture mata mata drop `_mname'
+		}
+		error `_rc'
+	}
+	}
 
 
 
@@ -853,7 +913,25 @@ if ("`genvars'"!="") {
 		}
 }
 
-mata mata clear
+* Drop transient matrices/scalars used as Mata-to-Stata transport buffers
+* so they don't leak into the caller's namespace.
+cap matrix drop coef_l coef_r
+cap matrix drop J_es_hat_dw J_qs_hat_dw J_es_chk_dw J_qs_chk_dw
+cap matrix drop J_es_hat_mv J_qs_hat_mv J_es_chk_mv J_qs_chk_mv
+cap scalar drop M_l M_r nbins_l nbins_r
+cap scalar drop J_star_l J_star_r J_star_l_orig J_star_r_orig
+cap scalar drop bin_avg_l bin_avg_r bin_med_l bin_med_r
+cap scalar drop J_star_l_IMSE J_star_r_IMSE J_star_l_MV J_star_r_MV
+cap scalar drop scale_l scale_r
+
+* Drop only the Mata externals we created (set difference vs the
+* entry-time snapshot). Library functions stay loaded; the user's
+* own Mata variables are preserved.
+mata: _mtx = direxternal("*"); st_local("_mata_after", rows(_mtx) ? invtokens(_mtx') : "")
+mata: mata drop _mtx
+local _mata_new : list _mata_after - _mata_before
+if `"`_mata_new'"' != "" mata mata drop `_mata_new'
+
 end
 
 
