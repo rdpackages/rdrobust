@@ -1,4 +1,4 @@
-*!version 6.0  2014-10-14
+*!version 6.0  2026-05-15
 
 capture program drop rdbwselect_2014
 program define rdbwselect_2014, eclass
@@ -134,7 +134,7 @@ program define rdbwselect_2014, eclass
 	}
 
 	if (`deriv'>0 & ("`bwselect'"=="IK" | "`bwselect'"=="CV" | "`all'"!="")) {
-		di "{err}{cmd:IK} and {cmd:CV} implementations are not availale for {cmd:deriv}>0; use CCT instead"
+		di "{err}{cmd:IK} and {cmd:CV} implementations are not available for {cmd:deriv}>0; use CCT instead"
 		exit 125
 	}
 	

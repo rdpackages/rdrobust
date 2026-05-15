@@ -9,21 +9,21 @@ Created on Wed Jul  7 18:36:35 2021
 import numpy as np
 import scipy.stats as sct
 import pandas  as pd
-from sklearn.linear_model import LinearRegression as LR
 from plotnine import *
 from rdrobust.funs import *
 
 
-def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None, 
-                  kernel = "uni", weights = None, h = None, 
+def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
+                  kernel = "uni", weights = None, h = None,
                   covs = None,  covs_eval = "mean", covs_drop = True,
                   support = None, subset = None, masspoints = "adjust",
-                  hide = False, ci = None, shade = False, 
+                  hide = False, ci = None, shade = False,
                   title = None, x_label = None, y_label = None, x_lim = None,
-                  y_lim = None, col_dots = None, col_lines = None):
-    
-    '''
-    Implements several data-driven Regression Discontinuity (RD) plots, using either evenly-spaced or quantile-spaced partitioning. Two type of RD plots are constructed: (i) RD plots with binned sample means tracing out the underlying regression function, and (ii) RD plots with binned sample means mimicking the underlying variability of the data. For technical and methodological details see Calonico, Cattaneo and Titiunik (2015a).
+                  y_lim = None, col_dots = None, col_lines = None,
+                  data = None):
+
+    r'''
+    Implements several data-driven Regression Discontinuity (RD) plots, using either evenly-spaced or quantile-spaced partitioning. Two types of RD plots are constructed: (i) RD plots with binned sample means tracing out the underlying regression function, and (ii) RD plots with binned sample means mimicking the underlying variability of the data. For technical and methodological details see Calonico, Cattaneo and Titiunik (2015a).
     
     Companion commands are: rdrobust for point estimation and inference procedures, and rdbwselect for data-driven bandwidth selection.
     
@@ -80,11 +80,18 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     h	
     specifies the bandwidth used to construct the (global) polynomial fits given the kernel choice kernel. If not specified, the bandwidths are chosen to span the full support of the data. If two bandwidths are specified, the first bandwidth is used for the data below the cutoff and the second bandwidth is used for the data above the cutoff.
     
-    covs	
+    covs
     specifies additional covariates to be used in the polynomial regression.
-    
-    covs_eval	
-    sets the evaluation points for the additional covariates, when included in the estimation. Options are: covs_eval = 0 (default) and covs_eval = "mean"
+    Accepted forms:
+      - a numpy array, pandas DataFrame, or Series (back-compatible);
+      - a one-sided formula string (requires `data`), e.g.
+        "~ z1 + z2 + I(z3**2)": expanded via `formulaic` (preferred) or
+        `patsy`; the intercept column is dropped automatically;
+      - a column name or list of column names (requires `data`),
+        e.g. ["z1", "z2"]: resolved as `data[covs]`.
+
+    covs_eval
+    sets the evaluation points for the additional covariates, when included in the estimation. Options are: covs_eval = "mean" (default; evaluate at the covariate means) and covs_eval = 0 (evaluate at zero).
     
     covs_drop	
     if TRUE, it checks for collinear additional covariates and drops them. Default is TRUE.
@@ -133,9 +140,14 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     col_dots	
     optional setting for the color of the dots in the RD plot.
     
-    col_lines	
+    col_lines
     optional setting for the color of the lines in the RD plot.
-    
+
+    data
+    optional pandas DataFrame. When supplied, `y`, `x`, `covs`, `weights`,
+    and `subset` may be passed as column-name strings (or a list of names
+    for `covs`), and a one-sided formula is accepted for `covs`.
+
     Returns
     -------
     binselect	
@@ -144,7 +156,7 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     N	
     sample sizes used to the left and right of the cutoff.
     
-    Nh	
+    N_h
     effective sample sizes used to the left and right of the cutoff.
     
     c	
@@ -168,10 +180,13 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     J_MV	
     Mimicking variance number of bins to the left and right of the cutoff.
     
-    coef	
+    coef
     matrix containing the coefficients of the p^{th} order global polynomial estimated both sides of the cutoff.
-    
-    scale	
+
+    coef_covs
+    coefficients of the additional covariates, only returned when `covs` is specified; `None` otherwise.
+
+    scale
     selected scale value.
     
     rscale	
@@ -215,14 +230,54 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     >>> y = 5+3*x+2*(x>=0) + numpy.random.uniform(size = 1000)
     >>> rdplot(y,x)
     '''
-    
+
+    loc = resolve_data_args(data, y=y, x=x, weights=weights, subset=subset)
+    y, x    = loc['y'], loc['x']
+    weights = loc['weights']
+    subset  = loc['subset']
+    covs = resolve_covs(covs, data)
+
     # Tidy the Input and remove NAN
     x = np.array(x).reshape(-1,1)
     y = np.array(y).reshape(-1,1)
+
+    # Validate auxiliary-vector lengths against length(x) BEFORE subset filter.
+    n_orig = len(x)
+    if len(y) != n_orig:
+        raise Exception(f"'y' and 'x' must have equal length (got y={len(y)}, x={n_orig}).")
+    if weights is not None and len(np.asarray(weights).reshape(-1)) != n_orig:
+        raise Exception(f"'weights' must have length equal to length(x) (got {len(np.asarray(weights).reshape(-1))}, expected {n_orig}).")
+    if covs is not None:
+        _covs_arr = np.asarray(covs)
+        nc = _covs_arr.shape[0] if _covs_arr.ndim >= 1 else 0
+        if nc != n_orig:
+            raise Exception(f"'covs' must have nrow equal to length(x) (got {nc}, expected {n_orig}).")
+    if subset is not None:
+        _subset_arr = np.asarray(subset)
+        if _subset_arr.dtype == bool:
+            if len(_subset_arr) != n_orig:
+                raise Exception(f"Boolean 'subset' must have length equal to length(x) (got {len(_subset_arr)}, expected {n_orig}).")
+        elif np.issubdtype(_subset_arr.dtype, np.integer) or np.issubdtype(_subset_arr.dtype, np.floating):
+            if (not np.all(np.isfinite(_subset_arr)) or np.any(_subset_arr < 0)
+                    or np.any(_subset_arr >= n_orig)
+                    or not np.all(_subset_arr == _subset_arr.astype(int))):
+                raise Exception(f"Numeric 'subset' must contain integer indices in 0..{n_orig - 1}.")
+        else:
+            raise Exception("'subset' must be boolean or integer.")
+
     if subset is not None:
         x = x[subset]
         y = y[subset]
-        
+        if len(x) == 0:
+            raise Exception("'subset' removed all observations.")
+
+    if not (np.isscalar(c) and np.isreal(c) and np.isfinite(c)):
+        raise Exception(f"Cutoff 'c' must be a single finite numeric value (received: {c}).")
+
+    if (masspoints is not None and masspoints is not False
+            and masspoints not in ("check", "adjust", "off", "")):
+        raise Exception("masspoints must be one of 'check', 'adjust', 'off', or False")
+
     na_ok = complete_cases(x) & complete_cases(y)
     
     if covs is not None:       
@@ -370,6 +425,7 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     if covs is None:
         gamma_p1_l = np.matmul(invG_p_l,crossprod(R_p_l*W_h_l,y_l))
         gamma_p1_r = np.matmul(invG_p_r,crossprod(R_p_r*W_h_r,y_r))
+        gamma_p = None
     else:
         z_l  = covs[(x<c).reshape(-1),:]
         z_r  = covs[(x>=c).reshape(-1),:]	
@@ -395,8 +451,8 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
         elif covs_drop_coll == 1:
             gamma_p = np.matmul(np.linalg.pinv(ZWZ_p),ZWY_p)
         s_Y = (np.hstack([1,-gamma_p[:,0]])).reshape(-1,1)
-        gamma_p1_l = (np.matmul(s_Y.T,(beta_p_l).T)).T
-        gamma_p1_r = (np.matmul(s_Y.T,(beta_p_r).T)).T
+        gamma_p1_l = (np.matmul(s_Y.T,(beta_p_l).T)).T.reshape(-1)
+        gamma_p1_r = (np.matmul(s_Y.T,(beta_p_r).T)).T.reshape(-1)
        
 	###############################################
 	### Prepare data for polynomial curve plot ####
@@ -501,8 +557,8 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     mu1_i_hat_l = np.matmul(drk_i_l,gamma_k1_l[1:])
     mu1_i_hat_r = np.matmul(drk_i_r,gamma_k1_r[1:])
 
-    var_y_l = np.var(y_l)
-    var_y_r = np.var(y_r)
+    var_y_l = np.var(y_l, ddof=1)
+    var_y_r = np.var(y_r, ddof=1)
     
     sigma2_hat_l_bar = mu2_i_hat_l - mu0_i_hat_l**2
     sigma2_hat_r_bar = mu2_i_hat_r - mu0_i_hat_r**2
@@ -650,17 +706,17 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     if covs is not None and covs_eval=="mean":
         dummy_l = pd.get_dummies(data=bin_x_l, drop_first=True)
         dummy_l = np.array(dummy_l).reshape(-1,ncol(dummy_l))
-        regressors_l = np.column_stack([z_l,dummy_l])
-        covs_model_l = LR().fit(regressors_l,y_l.reshape(-1,1))
-        yhatZ_l = covs_model_l.predict(regressors_l).reshape(-1)
+        regressors_l = np.column_stack([np.ones(len(y_l)), z_l, dummy_l])
+        beta_l, *_   = np.linalg.lstsq(regressors_l, y_l, rcond=None)
+        yhatZ_l      = (regressors_l @ beta_l).reshape(-1)
         aux_l  = pd.DataFrame({'bin_x_l':bin_x_l, 'yhatZ_l':yhatZ_l})
         rdplot_mean_y_l  = aux_l.groupby('bin_x_l').agg({'yhatZ_l': 'mean'})['yhatZ_l'].values
-        
+
         dummy_r = pd.get_dummies(data=bin_x_r, drop_first=True)
         dummy_r = np.array(dummy_r).reshape(-1,ncol(dummy_r))
-        regressors_r = np.column_stack([z_r,dummy_r])
-        covs_model_r = LR().fit(regressors_r,y_r.reshape(-1,1))
-        yhatZ_r = covs_model_r.predict(regressors_r).reshape(-1)
+        regressors_r = np.column_stack([np.ones(len(y_r)), z_r, dummy_r])
+        beta_r, *_   = np.linalg.lstsq(regressors_r, y_r, rcond=None)
+        yhatZ_r      = (regressors_r @ beta_r).reshape(-1)
         aux_r  = pd.DataFrame({'bin_x_r':bin_x_r, 'yhatZ_r':yhatZ_r})
         rdplot_mean_y_r  = aux_r.groupby('bin_x_r').agg({'yhatZ_r': 'mean'})['yhatZ_r'].values
 
@@ -685,12 +741,12 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     aux_r = pd.DataFrame({'bin':bin_x_r, 'y':y_r}).groupby('bin').agg({'y':['count','std']})
 
     rdplot_N_l    = aux_l['y']['count'].values
-    rdplot_sd_y_l = aux_l['y']['std'].values
+    rdplot_sd_y_l = aux_l['y']['std'].values.copy()
     rdplot_N_r    = aux_r['y']['count'].values
-    rdplot_sd_y_r = aux_r['y']['std'].values
+    rdplot_sd_y_r = aux_r['y']['std'].values.copy()
 		
-    rdplot_sd_y_l[np.isnan(rdplot_sd_y_l)] = 0
-    rdplot_sd_y_r[np.isnan(rdplot_sd_y_r)] = 0
+    rdplot_sd_y_l = np.nan_to_num(rdplot_sd_y_l)
+    rdplot_sd_y_r = np.nan_to_num(rdplot_sd_y_r)
     rdplot_sd_y = np.concatenate([rdplot_sd_y_l[::-1],rdplot_sd_y_r])
     rdplot_N = np.concatenate([rdplot_N_l[::-1],rdplot_N_r])
 	
@@ -740,7 +796,9 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
                       theme(legend_position = "None") +
                       geom_vline(xintercept = c, size = 0.5)) 
         
-        ggplot.show(temp_plot)
+        import matplotlib
+        if matplotlib.is_interactive():
+            ggplot.show(temp_plot)
   
     rdplot_min_bin_l = jumps_l[0:J_star_l]
     rdplot_max_bin_l = jumps_l[1:(J_star_l + 1)]
@@ -780,8 +838,8 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
         })
     
     return rdplot_output(coef, temp_plot, vars_bins, vars_poly,
-                        [J_star_l,J_star_r], J_IMSE, J_MV, 
+                        [J_star_l,J_star_r], J_IMSE, J_MV,
                         [scale_l,scale_r], [rscale_l,rscale_r],
                         [bin_avg_l,bin_avg_r], [bin_med_l,bin_med_r],
                         p, c, [h_l,h_r], [n_l,n_r], [n_h_l,n_h_r],
-                        binselect_type, kernel_type)
+                        binselect_type, kernel_type, coef_covs=gamma_p)

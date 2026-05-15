@@ -1,7 +1,6 @@
 ###########################################################################
 ## RDROBUST R Package
-## Do-file for Empirical Illustration
-## Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell and Rocio Titiunik 
+## Empirical Illustration
 ###########################################################################
 ### Clear R environment
 rm(list=ls(all=TRUE))
@@ -41,8 +40,8 @@ rdplot(y=vote, x=margin, binselect="qsmv",
 ### rdrobust 
 summary(rdrobust(y=vote, x=margin))
 
-### rdrobust with all estimates
-summary(rdrobust(y=vote, x=margin, all=TRUE))
+### rdrobust summary
+summary(rdrobust(y=vote, x=margin))
 
 ## rdrobust backward compatibility
 summary(rdrobust(y=vote, x=margin, h=16.79369, b=27.43745))

@@ -1,8 +1,8 @@
 ********************************************************************************
 * RDROBUST STATA PACKAGE -- rdrobust_functions
-* Authors: Sebastian Calonico, Matias D. Cattaneo, Max Farrell, Rocio Tititunik
+* Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell, Rocio Titiunik
 ********************************************************************************
-*!version 10.0.0  2025-06-30
+*!version 10.0.0  2026-05-15
    
 capture mata mata drop rdrobust_res()
 mata
@@ -151,7 +151,7 @@ real matrix rdrobust_bw(real matrix Y, real matrix X, real matrix T, real matrix
 		}
 	}	
 	res_V = rdrobust_res(eX, eY, eT, eZ, predicts_V, hii, vce, nnmatch, dups_V, dupsid_V, o+1)
-	V_V = (invG_V*rdrobust_vce(dT+dZ, s, R_V:*eW, res_V, eC, indC)*invG_V)[nu+1,nu+1]
+	V_V = (invG_V*rdrobust_vce(dT+dZ, s, R_V:*eW, res_V, eC, indC, 0)*invG_V)[nu+1,nu+1]
 	v = quadcross(R_V:*eW,((eX:-c):/h_V):^(o+1))
 	Hp = J(o+1, 1, 1)
 	for (j=1; j<=(o+1); j++) Hp[j] = h_V^((j-1))
@@ -198,7 +198,7 @@ real matrix rdrobust_bw(real matrix Y, real matrix X, real matrix T, real matrix
 			}
 		}	
 		res_B = rdrobust_res(eX, eY, eT, eZ, predicts_B, hii, vce, nnmatch, dups_B, dupsid_B,o_B+1)
-		V_B = (invG_B*rdrobust_vce(dT+dZ, s, R_B:*eW, res_B, eC, indC)*invG_B)[o+2,o+2]
+		V_B = (invG_B*rdrobust_vce(dT+dZ, s, R_B:*eW, res_B, eC, indC, 0)*invG_B)[o+2,o+2]
 		BWreg = 3*BConst^2*V_B
 	}
 	B =  sqrt(2*(o+1-nu))*BConst*(s'*beta_B[o+2,]')
@@ -213,9 +213,11 @@ end
 ****************************************************
 capture mata mata drop rdrobust_vce()
 mata
-real matrix rdrobust_vce(real scalar d, real matrix s, real matrix RX, real matrix res, real matrix C, real matrix ind)
+real matrix rdrobust_vce(real scalar d, real matrix s, real matrix RX, real matrix res, real matrix C, real matrix ind, real scalar k_override)
 {	
 	k = cols(RX)
+	k_df = k
+	if (k_override>0) k_df = k_override
 	M = J(k,k,0)
 	n  = length(C)
 	if (n==1) {
@@ -239,7 +241,7 @@ real matrix rdrobust_vce(real scalar d, real matrix s, real matrix RX, real matr
 		res_o = res[ind,]
 		info  = panelsetup(C_o,1)
 		g     = rows(info)
-		w = ((n-1) / (n-k)) * (g / (g-1))
+		w = ((n-1) / (n-k_df)) * (g / (g-1))
 		if (d==0){
 			for (i=1; i<=g; i++) {
 				Xi = panelsubmatrix(RX_o,  i, info)

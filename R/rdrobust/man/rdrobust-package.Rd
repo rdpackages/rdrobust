@@ -9,8 +9,8 @@
 \tabular{ll}{
 Package: \tab rdrobust\cr
 Type: \tab Package\cr
-Version: \tab 3.0.0\cr 
-Date: \tab 2025-07-19\cr
+Version: \tab 4.0.0\cr
+Date: \tab 2026-05-15\cr
 License: \tab GPL-3\cr
 }
 Function for statistical inference: \code{\link{rdrobust}}\cr
@@ -20,9 +20,9 @@ Function for exploratory data analysis (RD plots): \code{\link{rdplot}}
 \author{
 Sebastian Calonico, University of California, Davis, CA.  \email{scalonico@ucdavis.edu}.
 
-Matias D. Cattaneo, Princeton University, Princeton, NJ.  \email{cattaneo@princeton.edu}.
+Matias D. Cattaneo, Princeton University, Princeton, NJ.  \email{matias.d.cattaneo@gmail.com}.
 
-Max H. Farrell, University of California, Santa Barbara, CA. \email{maxhfarrell@ucsb.edu}.
+Max H. Farrell, University of California, Santa Barbara, CA. \email{mhfarrell@gmail.com}.
 
-Rocio Titiunik, Princeton University, Princeton, NJ.  \email{titiunik@princeton.edu}.
+Rocio Titiunik, Princeton University, Princeton, NJ.  \email{rocio.titiunik@gmail.com}.
 }

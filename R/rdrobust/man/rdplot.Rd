@@ -5,7 +5,7 @@
 \title{Data-Driven Regression Discontinuity Plots}
 \description{
 
-\code{\link{rdplot}}  implements several data-driven Regression Discontinuity (RD) plots, using either evenly-spaced or quantile-spaced partitioning. Two type of RD plots are constructed: (i) RD plots with binned sample means tracing out the underlying regression function, and (ii) RD plots with binned sample means mimicking the underlying variability of the data. For technical and methodological details see Calonico, Cattaneo and Titiunik (2015a).
+\code{\link{rdplot}}  implements several data-driven Regression Discontinuity (RD) plots, using either evenly-spaced or quantile-spaced partitioning. Two types of RD plots are constructed: (i) RD plots with binned sample means tracing out the underlying regression function, and (ii) RD plots with binned sample means mimicking the underlying variability of the data. For technical and methodological details see Calonico, Cattaneo and Titiunik (2015a).
 
 Companion commands are: \code{\link{rdrobust}} for point estimation and inference procedures, and \code{\link{rdbwselect}} for data-driven bandwidth selection.
 
@@ -20,7 +20,7 @@ rdplot(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv",
           support = NULL, subset = NULL, masspoints = "adjust",
           hide = FALSE, ci = NULL, shade = FALSE, title = NULL, 
           x.label = NULL, y.label = NULL, x.lim = NULL, y.lim = NULL, 
-          col.dots = NULL, col.lines = NULL)
+          col.dots = NULL, col.lines = NULL, data = NULL)
 }
 \arguments{
   \item{y}{is the dependent variable.}
@@ -51,7 +51,12 @@ rdplot(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv",
   \item{weights}{is the variable used for optional weighting of the estimation procedure. The unit-specific weights multiply the kernel function.}
   \item{h}{specifies the bandwidth used to construct the (global) polynomial fits given the kernel choice \code{kernel}.
 If not specified, the bandwidths are chosen to span the full support of the data. If two bandwidths are specified, the first bandwidth is used for the data below the cutoff and the second bandwidth is used for the data above the cutoff.}
-  \item{covs}{specifies additional covariates to be used in the polynomial regression.}
+  \item{covs}{specifies additional covariates to be used in the polynomial regression. One of:
+  \itemize{
+    \item a one-sided \code{\link{formula}}, e.g. \code{~ z1 + z2 + factor(g) + I(z3^2)}: processed with \code{\link{model.matrix}}, so factors are expanded to contrasts, interactions are supported, and transformations such as \code{I(\dots)}, \code{log()}, and \code{poly()} work. The intercept column is dropped automatically. Symbols are looked up in \code{data} first (if supplied), then in the caller's environment;
+    \item a character vector of column names (requires \code{data =}), e.g. \code{c("z1", "z2")}: selected as \code{data[, covs]} and coerced to a matrix. Useful for programmatic specifications;
+    \item a numeric vector, matrix, or data frame: passed through unchanged (backwards compatible).
+  }}
   \item{covs_eval}{sets the evaluation points for the additional covariates, when included in the estimation. Options are: \code{covs_eval = 0} and \code{covs_eval = "mean"} (default)}
   \item{covs_drop}{if TRUE, it checks for collinear additional covariates and drops them. Default is TRUE.}
     \item{ginv.tol}{tolerance used to invert matrices involving covariates when \code{covs_drop=TRUE}.}
@@ -77,11 +82,12 @@ If not specified, the bandwidths are chosen to span the full support of the data
   \item{y.lim}{optional setting for the range of the y-axis in the RD plot.}
   \item{col.dots}{optional setting for the color of the dots in the RD plot.}
   \item{col.lines}{optional setting for the color of the lines in the RD plot.}
+  \item{data}{an optional data frame. When supplied, \code{y}, \code{x}, \code{covs}, \code{weights}, and \code{subset} may be given as bare variable names referring to columns of \code{data}.}
 }
 \value{
   \item{binselect}{method used to compute the optimal number of bins.}
   \item{N}{sample sizes used to the left and right of the cutoff.}
-  \item{Nh}{effective sample sizes used to the left and right of the cutoff.}
+  \item{N_h}{effective sample sizes used to the left and right of the cutoff.}
   \item{c}{cutoff value.}
   \item{p}{order of the global polynomial used.}
   \item{h}{bandwidth used to the left and right of the cutoff.}
@@ -113,11 +119,11 @@ Cattaneo, M. D., B. Frandsen, and R. Titiunik. 2015. \href{https://rdpackages.gi
 \author{
 Sebastian Calonico, University of California, Davis, CA.  \email{scalonico@ucdavis.edu}.
 
-Matias D. Cattaneo, Princeton University, Princeton, NJ.  \email{cattaneo@princeton.edu}.
+Matias D. Cattaneo, Princeton University, Princeton, NJ.  \email{matias.d.cattaneo@gmail.com}.
 
-Max H. Farrell, University of California, Santa Barbara, CA. \email{maxhfarrell@ucsb.edu}.
+Max H. Farrell, University of California, Santa Barbara, CA. \email{mhfarrell@gmail.com}.
 
-Rocio Titiunik, Princeton University, Princeton, NJ.  \email{titiunik@princeton.edu}.
+Rocio Titiunik, Princeton University, Princeton, NJ.  \email{rocio.titiunik@gmail.com}.
 }
 \examples{
 x <- runif(1000,-1,1)
@@ -130,5 +136,5 @@ rdplot(y,x)
 \keyword{ partitioning}
 \keyword{ tuning parameter selection}
 \seealso{
-  \code{\link{rdbwselect}}, \code{\link{rdrobust}}
+  \code{\link{rdbwselect}}, \code{\link{rdrobust}}, \code{\link{plot.rdrobust}}
 }

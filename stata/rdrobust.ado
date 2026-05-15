@@ -1,8 +1,8 @@
 ********************************************************************************
 * RDROBUST STATA PACKAGE -- rdrobust
-* Authors: Sebastian Calonico, Matias D. Cattaneo, Max Farrell, Rocio Tititunik
+* Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell, Rocio Titiunik
 ********************************************************************************
-*!version 10.0.0  2025-06-30
+*!version 10.0.0  2026-05-15
 
 capture program drop rdrobust 
 program define rdrobust, eclass
@@ -45,7 +45,7 @@ program define rdrobust, eclass
 	if ("`vce_select'"=="hc1")      	 local vce_type = "HC1"
 	if ("`vce_select'"=="hc2")      	 local vce_type = "HC2"
 	if ("`vce_select'"=="hc3")      	 local vce_type = "HC3"
-	if ("`vce_select'"=="cluster")  	 local vce_type = "Cluster"
+	if ("`vce_select'"=="cluster")  	 local vce_type = "CR1"
 	if ("`vce_select'"=="nncluster") 	 local vce_type = "NNcluster"
 
 	if ("`vce_select'"=="cluster" | "`vce_select'"=="nncluster") local cluster = "cluster"
@@ -223,7 +223,7 @@ program define rdrobust, eclass
 			}
 
 			if ("`bwselect'"=="CCT" | "`bwselect'"=="IK" | "`bwselect'"=="CV" |"`bwselect'"=="cct" | "`bwselect'"=="ik" | "`bwselect'"=="cv"){
-				di as error  "{err}{cmd:bwselect()} options IK, CCT and CV have been depricated. Please see help for new options"  
+				di as error  "{err}{cmd:bwselect()} options IK, CCT and CV have been deprecated. Please see help for new options"  
 				exit 7
 			}
 	
@@ -357,7 +357,7 @@ masspoints_found = 0
 		BWp = min((`x_sd',`x_iq'/1.349))
 		x_sd = y_sd = 1
 		c = `c'
-		*** Starndardized ******************
+		*** Standardized ******************
 		if  ("`stdvars'"=="on")  {	
 			y_sd = sqrt(variance(Y))
 			x_sd = sqrt(variance(X))
@@ -416,7 +416,7 @@ masspoints_found = 0
 	
 		*** BW-TWO
 		if  ("`bwselect'"=="msetwo" |  "`bwselect'"=="certwo" | "`bwselect'"=="msecomb2" | "`bwselect'"=="cercomb2" )  {		
-			* Preliminar bw
+			* Preliminary bw
 			d_bw_l = (  (C_d_l[1]              /   C_d_l[2]^2)    * (`N'/mN)         )^C_d_l[4] 
 			d_bw_r = (  (C_d_r[1]              /   C_d_r[2]^2)    * (`N'/mN)         )^C_d_l[4]
 			if  ("`bwrestrict'"=="on") {
@@ -449,7 +449,7 @@ masspoints_found = 0
 		
 		*** BW-SUM
 		if  ("`bwselect'"=="msesum" | "`bwselect'"=="cersum" |  "`bwselect'"=="msecomb1" | "`bwselect'"=="msecomb2" |  "`bwselect'"=="cercomb1" | "`bwselect'"=="cercomb2")  {
-			* Preliminar bw
+			* Preliminary bw
 			d_bw_s = ( ((C_d_l[1] + C_d_r[1])  /  (C_d_r[2] + C_d_l[2])^2)  * (`N'/mN)  )^C_d_l[4]
 			if  ("`bwrestrict'"=="on")  d_bw_s = min((d_bw_s, bw_max))
 			if (bwcheck > 0) d_bw_s = max((d_bw_s, bw_min_l, bw_min_r))		
@@ -467,7 +467,7 @@ masspoints_found = 0
 		
 		*** RD
 		if  ("`bwselect'"=="mserd" | "`bwselect'"=="cerrd" | "`bwselect'"=="msecomb1" | "`bwselect'"=="msecomb2" | "`bwselect'"=="cercomb1" | "`bwselect'"=="cercomb2" | "`bwselect'"=="") {
-			* Preliminar bw
+			* Preliminary bw
 			d_bw_d = ( ((C_d_l[1] + C_d_r[1])  /  (C_d_r[2] - C_d_l[2])^2)  * (`N'/mN)   )^C_d_l[4]
 			if  ("`bwrestrict'"=="on") d_bw_d = min((d_bw_d, bw_max))
 			
@@ -532,7 +532,7 @@ masspoints_found = 0
 			b_r = h_r/rho
 		}
 					
-		*** De-Starndardized *********************************
+		*** De-standardized *********************************
 		c = `c'*x_sd
 		X_uniq_l = X_uniq_l*x_sd
 		X_uniq_r = X_uniq_r*x_sd
@@ -800,19 +800,19 @@ masspoints_found = 0
 		
 		}
 
-		V_Y_cl_l = invG_p_l*rdrobust_vce(dT+dZ, s_Y, R_p_l:*W_h_l, res_h_l, eC_l, indC_l)*invG_p_l
-		V_Y_cl_r = invG_p_r*rdrobust_vce(dT+dZ, s_Y, R_p_r:*W_h_r, res_h_r, eC_r, indC_r)*invG_p_r
-		V_Y_bc_l = invG_p_l*rdrobust_vce(dT+dZ, s_Y, Q_q_l, res_b_l, eC_l, indC_l)*invG_p_l
-		V_Y_bc_r = invG_p_r*rdrobust_vce(dT+dZ, s_Y, Q_q_r, res_b_r, eC_r, indC_r)*invG_p_r
+		V_Y_cl_l = invG_p_l*rdrobust_vce(dT+dZ, s_Y, R_p_l:*W_h_l, res_h_l, eC_l, indC_l, 0)*invG_p_l
+		V_Y_cl_r = invG_p_r*rdrobust_vce(dT+dZ, s_Y, R_p_r:*W_h_r, res_h_r, eC_r, indC_r, 0)*invG_p_r
+		V_Y_bc_l = invG_p_l*rdrobust_vce(dT+dZ, s_Y, Q_q_l, res_b_l, eC_l, indC_l, `q'+1)*invG_p_l
+		V_Y_bc_r = invG_p_r*rdrobust_vce(dT+dZ, s_Y, Q_q_r, res_b_r, eC_r, indC_r, `q'+1)*invG_p_r
 		V_tau_cl = (`scalepar')^2*factorial(`deriv')^2*(V_Y_cl_l+V_Y_cl_r)[`deriv'+1,`deriv'+1]
 		V_tau_rb = (`scalepar')^2*factorial(`deriv')^2*(V_Y_bc_l+V_Y_bc_r)[`deriv'+1,`deriv'+1]
 		se_tau_cl = sqrt(V_tau_cl);	se_tau_rb = sqrt(V_tau_rb)
 
 		if ("`fuzzy'"!="") {
-			V_T_cl_l = invG_p_l*rdrobust_vce(dT+dZ, sV_T, R_p_l:*W_h_l, res_h_l, eC_l, indC_l)*invG_p_l
-			V_T_cl_r = invG_p_r*rdrobust_vce(dT+dZ, sV_T, R_p_r:*W_h_r, res_h_r, eC_r, indC_r)*invG_p_r
-			V_T_bc_l = invG_p_l*rdrobust_vce(dT+dZ, sV_T, Q_q_l, res_b_l, eC_l, indC_l)*invG_p_l
-			V_T_bc_r = invG_p_r*rdrobust_vce(dT+dZ, sV_T, Q_q_r, res_b_r, eC_r, indC_r)*invG_p_r
+			V_T_cl_l = invG_p_l*rdrobust_vce(dT+dZ, sV_T, R_p_l:*W_h_l, res_h_l, eC_l, indC_l, 0)*invG_p_l
+			V_T_cl_r = invG_p_r*rdrobust_vce(dT+dZ, sV_T, R_p_r:*W_h_r, res_h_r, eC_r, indC_r, 0)*invG_p_r
+			V_T_bc_l = invG_p_l*rdrobust_vce(dT+dZ, sV_T, Q_q_l, res_b_l, eC_l, indC_l, `q'+1)*invG_p_l
+			V_T_bc_r = invG_p_r*rdrobust_vce(dT+dZ, sV_T, Q_q_r, res_b_r, eC_r, indC_r, `q'+1)*invG_p_r
 			V_T_cl = factorial(`deriv')^2*(V_T_cl_l+V_T_cl_r)[`deriv'+1,`deriv'+1]
 			V_T_rb = factorial(`deriv')^2*(V_T_bc_l+V_T_bc_r)[`deriv'+1,`deriv'+1]
 			se_tau_T_cl = sqrt(V_T_cl);	se_tau_T_rb = sqrt(V_T_rb)

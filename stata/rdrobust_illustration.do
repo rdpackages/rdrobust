@@ -1,13 +1,12 @@
 ******************************************************************************** 
 ** RDROBUST Stata Package
 ** Do-file for Empirical Illustration 
-** Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell and Rocio Titiunik 
 ********************************************************************************
 ** hlp2winpdf, cdn(rdrobust) replace
 ** hlp2winpdf, cdn(rdbwselect) replace
 ** hlp2winpdf, cdn(rdplot) replace
 ********************************************************************************
-** net install rdrobust, from(https://raw.githubusercontent.com/rdpackages/rdrobust/master/stata) replace
+** net install rdrobust, from(https://raw.githubusercontent.com/rdpackages/rdrobust/main/stata) replace
 ********************************************************************************
 clear all
 set more off

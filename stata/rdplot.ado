@@ -1,8 +1,8 @@
 ********************************************************************************
 * RDROBUST STATA PACKAGE -- rdplot
-* Authors: Sebastian Calonico, Matias D. Cattaneo, Max Farrell, Rocio Tititunik
+* Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell, Rocio Titiunik
 ********************************************************************************
-*!version 10.0.0  2025-06-30
+*!version 10.0.0  2026-05-15
 
 capture program drop rdplot
 program define rdplot, eclass

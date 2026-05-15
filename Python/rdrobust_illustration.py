@@ -1,8 +1,6 @@
 ###########################################################################
 ## RDROBUST Python Package
-## Script for Empirical Illustration
-## Authors: Sebastian Calonico, Matias D. Cattaneo,
-##          Max H. Farrell, Ricardo Masini and Rocio Titiunik 
+## Empirical Illustration
 ###########################################################################
 
 ### Load RDROBUST package
@@ -12,7 +10,7 @@ import pandas as pd
 ### Load data base
 rdrobust_senate = pd.read_csv("rdrobust_senate.csv")
 
-# Define the variblrs
+# Define the variables
 margin = rdrobust_senate.margin
 vote = rdrobust_senate.vote
 

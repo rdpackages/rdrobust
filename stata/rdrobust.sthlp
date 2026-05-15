@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 10.0.0  2025-06-30}{...}
+{* *!version 10.0.0  2026-05-15}{...}
 {viewerjumpto "Syntax" "rdrobust##syntax"}{...}
 {viewerjumpto "Description" "rdrobust##description"}{...}
 {viewerjumpto "Options" "rdrobust##options"}{...}
@@ -105,7 +105,7 @@ Default is {cmd:rho(1)} if {it:h} is specified but {it:b} is not.{p_end}
 
 {p 4 8}{cmd:covs(}{it:covars}{cmd:)} specifies additional covariates to be used for estimation and inference.{p_end}
 
-{p 4 8}{cmd:covs_drop(}{it:covsdropoption}{cmd:)} assess collinearity in additional covariates used for estimation and inference. Options {opt pinv} (default choice) and {opt invsym} drops collinear additional covariates, differing only in the type of inverse function used. Option {opt off} omits the check for collinear additional covariates.{p_end}
+{p 4 8}{cmd:covs_drop(}{it:covsdropoption}{cmd:)} assesses collinearity in additional covariates used for estimation and inference. Options {opt pinv} (default choice) and {opt invsym} drop collinear additional covariates, differing only in the type of inverse function used. Option {opt off} omits the check for collinear additional covariates.{p_end}
 
 {p 4 8}{cmd:kernel(}{it:kernelfn}{cmd:)} specifies the kernel function used to construct the local-polynomial estimator(s). Options are: {opt tri:angular}, {opt epa:nechnikov}, and {opt uni:form}.
 Default is {cmd:kernel(triangular)}.{p_end}
@@ -159,7 +159,7 @@ Options are:{p_end}
 {p 8 12}{cmd:vce(hc1)} for heteroskedasticity-robust plug-in residuals variance estimator with {it:hc1} weights.{p_end}
 {p 8 12}{cmd:vce(hc2)} for heteroskedasticity-robust plug-in residuals variance estimator with {it:hc2} weights.{p_end}
 {p 8 12}{cmd:vce(hc3)} for heteroskedasticity-robust plug-in residuals variance estimator with {it:hc3} weights.{p_end}
-{p 8 12}{cmd:vce(nncluster }{it:clustervar [nnmatch]}{cmd:)} for cluster-robust nearest neighbor variance estimation using with {it:clustervar} indicating the cluster ID variable and {it: nnmatch} matches indicating the minimum number of neighbors to be used.{p_end}
+{p 8 12}{cmd:vce(nncluster }{it:clustervar [nnmatch]}{cmd:)} for cluster-robust nearest neighbor variance estimation, with {it:clustervar} indicating the cluster ID variable and {it:nnmatch} indicating the minimum number of neighbors to be used.{p_end}
 {p 8 12}{cmd:vce(cluster }{it:clustervar}{cmd:)} for cluster-robust plug-in residuals variance estimation with degrees-of-freedom weights and {it:clustervar} indicating the cluster ID variable.{p_end}
 {p 8 12}Default is {cmd:vce(nn 3)}.{p_end}
 
@@ -304,12 +304,12 @@ Default is {cmd:level(95)}.{p_end}
 {browse "mailto:scalonico@ucdavis.edu":scalonico@ucdavis.edu}.{p_end}
 
 {p 4 8}Matias D. Cattaneo, Princeton University, Princeton, NJ.
-{browse "mailto:cattaneo@princeton.edu":cattaneo@princeton.edu}.{p_end}
+{browse "mailto:matias.d.cattaneo@gmail.com":matias.d.cattaneo@gmail.com}.{p_end}
 
 {p 4 8}Max H. Farrell, University of California, Santa Barbara, CA.
-{browse "mailto:maxhfarrell@ucsb.edu":maxhfarrell@ucsb.edu}.{p_end}
+{browse "mailto:mhfarrell@gmail.com":mhfarrell@gmail.com}.{p_end}
 
 {p 4 8}Rocio Titiunik, Princeton University, Princeton, NJ.
-{browse "mailto:titiunik@princeton.edu":titiunik@princeton.edu}.{p_end}
+{browse "mailto:rocio.titiunik@gmail.com":rocio.titiunik@gmail.com}.{p_end}
 
 

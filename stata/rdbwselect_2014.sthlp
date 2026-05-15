@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 6.0  2014-10-14}{...}
+{* *! version 6.0  2026-05-15}{...}
 {viewerjumpto "Syntax" "rdbwselect##syntax"}{...}
 {viewerjumpto "Description" "rdbwselect##description"}{...}
 {viewerjumpto "Options" "rdbwselect##options"}{...}
@@ -126,12 +126,12 @@ Default is {cmd:matches(3)}.
 {browse "mailto:scalonico@ucdavis.edu":scalonico@ucdavis.edu}.{p_end}
 
 {p 4 8}Matias D. Cattaneo, Princeton University, Princeton, NJ.
-{browse "mailto:cattaneo@princeton.edu":cattaneo@princeton.edu}.{p_end}
+{browse "mailto:matias.d.cattaneo@gmail.com":matias.d.cattaneo@gmail.com}.{p_end}
 
 {p 4 8}Max H. Farrell, University of California, Santa Barbara, CA.
-{browse "mailto:maxhfarrell@ucsb.edu":maxhfarrell@ucsb.edu}.{p_end}
+{browse "mailto:mhfarrell@gmail.com":mhfarrell@gmail.com}.{p_end}
 
 {p 4 8}Rocio Titiunik, Princeton University, Princeton, NJ.
-{browse "mailto:titiunik@princeton.edu":titiunik@princeton.edu}.{p_end}
+{browse "mailto:rocio.titiunik@gmail.com":rocio.titiunik@gmail.com}.{p_end}
 
 

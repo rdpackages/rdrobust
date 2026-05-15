@@ -1,9 +1,8 @@
 ********************************************************************************
 ** RDROBUST Stata Package
-** Do-file for RDPLOT Illustration
-** Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell and Rocio Titiunik 
+** RDPLOT Illustration
 ********************************************************************************
-** net install rdrobust, from(https://raw.githubusercontent.com/rdpackages/rdrobust/master/stata) replace
+** net install rdrobust, from(https://raw.githubusercontent.com/rdpackages/rdrobust/main/stata) replace
 ********************************************************************************
 clear all
 

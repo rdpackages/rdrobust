@@ -1,25 +1,45 @@
-rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = NULL, 
-                  kernel = "uni", weights = NULL, h = NULL, 
+rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = NULL,
+                  kernel = "uni", weights = NULL, h = NULL,
                   covs = NULL,  covs_eval = "mean", covs_drop = TRUE, ginv.tol = 1e-20,
                   support = NULL, subset = NULL, masspoints = "adjust",
-                  hide = FALSE, ci = NULL, shade = FALSE, 
-                  title = NULL, x.label = NULL, y.label = NULL, x.lim = NULL, y.lim = NULL, 
-                  col.dots = NULL, col.lines = NULL) {
-  
-  ############################################################################################
-  #start_time <- Sys.time()
-  ############################################################################################
+                  hide = FALSE, ci = NULL, shade = FALSE,
+                  title = NULL, x.label = NULL, y.label = NULL, x.lim = NULL, y.lim = NULL,
+                  col.dots = NULL, col.lines = NULL,
+                  data = NULL) {
+
+  if (!is.null(data)) {
+    .vars <- .rdrobust_resolve_data(match.call(), data, parent.frame(),
+              c("y","x","covs","weights","subset"))
+    y <- .vars$y; x <- .vars$x; covs <- .vars$covs
+    weights <- .vars$weights; subset <- .vars$subset
+  }
+
+  covs <- .rdrobust_resolve_covs(covs, data, parent.frame())
+
+  # Validate auxiliary-vector lengths against length(x) BEFORE subset filtering.
+  n_orig <- length(x)
+  .rdrobust_check_length(y,       "y",       n_orig)
+  .rdrobust_check_length(weights, "weights", n_orig)
+  .rdrobust_check_length(covs,    "covs",    n_orig)
+  .rdrobust_check_subset(subset, n_orig)
+
   if (!is.null(subset)) {
     x <- x[subset]
     y <- y[subset]
+    if (length(x) == 0L)
+      stop("'subset' removed all observations.", call. = FALSE)
   }
+
+  if (length(c) != 1 || !is.numeric(c) || !is.finite(c))
+    stop(sprintf("Cutoff 'c' must be a single finite numeric value (received: %s).", toString(c)), call. = FALSE)
+
   na.ok <- complete.cases(x) & complete.cases(y)
   
   if (!is.null(covs)){
-    if (!is.null(subset))  covs <- subset(covs,subset)
+    if (!is.null(subset))  covs <- covs[subset, , drop=FALSE]
     na.ok <- na.ok & complete.cases(covs)
     
-    print("covs option is meant to be used when plotting RDROBUST estimates. If the option is used for global polynomial fitting, it may deliver results that are not visually compatible with the local binned means depicted due to the underlying assumptions used.")
+    message("covs option is meant to be used when plotting RDROBUST estimates. If the option is used for global polynomial fitting, it may deliver results that are not visually compatible with the local binned means depicted due to the underlying assumptions used.")
     
   } 
   
@@ -90,8 +110,8 @@ rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = 
   }
   
   kernel_type = "Uniform"
-  if (kernel=="epanechnikov" | kernel=="epa") kernel_type = "Epanechnikov"
-  if (kernel=="triangular"   | kernel=="tri") kernel_type = "Triangular"
+  if (kernel %in% c("epanechnikov", "epa")) kernel_type = "Epanechnikov"
+  if (kernel %in% c("triangular",   "tri")) kernel_type = "Triangular"
   
   ### Mass Points
   if (is.null(masspoints)) masspoints=FALSE
@@ -105,8 +125,8 @@ rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = 
     mass_l = 1-M_l/n_l
     mass_r = 1-M_r/n_r				
     if (mass_l>=0.2 | mass_r>=0.2){
-      print("Mass points detected in the running variable.")
-      if (masspoints=="check") print("Try using option masspoints=adjust.")
+      warning("Mass points detected in the running variable.")
+      if (masspoints=="check") message("Try using option masspoints=adjust.")
       if (masspoints=="adjust") {
         if (binselect=="es")    binselect="espr"
         if (binselect=="esmv")  binselect="esmvpr"
@@ -119,7 +139,7 @@ rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = 
   ############## COLLINEARITY
   covs_drop_coll=dZ=0
   if (!is.null(covs)) dZ = ncol(covs)
-  if (covs_drop == TRUE) covs_drop_coll = 1 
+  if (isTRUE(covs_drop)) covs_drop_coll = 1
   
   if (!is.null(covs) & isTRUE(covs_drop)) {
     covs.names = colnames(covs)
@@ -141,45 +161,45 @@ rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = 
   #####  ERRORS
   exit=0
 	if (c<=x_min | c>=x_max){
-		print("c should be set within the range of x")
+		message("c should be set within the range of x")
 		exit = 1
 	}
   
   if (kernel!="uni" & kernel!="uniform" & kernel!="tri" & kernel!="triangular" & kernel!="epa" & kernel!="epanechnikov" & kernel!="" ){
-    print("kernel incorrectly specified")
+    message("kernel incorrectly specified")
     exit = 1
   }
 
 	if (p<0 ){
-		print("p should be a positive number")
+		message("p should be a positive number")
 		exit = 1
 	}
 
 	if (scale<=0 |scale_l<=0 |scale_r<=0){
-		print("scale should be a positive number")
+		message("scale should be a positive number")
 		exit = 1
 	}
 
 	p_ceiling = ceiling(p)/p
 
 	if (p_ceiling!=1 & p>0) {
-  	print("p should be an integer number")
+  	message("p should be an integer number")
   	exit = 1
 	}
 	
 	if (n<20){
-	  print("Not enough observations to perform bin calculations")
+	  message("Not enough observations to perform bin calculations")
+	  exit = 1
+	}
+
+	if (!is.null(masspoints) && !isFALSE(masspoints) &&
+	    !(is.character(masspoints) && masspoints %in% c("check","adjust","off",""))) {
+	  message("masspoints must be one of 'check', 'adjust', 'off', or FALSE")
 	  exit = 1
 	}
 
 	if (exit>0) stop()
-	
-	############################################################################################
-	#cat(paste("Stop 1: Preps     -> ",  Sys.time()-start_time,"\n", sep=""))
-	#start_time <- Sys.time()
-	############################################################################################
-	
-	
+
 	###################################################################
 	### Polynomial curve (order = p) ##################################
 	###################################################################
@@ -204,7 +224,7 @@ rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = 
 	  gamma_p1_l = invG_p_l%*%crossprod(R_p_l*W_h_l, y_l)	
     gamma_p1_r = invG_p_r%*%crossprod(R_p_r*W_h_r, y_r)
   } else {
-	  z_l  = covs[ind_l,]; z_r  = covs[ind_r,]	
+	  z_l  = covs[ind_l,,drop=FALSE]; z_r  = covs[ind_r,,drop=FALSE]
 	  D_l  = cbind(y_l,z_l); D_r = cbind(y_r,z_r)
 	  U_p_l = crossprod(R_p_l*W_h_l,D_l); U_p_r = crossprod(R_p_r*W_h_r,D_r)
 	  beta_p_l = invG_p_l%*%crossprod(R_p_l*W_h_l,D_l); beta_p_r = invG_p_r%*%crossprod(R_p_r*W_h_r,D_r); 
@@ -250,10 +270,6 @@ rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = 
 	}
 	
 	
-	############################################################################################
-	#cat(paste("Stop 2: Polynomial fit -> ",  Sys.time()-start_time,"\n", sep=""))
-	#start_time <- Sys.time()
-	############################################################################################
 	###############################################
   ### Optimal Bins (using polynomial order k) ###
 	###############################################
@@ -265,15 +281,15 @@ rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = 
   invG_k_l = try(qrXXinv(rk_l),silent=TRUE)
   invG_k_r = try(qrXXinv(rk_r),silent=TRUE)
   
-  if (class(invG_k_l)[1] == "try-error" | class(invG_k_r)[1] == "try-error") {
+  if (inherits(invG_k_l, "try-error") | inherits(invG_k_r, "try-error")) {
     k = 3
     rk_l = outer(x_l, Y = 0:k, FUN = "^")
     rk_r = outer(x_r, Y = 0:k, FUN = "^")
     invG_k_l = try(qrXXinv(rk_l),silent=TRUE)
-    invG_k_r = try(qrXXinv(rk_r),silent=TRUE)		
+    invG_k_r = try(qrXXinv(rk_r),silent=TRUE)
   }
-  
-  if (class(invG_k_l)[1] == "try-error" | class(invG_k_r)[1] == "try-error") {
+
+  if (inherits(invG_k_l, "try-error") | inherits(invG_k_r, "try-error")) {
     k = 2
     rk_l = outer(x_l, Y = 0:k, FUN = "^")
     rk_r = outer(x_r, Y = 0:k, FUN = "^")
@@ -320,9 +336,6 @@ rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = 
     drk_i_l[,j] = j*x_bar_i_l^(j-1)
     drk_i_r[,j] = j*x_bar_i_r^(j-1)
   }
-  
-  mu1_i_hat_l = drk_i_l%*%(gamma_k1_l[2:(k+1)])
-  mu1_i_hat_r = drk_i_r%*%(gamma_k1_r[2:(k+1)])
   
   mu0_i_hat_l = rk_i_l%*%gamma_k1_l
   mu0_i_hat_r = rk_i_r%*%gamma_k1_r
@@ -444,22 +457,17 @@ rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = 
   
   if (var_y_l==0) {
     J_star_l = J_star_l_orig = 1
-    print("Warning: not enough variability in the outcome variable below the threshold")
+    warning("Not enough variability in the outcome variable below the threshold")
   }
 
 	if (var_y_r==0) {
 	  J_star_r = J_star_r_orig = 1
-	  print("Warning: not enough variability in the outcome variable above the threshold")
+	  warning("Not enough variability in the outcome variable above the threshold")
 	}
   
   rscale_l = J_star_l / J_IMSE[1]
   rscale_r = J_star_r / J_IMSE[2]
-  
-  ############################################################################################
-  #cat(paste("Stop 3: Optimal Bins   -> ",  Sys.time()-start_time,"\n", sep=""))
-  #start_time <- Sys.time()
-  ############################################################################################
-  
+
   jump_l  = range_l/J_star_l;jump_r = range_r/J_star_r;
   
   if (meth=="es") {
@@ -471,31 +479,23 @@ rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = 
   }
 
 	bin_x_l = findInterval(x_l, jumps_l,  rightmost.closed=TRUE) - J_star_l-1
-	bin_x_r = findInterval(x_r, jumps_r,  rightmost.closed=TRUE) 
-	
-	############################################################################################
-	#cat(paste("Stop 4a: Loop bins     -> ",  Sys.time()-start_time,"\n", sep=""))
-	#start_time <- Sys.time()
-	############################################################################################
+	bin_x_r = findInterval(x_r, jumps_r,  rightmost.closed=TRUE)
 
-	rdplot_l = aggregate(cbind(y_l,x_l), list(bin_x_l), FUN=mean)
-	rdplot_r = aggregate(cbind(y_r,x_r), list(bin_x_r), FUN=mean)
-	
-	rdplot_bin_l       =  rdplot_l[,1]
-	rdplot_mean_y_l    =  rdplot_l[,2]
-	rdplot_mean_x_l    =  rdplot_l[,3]
-	
-	rdplot_bin_r       =  rdplot_r[,1]
-	rdplot_mean_y_r    =  rdplot_r[,2]
-	rdplot_mean_x_r    =  rdplot_r[,3]
+	rdplot_bin_l    = sort(unique(bin_x_l))
+	rdplot_mean_y_l = as.vector(tapply(y_l, bin_x_l, mean))
+	rdplot_mean_x_l = as.vector(tapply(x_l, bin_x_l, mean))
+
+	rdplot_bin_r    = sort(unique(bin_x_r))
+	rdplot_mean_y_r = as.vector(tapply(y_r, bin_x_r, mean))
+	rdplot_mean_x_r = as.vector(tapply(x_r, bin_x_r, mean))
 
 	if (!is.null(covs) & covs_eval=="mean") {
-	  covs_model_l = lm(y_l~ z_l + factor(bin_x_l)) 
-	  covs_model_r = lm(y_r~ z_r + factor(bin_x_r)) 
+	  covs_model_l = lm(y_l~ z_l + factor(bin_x_l))
+	  covs_model_r = lm(y_r~ z_r + factor(bin_x_r))
 	  yhatZ_l = predict(covs_model_l)
 	  yhatZ_r = predict(covs_model_r)
-	  rdplot_mean_y_l = aggregate(yhatZ_l, list(bin_x_l), FUN=mean)[,2]
-	  rdplot_mean_y_r = aggregate(yhatZ_r, list(bin_x_r), FUN=mean)[,2]
+	  rdplot_mean_y_l = as.vector(tapply(yhatZ_l, bin_x_l, mean))
+	  rdplot_mean_y_r = as.vector(tapply(yhatZ_r, bin_x_r, mean))
 	}
 	
 	t_ind_l = 1:J_star_l
@@ -513,14 +513,10 @@ rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = 
 	rdplot_mean_y   = c(rdplot_mean_y_l,   rdplot_mean_y_r)
 	
 	
-	############################################################################################
-	#cat(paste("Stop 4b: Loop bins     -> ",  Sys.time()-start_time,"\n", sep=""))
-	#start_time <- Sys.time()
-	############################################################################################
-	rdplot_N_l    = aggregate(y_l, list(-bin_x_l), FUN=length)[,2]
-	rdplot_N_r    = aggregate(y_r, list(bin_x_r),  FUN=length)[,2]
-	rdplot_sd_y_l = aggregate(y_l, list(-bin_x_l), FUN=sd)[,2]
-	rdplot_sd_y_r = aggregate(y_r, list(bin_x_r),  FUN=sd)[,2]
+	rdplot_N_l    = as.vector(tapply(y_l, -bin_x_l, length))
+	rdplot_N_r    = as.vector(tapply(y_r,  bin_x_r, length))
+	rdplot_sd_y_l = as.vector(tapply(y_l, -bin_x_l, sd))
+	rdplot_sd_y_r = as.vector(tapply(y_r,  bin_x_r, sd))
 	
 	rdplot_N = c(rev(rdplot_N_l),rdplot_N_r)
 	
@@ -556,16 +552,11 @@ rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = 
 	rdplot_max_bin = c(rdplot_max_bin_l[rev(-rdplot_bin_l)], rdplot_max_bin_r[rdplot_bin_r])
 	bin_length     = c(bin_length_l, bin_length_r)
 	bin_avg        = c(bin_avg_l, bin_avg_r)
-	bin_med        = c(bin_med_l, bin_avg_r)
+	bin_med        = c(bin_med_l, bin_med_r)
 	
 	vars_bins = data.frame("rdplot_mean_bin"=rdplot_mean_bin,"rdplot_mean_x"=rdplot_mean_x, "rdplot_mean_y"=rdplot_mean_y, "rdplot_min_bin"=rdplot_min_bin, "rdplot_max_bin"=rdplot_max_bin, "rdplot_se_y"=rdplot_se_y, "rdplot_N"=rdplot_N, "rdplot_ci_l"=rdplot_cil_bin, "rdplot_ci_r"=rdplot_cir_bin)
 	vars_poly = data.frame("rdplot_x"= c(x_plot_l, x_plot_r), "rdplot_y"= c(y_hat_l, y_hat_r))
-	
-	############################################################################################
-	#cat(paste("Stop 4d: Loop bins     -> ",  Sys.time()-start_time,"\n", sep=""))
-	#start_time <- Sys.time()
-	############################################################################################
-	
+
     if (is.null(col.lines)) col.lines = "red"
     if (is.null(col.dots))  col.dots  = "darkblue"
     #if (is.null(type.dots)) type.dots = 20
@@ -584,10 +575,10 @@ rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = 
         geom_line( data=data_poly, aes(x=x_plot_l, y=y_hat_l), col=col.lines, na.rm=TRUE) +
         geom_line( data=data_poly, aes(x=x_plot_r, y=y_hat_r), col=col.lines, na.rm=TRUE) 
 
-    if (flag_no_ci==FALSE)
+    if (isFALSE(flag_no_ci))
     temp_plot <- temp_plot +
       geom_errorbar(data=data_bins, aes(x=rdplot_mean_bin, ymin=rdplot_cil_bin, ymax=rdplot_cir_bin), linetype = 1) 
-      if (shade==TRUE){
+      if (isTRUE(shade)){
        temp_plot <- temp_plot +
          geom_ribbon(data=data_bins, aes(x=rdplot_mean_bin, ymin=rdplot_cil_bin, ymax=rdplot_cir_bin))
     }
@@ -597,14 +588,10 @@ rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = 
       theme(legend.position = "None") +
       geom_vline(xintercept = c, linewidth = 0.5) 
     
-    if (hide == FALSE) print(temp_plot)
+    if (isFALSE(hide)) print(temp_plot)
 
 
       
-    ############################################################################################
-    #cat(paste("Stop 5: Plot      -> ",  Sys.time()-start_time,"\n", sep=""))
-    #start_time <- Sys.time()
-    ############################################################################################
     coef = cbind(gamma_p1_l,gamma_p1_r)
     colnames(coef)=c("Left","Right")
     
@@ -620,45 +607,74 @@ rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = 
     return(invisible(out))
 }
 
-print.rdplot <- function(x,...){
+.print_rdplot_header <- function(x) {
   cat("Call: rdplot\n\n")
-  
   cat(paste("Number of Obs.           ",  format(x$N[1]+x$N[2], width=10, justify="right"),"\n", sep=""))
   cat(paste("Kernel                   ",  format(x$kernel,      width=10, justify="right"),"\n", sep=""))
+  cat(paste("Bin Method               ",  x$binselect, "\n", sep=""))
   cat("\n")
-  cat(paste("Number of Obs.           ",  format(x$N[1],    width=10, justify="right"),  "      ", format(x$N[2],     width=10, justify="right"), "\n", sep=""))
-  cat(paste("Eff. Number of Obs.      ",  format(x$N_h[1],  width=10, justify="right"),  "      ", format(x$N_h[2],   width=10, justify="right"), "\n", sep=""))
-  cat(paste("Order poly. fit (p)      ",  format(x$p,       width=10, justify="right"),  "      ", format(x$p,        width=10, justify="right"), "\n", sep=""))
-  cat(paste("BW poly. fit (h)         ",  format(sprintf("%10.3f",x$h[1])),      "      ", format(sprintf("%10.3f",x$h[2])),     "\n", sep=""))
-  cat(paste("Number of bins scale     ",  format(sprintf("%10.3f",x$scale[1])),  "      ", format(sprintf("%10.3f",x$scale[2])), "\n", sep=""))
-  cat("\n")
+  cat(paste(format("", width=25), format("Left",  width=10, justify="right"), "   ", format("Right", width=10, justify="right"), "\n", sep=""))
+  cat(paste("Number of Obs.           ",  format(x$N[1],    width=10, justify="right"),  "   ", format(x$N[2],     width=10, justify="right"), "\n", sep=""))
+  cat(paste("Eff. Number of Obs.      ",  format(x$N_h[1],  width=10, justify="right"),  "   ", format(x$N_h[2],   width=10, justify="right"), "\n", sep=""))
+  cat(paste("Order poly. fit (p)      ",  format(x$p,       width=10, justify="right"),  "   ", format(x$p,        width=10, justify="right"), "\n", sep=""))
+  cat(paste("BW poly. fit (h)         ",  format(sprintf("%10.3f",x$h[1])),               "   ", format(sprintf("%10.3f",x$h[2])),              "\n", sep=""))
+  cat(paste("Number of bins scale     ",  format(sprintf("%10.3f",x$scale[1])),           "   ", format(sprintf("%10.3f",x$scale[2])),           "\n", sep=""))
+  invisible()
 }
 
-summary.rdplot <- function(object,...) {
-  x    <- object
-  args <- list(...)
-  
-  cat("Call: rdplot\n\n")
-  
-  cat(paste("Number of Obs.           ",  format(x$N[1]+x$N[2], width=10, justify="right"),"\n", sep=""))
-  cat(paste("Kernel                   ",  format(x$kernel,      width=10, justify="right"),"\n", sep=""))
+print.rdplot <- function(x, ...) {
+  .print_rdplot_header(x)
+  cat(paste("Bins Selected            ",  format(x$J[1],    width=10, justify="right"),  "   ", format(x$J[2],     width=10, justify="right"),   "\n", sep=""))
   cat("\n")
-  cat(paste("Number of Obs.           ",  format(x$N[1],     width=10, justify="right"),  "      ", format(x$N[2],     width=10, justify="right"),        "\n", sep=""))
-  cat(paste("Eff. Number of Obs.      ",  format(x$N_h[1],   width=10, justify="right"),  "      ", format(x$N_h[2],   width=10, justify="right"),        "\n", sep=""))
-  cat(paste("Order poly. fit (p)      ",  format(x$p,        width=10, justify="right"),  "      ", format(x$p,        width=10, justify="right"),       "\n", sep=""))
-  cat(paste("BW poly. fit (h)         ",  format(sprintf("%10.3f",x$h[1])),      "      ", format(sprintf("%10.3f",x$h[2])),        "\n", sep=""))
-  cat(paste("Number of bins scale     ",  format(sprintf("%10.0f",x$scale[1])),  "      ", format(sprintf("%10.0f",x$scale[2])),    "\n", sep=""))
+  invisible(x)
+}
+
+summary.rdplot <- function(object, ...) {
+  out <- object
+  class(out) <- c("summary.rdplot", class(object))
+  out
+}
+
+print.summary.rdplot <- function(x, ...) {
+  .print_rdplot_header(x)
   cat("\n")
-  cat(paste("Bins Selected            ",  format(x$J[1],       width=10, justify="right"),  "      ", format(x$J[2], width=10, justify="right"),        "\n", sep=""))
-  cat(paste("Average Bin Length       ",  format(sprintf("%10.3f",x$bin_avg[1])),  "      ", format(sprintf("%10.3f",x$bin_avg[2])),  "\n", sep=""))
-  cat(paste("Median Bin Length        ",  format(sprintf("%10.3f",x$bin_med[1])),  "      ", format(sprintf("%10.3f",x$bin_med[2])),  "\n", sep=""))
+  cat(paste("Bins Selected            ",  format(x$J[1],       width=10, justify="right"),  "   ", format(x$J[2],       width=10, justify="right"),  "\n", sep=""))
+  cat(paste("Average Bin Length       ",  format(sprintf("%10.3f",x$bin_avg[1])),  "   ", format(sprintf("%10.3f",x$bin_avg[2])),  "\n", sep=""))
+  cat(paste("Median Bin Length        ",  format(sprintf("%10.3f",x$bin_med[1])),  "   ", format(sprintf("%10.3f",x$bin_med[2])),  "\n", sep=""))
   cat("\n")
-  cat(paste("IMSE-optimal bins        ",  format(x$J_IMSE[1], width=10, justify="right"),  "      ", format(x$J_IMSE[2], width=10, justify="right"),  "\n", sep=""))
-  cat(paste("Mimicking Variance bins  ",  format(x$J_MV[1],   width=10, justify="right"),  "      ", format(x$J_MV[2],   width=10, justify="right"),  "\n", sep=""))
+  cat(paste("IMSE-optimal bins        ",  format(x$J_IMSE[1], width=10, justify="right"),  "   ", format(x$J_IMSE[2], width=10, justify="right"),  "\n", sep=""))
+  cat(paste("Mimicking Variance bins  ",  format(x$J_MV[1],   width=10, justify="right"),  "   ", format(x$J_MV[2],   width=10, justify="right"),  "\n", sep=""))
   cat("\n")
-  cat(paste("Relative to IMSE-optimal:",   "\n", sep=""))
-  cat(paste("Implied scale            ",  format(sprintf("%10.3f",x$rscale[1])),                      "      ", format(sprintf("%10.3f",x$rscale[2])),                      "\n", sep=""))
-  cat(paste("WIMSE variance weight    ",  format(sprintf("%10.3f",1/(1+x$rscale[1]^3))),              "      ", format(sprintf("%10.3f",1/(1+x$rscale[2]^3))),              "\n", sep=""))
-  cat(paste("WIMSE bias weight        ",  format(sprintf("%10.3f",x$rscale[1]^3/(1+x$rscale[1]^3))),  "      ", format(sprintf("%10.3f",x$rscale[2]^3/(1+x$rscale[2]^3))),  "\n", sep=""))
+  cat(paste("Relative to IMSE-optimal:", "\n", sep=""))
+  cat(paste("Implied scale            ",  format(sprintf("%10.3f",x$rscale[1])),                       "   ", format(sprintf("%10.3f",x$rscale[2])),                       "\n", sep=""))
+  cat(paste("WIMSE variance weight    ",  format(sprintf("%10.3f",1/(1+x$rscale[1]^3))),               "   ", format(sprintf("%10.3f",1/(1+x$rscale[2]^3))),               "\n", sep=""))
+  cat(paste("WIMSE bias weight        ",  format(sprintf("%10.3f",x$rscale[1]^3/(1+x$rscale[1]^3))),  "   ", format(sprintf("%10.3f",x$rscale[2]^3/(1+x$rscale[2]^3))),  "\n", sep=""))
   cat("\n")
-  }
+  invisible(x)
+}
+
+coef.rdplot <- function(object, ...) {
+  object$coef
+}
+
+glance.rdplot <- function(object, ...) {
+  data.frame(
+    nobs.left  = object$N[1],
+    nobs.right = object$N[2],
+    nobs.effective.left  = object$N_h[1],
+    nobs.effective.right = object$N_h[2],
+    cutoff           = object$c,
+    order.regression = object$p,
+    bins.left        = object$J[1],
+    bins.right       = object$J[2],
+    bins.imse.left   = object$J_IMSE[1],
+    bins.imse.right  = object$J_IMSE[2],
+    bins.mv.left     = object$J_MV[1],
+    bins.mv.right    = object$J_MV[2],
+    h.left           = object$h[1],
+    h.right          = object$h[2],
+    kernel           = object$kernel,
+    binselect        = object$binselect,
+    stringsAsFactors = FALSE
+  )
+}

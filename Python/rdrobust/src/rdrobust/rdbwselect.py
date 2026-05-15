@@ -11,11 +11,11 @@ import pandas as pd
 from rdrobust.funs import *
 
 def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
-               covs = None, covs_drop = True, kernel = "tri", weights = None, 
+               covs = None, covs_drop = True, kernel = "tri", weights = None,
                bwselect = "mserd", vce = "nn", cluster = None, nnmatch = 3,
                scaleregul = 1, sharpbw = False, all = None, subset = None,
                masspoints = "adjust", bwcheck = None, bwrestrict = True,
-               stdvars = False, prchk = True):
+               stdvars = False, prchk = True, data = None):
         
     
     '''
@@ -51,10 +51,17 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
     q	
     specifies the order of the local-polynomial used to construct the bias-correction; default is q = 2 (local quadratic regression).
     
-    covs	
+    covs
     specifies additional covariates to be used for estimation and inference.
-    
-    covs_drop	
+    Accepted forms:
+      - a numpy array, pandas DataFrame, or Series (back-compatible);
+      - a one-sided formula string (requires `data`), e.g.
+        "~ z1 + z2 + I(z3**2)": expanded via `formulaic` (preferred) or
+        `patsy`; the intercept column is dropped automatically;
+      - a column name or list of column names (requires `data`),
+        e.g. ["z1", "z2"]: resolved as `data[covs]`.
+
+    covs_drop
     if TRUE, it checks for collinear additional covariates and drops them. Default is TRUE.
     
     kernel	
@@ -88,23 +95,31 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
     
     Note: MSE = Mean Square Error; CER = Coverage Error Rate. Default is bwselect=mserd. For details on implementation see Calonico, Cattaneo and Titiunik (2014a), Calonico, Cattaneo and Farrell (2018), and Calonico, Cattaneo, Farrell and Titiunik (2017), and the companion software articles.
     
-    vce	
+    vce
     specifies the procedure used to compute the variance-covariance matrix estimator. Options are:
-    
-    nn for heteroskedasticity-robust nearest neighbor variance estimator with nnmatch the (minimum) number of neighbors to be used.
-    
+
+    nn for heteroskedasticity-robust nearest neighbor variance estimator.
+
     hc0 for heteroskedasticity-robust plug-in residuals variance estimator without weights.
-    
+
     hc1 for heteroskedasticity-robust plug-in residuals variance estimator with hc1 weights.
-    
+
     hc2 for heteroskedasticity-robust plug-in residuals variance estimator with hc2 weights.
-    
+
     hc3 for heteroskedasticity-robust plug-in residuals variance estimator with hc3 weights.
-    
-    Default is vce=nn.
-    
-    cluster	
-    indicates the cluster ID variable used for cluster-robust variance estimation with degrees-of-freedom weights. By default it is combined with vce=nn for cluster-robust nearest neighbor variance estimation. Another option is plug-in residuals combined with vce=hc0.
+
+    cr1 for cluster-robust plug-in residuals variance estimator with degrees-of-freedom weights. Requires cluster.
+
+    cr2 for the Bell-McCaffrey (2002) bias-reduced cluster-robust variance estimator (CRV2). Requires cluster.
+
+    cr3 for the Pustejovsky-Tipton (2018) cluster-robust variance estimator (CRV3), approximately unbiased with few clusters. Requires cluster.
+
+    The CR2/CR3 leverage correction applies to both the conventional and the robust bias-corrected standard errors, including when the point-estimation bandwidth h differs from the bias-correction bandwidth b; in that case the cluster leverage is computed from the bias (b) regression.
+
+    Default is vce=nn without cluster, and vce=cr1 with cluster. Auto-switching rules match rdrobust: hc2+cluster→cr2, hc3+cluster→cr3, and cr*+no-cluster falls back to the matching hc* variant.
+
+    cluster
+    indicates the cluster ID variable used for cluster-robust variance estimation. See vce option for auto-switching rules when cluster is combined with a heteroskedasticity-robust estimator.
     
     nnmatch	
     to be combined with for vce=nn for heteroskedasticity-robust nearest neighbor variance estimator with nnmatch indicating the minimum number of neighbors to be used. Default is nnmatch=3
@@ -128,7 +143,7 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
     
     (ii) check: looks for and reports the number of unique observations at each side of the cutoff.
     
-    (iii) adjust: controls that the preliminary bandwidths used in the calculations contain a minimal number of unique observations. By default it uses 10 observations, but it can be manually adjusted with the option bwcheck).
+    (iii) adjust: controls that the preliminary bandwidths used in the calculations contain a minimal number of unique observations. By default it uses 10 observations, but it can be manually adjusted with the option bwcheck.
     
     Default option is masspoints=adjust.
     
@@ -141,31 +156,46 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
     stdvars	
     if TRUE, x and y are standardized before computing the bandwidths; default is stdvars = FALSE.
     
-    prchk	
+    prchk
     internal check function.
-    
+
+    data
+    optional pandas DataFrame. When supplied, `y`, `x`, `covs`, `cluster`,
+    `fuzzy`, `weights`, and `subset` may be passed as column-name strings
+    (or a list of names for `covs`), and a one-sided formula is accepted
+    for `covs`.
+
     Returns
     -------
-    N	
-    vector with sample sizes to the left and to the righst of the cutoff.
-    
-    c	
+    N
+    vector with sample sizes to the left and to the right of the cutoff.
+
+    N_h
+    vector with effective sample sizes (under the selected bandwidth) to the left and to the right of the cutoff.
+
+    M
+    vector with the number of unique observations to the left and to the right of the cutoff (when `masspoints` is not `off`).
+
+    c
     cutoff value.
-    
-    p	
+
+    p
     order of the local-polynomial used to construct the point-estimator.
-    
-    q	
+
+    q
     order of the local-polynomial used to construct the bias-correction estimator.
-    
-    bws	
-    matrix containing the estimated bandwidths for each selected procedure.
-    
-    bwselect	
+
+    bws
+    matrix containing the estimated bandwidths for each selected procedure. Method names are available as `bws.index`.
+
+    bwselect
     bandwidth selection procedure employed.
-    
-    kernel	
+
+    kernel
     kernel function used to construct the local-polynomial estimator(s).
+
+    vce, masspoints
+    variance estimator and mass-points option used.
     
     
     References
@@ -197,18 +227,69 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
     >>> y = 5+3*x+2*(x>=0) + numpy.random.uniform(size = 1000)
     >>> rdbwselect(y,x)
     '''
-    
+
+    loc = resolve_data_args(data, y=y, x=x, cluster=cluster,
+                            fuzzy=fuzzy, weights=weights, subset=subset)
+    y, x      = loc['y'], loc['x']
+    cluster   = loc['cluster']
+    fuzzy     = loc['fuzzy']
+    weights   = loc['weights']
+    subset    = loc['subset']
+    covs = resolve_covs(covs, data)
+
     if prchk:
         x = np.array(x).reshape(-1,1)
         y = np.array(y).reshape(-1,1)
+
+        # Validate auxiliary-vector lengths against length(x) BEFORE subset filter.
+        n_orig = len(x)
+        if len(y) != n_orig:
+            raise Exception(f"'y' and 'x' must have equal length (got y={len(y)}, x={n_orig}).")
+        if weights is not None and len(np.asarray(weights).reshape(-1)) != n_orig:
+            raise Exception(f"'weights' must have length equal to length(x) (got {len(np.asarray(weights).reshape(-1))}, expected {n_orig}).")
+        if fuzzy is not None and len(np.asarray(fuzzy).reshape(-1)) != n_orig:
+            raise Exception(f"'fuzzy' must have length equal to length(x) (got {len(np.asarray(fuzzy).reshape(-1))}, expected {n_orig}).")
+        if covs is not None:
+            _covs_arr = np.asarray(covs)
+            nc = _covs_arr.shape[0] if _covs_arr.ndim >= 1 else 0
+            if nc != n_orig:
+                raise Exception(f"'covs' must have nrow equal to length(x) (got {nc}, expected {n_orig}).")
+        if cluster is not None and len(np.asarray(cluster).reshape(-1)) != n_orig:
+            raise Exception(f"'cluster' must have length equal to length(x) (got {len(np.asarray(cluster).reshape(-1))}, expected {n_orig}).")
+        if subset is not None:
+            _subset_arr = np.asarray(subset)
+            if _subset_arr.dtype == bool:
+                if len(_subset_arr) != n_orig:
+                    raise Exception(f"Boolean 'subset' must have length equal to length(x) (got {len(_subset_arr)}, expected {n_orig}).")
+            elif np.issubdtype(_subset_arr.dtype, np.integer) or np.issubdtype(_subset_arr.dtype, np.floating):
+                if (not np.all(np.isfinite(_subset_arr)) or np.any(_subset_arr < 0)
+                        or np.any(_subset_arr >= n_orig)
+                        or not np.all(_subset_arr == _subset_arr.astype(int))):
+                    raise Exception(f"Numeric 'subset' must contain integer indices in 0..{n_orig - 1}.")
+            else:
+                raise Exception("'subset' must be boolean or integer.")
+
         if subset is not None:
             subset = np.array(subset)
             x = x[subset]
             y = y[subset]
-        
+            if len(x) == 0:
+                raise Exception("'subset' removed all observations.")
+
         if all is None: all = False
-        
+
         if c is None: c = 0
+        if not (np.isscalar(c) and np.isreal(c) and np.isfinite(c)):
+            raise Exception(f"Cutoff 'c' must be a single finite numeric value (received: {c}).")
+
+        if bwcheck is not None:
+            if not (np.isscalar(bwcheck) and np.isfinite(bwcheck) and bwcheck >= 1
+                    and bwcheck == round(bwcheck)):
+                raise Exception("bwcheck must be a single positive integer")
+
+        if (masspoints is not None and masspoints is not False
+                and masspoints not in ("check", "adjust", "off", "")):
+            raise Exception("masspoints must be one of 'check', 'adjust', 'off', or False")
         
         if p is None and deriv is not None: p = deriv + 1
         if p is None: p = 1
@@ -216,8 +297,8 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
             raise Exception('Polynomial order p incorrectly specified.')
           
         if q is None: q = p + 1
-        elif not np.isscalar(q) or q not in range(21) or q<p:
-            raise Exception('Polynomial order (for bias correction) q incorrectly specified')
+        elif not np.isscalar(q) or q not in range(21) or q<=p:
+            raise Exception('Polynomial order (for bias correction) q incorrectly specified; q must be strictly greater than p.')
         
         if deriv is None: deriv = 0
         elif deriv not in range(21) or deriv>p:
@@ -236,13 +317,46 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
         if bwselect not in bw_list:
             raise Exception("bwselect incorrectly specified")
         elif bwselect=="cct" or bwselect=="ik" or bwselect=="cv":
-            raise Exception("bwselect options IK, CCT and CV have been depricated. Please see help for new options")  
+            raise Exception("bwselect options IK, CCT and CV have been deprecated. Please see help for new options")  
         
         vce = vce.lower()
-        vce_list = ['nn','hc0','hc1','hc2','hc3','']
+        vce_list = ['nn','hc0','hc1','hc2','hc3','cr1','cr2','cr3','']
         if vce not in vce_list:
             raise Exception("vce incorrectly specified")
-        
+
+        # vce / cluster validation
+        import warnings
+        if cluster is not None:
+            if vce in ('nn',''):
+                vce = 'cr1'
+            elif vce in ('hc0','hc1'):
+                warnings.warn("vce='" + vce + "' is not a cluster option. Switching to vce='cr1'.")
+                vce = 'cr1'
+            elif vce == 'hc2':
+                warnings.warn("vce='hc2' is not a cluster option. Switching to vce='cr2'.")
+                vce = 'cr2'
+            elif vce == 'hc3':
+                warnings.warn("vce='hc3' is not a cluster option. Switching to vce='cr3'.")
+                vce = 'cr3'
+            elif vce not in ('cr1','cr2','cr3'):
+                warnings.warn("vce='" + vce + "' is not a valid cluster option. Switching to vce='cr1'.")
+                vce = 'cr1'
+        else:
+            if vce == 'cr1':
+                warnings.warn("vce='cr1' requires cluster. Switching to vce='hc1'.")
+                vce = 'hc1'
+            elif vce == 'cr2':
+                warnings.warn("vce='cr2' requires cluster. Switching to vce='hc2'.")
+                vce = 'hc2'
+            elif vce == 'cr3':
+                warnings.warn("vce='cr3' requires cluster. Switching to vce='hc3'.")
+                vce = 'hc3'
+
+        # Internal mapping
+        if vce=='cr1': vce = 'hc1'
+        elif vce=='cr2': vce = 'crv2'
+        elif vce=='cr3': vce = 'crv3'
+
         if cluster is not None:
             cluster = np.array(cluster).reshape(-1,1)
             if subset is not None:
@@ -292,7 +406,8 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
   
     ### reescaling
       
-    x_iq = np.quantile(x,.75) - np.quantile(x,.25)
+    x_q25, x_q75 = quantile_type2(x, [0.25, 0.75])
+    x_iq = x_q75 - x_q25
     BWp = min(np.std(x, ddof =1),x_iq/1.349)
     x_sd = y_sd = 1
     if stdvars:
@@ -322,15 +437,19 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
     M_l = N_l
     M_r = N_r
     
-    if masspoints=="check" or masspoints=="adjust":
+    # X_uniq_l/r and M_l/M_r are needed by both the masspoints inspection
+    # branch AND the bwcheck branch. Hoist so bwcheck works even when
+    # masspoints='off'.
+    if masspoints=="check" or masspoints=="adjust" or bwcheck is not None:
       X_uniq_l = np.sort(np.unique(X_l))[::-1]
       X_uniq_r = np.unique(X_r)
       M_l = len(X_uniq_l)
       M_r = len(X_uniq_r)
+    if masspoints=="check" or masspoints=="adjust":
       M = M_l + M_r
       mass_l = 1-M_l/N_l
       mass_r = 1-M_r/N_r				
-      if mass_l>=0.1 or mass_r>=0.1:
+      if mass_l>=0.2 or mass_r>=0.2:
         print("Mass points detected in the running variable.")
         if masspoints=="check": print("Try using option masspoints=adjust.")
         if bwcheck is None and masspoints=="adjust": bwcheck = 10
@@ -363,9 +482,11 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
     if vce=="hc1": vce_type = "HC1"
     if vce=="hc2": vce_type = "HC2"
     if vce=="hc3": vce_type = "HC3"
-    if vce=="cluster": vce_type = "Cluster"
-    if vce=="nncluster": vce_type = "NNcluster"
-        
+    if vce=="crv2": vce_type = "CR2"
+    if vce=="crv3": vce_type = "CR3"
+    if cluster is not None and vce_type in ("NN","HC1"):
+        vce_type = "CR1"
+
     #***********************************************************************
       
     Z_l = Z_r = T_l = T_r = C_l = C_r = g_l = g_r = None
@@ -388,9 +509,17 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
         Z_r  = covs[(x>=c).reshape(-1),:]
     
     perf_comp = False
-    if fuzzy is not None: 
+    if fuzzy is not None:
         T_l  = fuzzy[x<c]
-        T_r  = fuzzy[x>=c] 
+        T_r  = fuzzy[x>=c]
+        # Reject fully degenerate first stage (no variation, no jump). One-sided
+        # non-compliance falls through to the perf_comp branch.
+        if (np.var(T_l) == 0 and np.var(T_r) == 0
+                and abs(np.mean(T_l) - np.mean(T_r)) < np.sqrt(np.finfo(float).eps)):
+            raise ValueError(
+                "Fuzzy RD: first-stage variable has no variation and no jump "
+                "at the cutoff. The fuzzy estimator is not identified."
+            )
         if np.var(T_l)==0 or np.var(T_r)==0: perf_comp = True
         if perf_comp or sharpbw==True:
             T_l = T_r = None
@@ -407,7 +536,51 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
         fw_r = weights[x>=c]
                                                                                  
     #***********************************************************************
-            
+    bws_df, selected_bwselect = _rdbwselect_compute(
+        Y_l=Y_l, Y_r=Y_r, X_l=X_l, X_r=X_r,
+        T_l=T_l, T_r=T_r, Z_l=Z_l, Z_r=Z_r, C_l=C_l, C_r=C_r,
+        fw_l=fw_l, fw_r=fw_r,
+        dups_l=dups_l, dups_r=dups_r, dupsid_l=dupsid_l, dupsid_r=dupsid_r,
+        N_l=N_l, N_r=N_r, N=N, M_l=M_l, M_r=M_r,
+        M=(M_l + M_r) if masspoints in ("check", "adjust") else N,
+        X_uniq_l=X_uniq_l if masspoints in ("check","adjust") else None,
+        X_uniq_r=X_uniq_r if masspoints in ("check","adjust") else None,
+        x_min=x_min, x_max=x_max, range_l=range_l, range_r=range_r, x_sd=x_sd,
+        c=c, p=p, q=q, deriv=deriv, kernel=kernel, C_c=C_c, BWp=BWp,
+        bwselect=bwselect, scaleregul=scaleregul, vce=vce, nnmatch=nnmatch,
+        covs_drop_coll=covs_drop_coll,
+        bwcheck=bwcheck, bwrestrict=bwrestrict, masspoints=masspoints,
+        g_l=g_l, g_r=g_r, cluster_present=(cluster is not None), all=all,
+    )
+    bws = bws_df
+
+    # Effective sample sizes for selected bandwidth
+    h_sel_l = bws.iloc[0, 0]
+    h_sel_r = bws.iloc[0, 1]
+    w_h_l = rdrobust_kweight(X_l, c, h_sel_l, kernel)
+    w_h_r = rdrobust_kweight(X_r, c, h_sel_r, kernel)
+    N_h_l = int(np.sum(w_h_l > 0))
+    N_h_r = int(np.sum(w_h_r > 0))
+
+    return rdbwselect_output(bws, bwselect, kernel_type, p, q, c,
+                            [N_l,N_r], [N_h_l,N_h_r], [M_l,M_r], vce_type, masspoints)
+
+
+def _rdbwselect_compute(
+    *, Y_l, Y_r, X_l, X_r, T_l, T_r, Z_l, Z_r, C_l, C_r, fw_l, fw_r,
+    dups_l, dups_r, dupsid_l, dupsid_r,
+    N_l, N_r, N, M_l, M_r, M, X_uniq_l, X_uniq_r,
+    x_min, x_max, range_l, range_r, x_sd,
+    c, p, q, deriv, kernel, C_c, BWp,
+    bwselect, scaleregul, vce, nnmatch, covs_drop_coll,
+    bwcheck, bwrestrict, masspoints, g_l, g_r, cluster_present, all,
+):
+    """Internal: compute bandwidths given pre-prepared side-specific data.
+
+    Returns (bws_df, bwselect_name). Method names appear in bws_df.index.
+    Called by rdbwselect() (public) and rdrobust() (to skip redundant prep).
+    """
+
     c_bw = C_c*BWp*N**(-1/5)
     if masspoints=="adjust": c_bw = C_c*BWp*M**(-1/5)
           
@@ -424,43 +597,54 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
         bw_min_r = np.abs(X_uniq_r-c)[bwcheck_r-1] + 1e-8
         c_bw = max(c_bw, bw_min_l, bw_min_r)
 
+    # Per-side V-fit caches: rdrobust_bw's V-fit depends only on (o, nu)
+    # when h_V=c_bw is constant across all calls on a given side.
+    vcache_l = {}
+    vcache_r = {}
+
     #*** Step 1: d_bw
     C_d_l = (rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c, q+1, q+1,
                           q+2, c_bw, range_l, 0, vce, nnmatch,
-                          kernel, dups_l, dupsid_l, covs_drop_coll))
+                          kernel, dups_l, dupsid_l, covs_drop_coll,
+                          _vcache=vcache_l))
     C_d_r = (rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c, q+1, q+1,
                           q+2, c_bw, range_r, 0, vce, nnmatch,
-                          kernel, dups_r, dupsid_r, covs_drop_coll))
+                          kernel, dups_r, dupsid_r, covs_drop_coll,
+                          _vcache=vcache_r))
     #*** TWO bw 
     if (bwselect=="msetwo" or  bwselect=="certwo" or bwselect=="msecomb2" or
         bwselect=="cercomb2"  or all):		
         d_bw_l = (C_d_l[0]/(C_d_l[1]**2))**C_d_l[3]
-        d_bw_r = (C_d_r[0]/(C_d_r[1]**2))**C_d_l[3] 
+        d_bw_r = (C_d_r[0]/(C_d_r[1]**2))**C_d_r[3]
         if bwrestrict:
             d_bw_l = min(d_bw_l, bw_max_l)
             d_bw_r = min(d_bw_r, bw_max_r)
         if bwcheck is not None:
             d_bw_l = max(d_bw_l, bw_min_l)
             d_bw_r = max(d_bw_r, bw_min_r)
-        C_b_l  = (rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c, q, p+1, q+1, 
+        C_b_l  = (rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c, q, p+1, q+1,
                              c_bw, d_bw_l, scaleregul, vce, nnmatch, kernel,
-                             dups_l, dupsid_l, covs_drop_coll))
+                             dups_l, dupsid_l, covs_drop_coll,
+                             _vcache=vcache_l))
         C_b_r  = (rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c, q, p+1, q+1,
                              c_bw, d_bw_r, scaleregul, vce, nnmatch, kernel,
-                             dups_r, dupsid_r, covs_drop_coll))
+                             dups_r, dupsid_r, covs_drop_coll,
+                             _vcache=vcache_r))
         b_bw_l = (C_b_l[0]/(C_b_l[1]**2 + scaleregul*C_b_l[2]))**C_b_l[3]
-        b_bw_r = (C_b_r[0]/(C_b_r[1]**2 + scaleregul*C_b_r[2]))**C_b_l[3]
+        b_bw_r = (C_b_r[0]/(C_b_r[1]**2 + scaleregul*C_b_r[2]))**C_b_r[3]
         if bwrestrict:
             b_bw_l = min(b_bw_l, bw_max_l)
             b_bw_r = min(b_bw_r, bw_max_r)
         C_h_l  = (rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c, p, deriv,
                               q, c_bw, b_bw_l, scaleregul, vce, nnmatch,
-                              kernel, dups_l, dupsid_l, covs_drop_coll))
+                              kernel, dups_l, dupsid_l, covs_drop_coll,
+                              _vcache=vcache_l))
         C_h_r  = (rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c, p, deriv,
                               q, c_bw, b_bw_r, scaleregul, vce, nnmatch,
-                              kernel, dups_r, dupsid_r, covs_drop_coll))
+                              kernel, dups_r, dupsid_r, covs_drop_coll,
+                              _vcache=vcache_r))
         h_bw_l = (C_h_l[0]/(C_h_l[1]**2 + scaleregul*C_h_l[2]))**C_h_l[3]
-        h_bw_r = (C_h_r[0]/(C_h_r[1]**2 + scaleregul*C_h_r[2]))**C_h_l[3]
+        h_bw_r = (C_h_r[0]/(C_h_r[1]**2 + scaleregul*C_h_r[2]))**C_h_r[3]
         if bwrestrict:
             h_bw_l = min(h_bw_l, bw_max_l)
             h_bw_r = min(h_bw_r, bw_max_r)  
@@ -478,20 +662,24 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
         if bwcheck is not None: d_bw_s  =  max(d_bw_s, bw_min_l, bw_min_r)
         C_b_l  = (rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c, q, p+1, q+1,
                               c_bw, d_bw_s, scaleregul, vce, nnmatch, kernel,
-                              dups_l, dupsid_l, covs_drop_coll))
+                              dups_l, dupsid_l, covs_drop_coll,
+                              _vcache=vcache_l))
         C_b_r  = (rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c, q, p+1, q+1,
                               c_bw, d_bw_s, scaleregul, vce, nnmatch, kernel,
-                              dups_r, dupsid_r, covs_drop_coll))
+                              dups_r, dupsid_r, covs_drop_coll,
+                              _vcache=vcache_r))
         b_bw_s = ((C_b_l[0] + C_b_r[0])/((C_b_r[1] + C_b_l[1])**2 + scaleregul*(C_b_r[2]+C_b_l[2])))**C_b_l[3]
-        
+
         if bwrestrict: b_bw_s = min(b_bw_s, bw_max)
-        
+
         C_h_l  = (rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c, p, deriv, q,
                               c_bw, b_bw_s, scaleregul, vce, nnmatch, kernel,
-                              dups_l, dupsid_l, covs_drop_coll))
+                              dups_l, dupsid_l, covs_drop_coll,
+                              _vcache=vcache_l))
         C_h_r  = (rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c, p, deriv, q,
                               c_bw, b_bw_s, scaleregul, vce, nnmatch, kernel,
-                              dups_r, dupsid_r, covs_drop_coll))
+                              dups_r, dupsid_r, covs_drop_coll,
+                              _vcache=vcache_r))
         h_bw_s = ((C_h_l[0] + C_h_r[0])/((C_h_r[1] + C_h_l[1])**2 + scaleregul*(C_h_r[2]+C_h_l[2])))**C_h_l[3]
         if bwrestrict: h_bw_s = min(h_bw_s, bw_max)
         h_msesum = x_sd*h_bw_s
@@ -507,18 +695,22 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
         if bwcheck is not None: d_bw_d = max(d_bw_d, bw_min_l, bw_min_r)
         C_b_l  = (rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c, q, p+1, q+1,
                               c_bw, d_bw_d, scaleregul, vce, nnmatch, kernel,
-                              dups_l, dupsid_l, covs_drop_coll))
+                              dups_l, dupsid_l, covs_drop_coll,
+                              _vcache=vcache_l))
         C_b_r  = (rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c, q, p+1, q+1,
                               c_bw, d_bw_d, scaleregul, vce, nnmatch, kernel,
-                              dups_r, dupsid_r, covs_drop_coll))
+                              dups_r, dupsid_r, covs_drop_coll,
+                              _vcache=vcache_r))
         b_bw_d = ((C_b_l[0] + C_b_r[0])/((C_b_r[1] - C_b_l[1])**2 + scaleregul*(C_b_r[2] + C_b_l[2])))**C_b_l[3]
         if bwrestrict: b_bw_d = min(b_bw_d, bw_max)
         C_h_l  = (rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c, p, deriv, q,
                               c_bw, b_bw_d, scaleregul, vce, nnmatch, kernel,
-                              dups_l, dupsid_l, covs_drop_coll))
+                              dups_l, dupsid_l, covs_drop_coll,
+                              _vcache=vcache_l))
         C_h_r  = (rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c, p, deriv, q,
                               c_bw, b_bw_d, scaleregul, vce, nnmatch, kernel,
-                              dups_r, dupsid_r, covs_drop_coll))
+                              dups_r, dupsid_r, covs_drop_coll,
+                              _vcache=vcache_r))
         h_bw_d = ((C_h_l[0] + C_h_r[0])/((C_h_r[1] - C_h_l[1])**2 + scaleregul*(C_h_r[2] + C_h_l[2])))**C_h_l[3]
         if bwrestrict: h_bw_d = min(h_bw_d, bw_max)
         h_mserd = x_sd*h_bw_d
@@ -533,7 +725,7 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
         b_msecomb2_l = np.median(np.array([b_mserd,b_msesum,b_msetwo_l]))
         b_msecomb2_r = np.median(np.array([b_mserd,b_msesum,b_msetwo_r]))
     cer_h = N**(-(p/((3+p)*(3+2*p))))
-    if cluster is not None: cer_h = (g_l+g_r)**(-(p/((3+p)*(3+2*p))))
+    if cluster_present: cer_h = (g_l+g_r)**(-(p/((3+p)*(3+2*p))))
     cer_b = 1
     if bwselect=="cerrd" or all:
         h_cerrd = h_mserd*cer_h
@@ -556,7 +748,6 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
         b_cercomb2_r = b_msecomb2_r*cer_b
   
     if not all:
-        bw_list = bwselect
         if bwselect=="mserd" or bwselect=="":
             bws = np.array([h_mserd,h_mserd,b_mserd,b_mserd])
         if bwselect=="msetwo":
@@ -593,9 +784,8 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
         bws[7,:] = np.array([h_cersum,     h_cersum,     b_cersum,     b_cersum])
         bws[8,:] = np.array([h_cercomb1,   h_cercomb1,   b_cercomb1,   b_cercomb1])
         bws[9,:] = np.array([h_cercomb2_l, h_cercomb2_r, b_cercomb2_l, b_cercomb2_r])
-        bw_list = ["mserd","msetwo","msesum","msecomb1","msecomb2","cerrd","certwo","cersum","cercomb1","cercomb2"]
-        bws = pd.DataFrame(bws, 
+        bws = pd.DataFrame(bws,
                            columns = ["h (left)","h (right)","b (left)","b (right)"],
-                           index = pd.Index(bw_list))
-    return rdbwselect_output(bws, bwselect, bw_list, kernel_type, p, q, c,
-                            [N_l,N_r], [M_l,M_r], vce_type, masspoints)
+                           index = pd.Index(["mserd","msetwo","msesum","msecomb1","msecomb2",
+                                             "cerrd","certwo","cersum","cercomb1","cercomb2"]))
+    return bws, bwselect

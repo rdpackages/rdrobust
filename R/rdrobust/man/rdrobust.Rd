@@ -21,9 +21,9 @@ For more details, and related Stata and R packages useful for analysis of RD des
           kernel = "tri", weights = NULL, bwselect = "mserd", 
           vce = "nn", cluster = NULL, 
           nnmatch = 3, level = 95, scalepar = 1, scaleregul = 1, 
-          sharpbw = FALSE, detail = NULL, all = NULL, subset = NULL,
+          sharpbw = FALSE, subset = NULL,
           masspoints = "adjust", bwcheck = NULL,
-          bwrestrict = TRUE, stdvars = FALSE)}
+          bwrestrict = TRUE, stdvars = FALSE, data = NULL)}
 \arguments{
   \item{y}{is the dependent variable.}
   \item{x}{is the running variable (a.k.a. score or forcing variable).}
@@ -35,7 +35,12 @@ For more details, and related Stata and R packages useful for analysis of RD des
   \item{h}{specifies the main bandwidth used to construct the RD point estimator. If not specified, bandwidth \code{h} is computed by the companion command \code{\link{rdbwselect}}. If two bandwidths are specified, the first bandwidth is used for the data below the cutoff and the second bandwidth is used for the data above the cutoff.}
   \item{b}{specifies the bias bandwidth used to construct the bias-correction estimator. If not specified, bandwidth \code{b} is computed by the companion command \code{\link{rdbwselect}}. If two bandwidths are specified, the first bandwidth is used for the data below the cutoff and the second bandwidth is used for the data above the cutoff.}
   \item{rho}{specifies the value of \code{rho}, so that the bias bandwidth \code{b} equals \code{h/rho}. Default is \code{rho = 1} if \code{h} is specified but \code{b} is not.}
-  \item{covs}{additional covariates to be used for efficiency improvements.}
+  \item{covs}{additional covariates to be used for efficiency improvements. One of:
+  \itemize{
+    \item a one-sided \code{\link{formula}}, e.g. \code{~ z1 + z2 + factor(g) + I(z3^2)}: processed with \code{\link{model.matrix}}, so factors are expanded to contrasts, interactions are supported, and transformations such as \code{I(\dots)}, \code{log()}, and \code{poly()} work. The intercept column is dropped automatically. Symbols are looked up in \code{data} first (if supplied), then in the caller's environment;
+    \item a character vector of column names (requires \code{data =}), e.g. \code{c("z1", "z2")}: selected as \code{data[, covs]} and coerced to a matrix. Useful for programmatic specifications;
+    \item a numeric vector, matrix, or data frame: passed through unchanged (backwards compatible).
+  }}
   \item{covs_drop}{if TRUE, it checks for collinear additional covariates and drops them. Default is TRUE.}
   \item{ginv.tol}{tolerance used to invert matrices involving covariates when \code{covs_drop=TRUE}.}
   \item{kernel}{is the kernel function used to construct the local-polynomial estimator(s). Options are \code{triangular} (default option), \code{epanechnikov} and \code{uniform}.}
@@ -80,22 +85,21 @@ Options are:
 
 \code{hc3} for heteroskedasticity-robust plug-in residuals variance estimator with \code{hc3} weights.
 
-Default is \code{vce=nn}.}
-  \item{cluster}{indicates the cluster ID variable used for cluster-robust variance estimation with degrees-of-freedom weights. By default it is combined with \code{vce=nn} for cluster-robust nearest neighbor variance estimation. Another option is plug-in residuals combined with \code{vce=hc0}.}
+\code{cr1} for CR1 cluster-robust variance estimator with degrees-of-freedom correction at the cluster level. Requires \code{cluster} to be specified.
+
+\code{cr2} for CR2 cluster-robust variance estimator with leverage adjustments (Bell-McCaffrey). Requires \code{cluster} to be specified.
+
+\code{cr3} for CR3 cluster-robust variance estimator with leave-one-cluster-out jackknife (Pustejovsky-Tipton); most conservative. Requires \code{cluster} to be specified.
+
+Default is \code{vce=nn}. When \code{cluster} is specified, only \code{vce=cr1}, \code{vce=cr2}, and \code{vce=cr3} are valid; other options are automatically mapped to the corresponding cluster variant with a warning.
+
+The CR2/CR3 leverage correction applies to both the conventional and the robust bias-corrected standard errors, including when the point-estimation bandwidth \code{h} differs from the bias-correction bandwidth \code{b}; in that case the cluster leverage is computed from the bias (\code{b}) regression.}
+  \item{cluster}{indicates the cluster ID variable used for cluster-robust variance estimation. Must be combined with \code{vce=cr1}, \code{vce=cr2}, or \code{vce=cr3}.}
   \item{nnmatch}{to be combined with for \code{vce=nn} for heteroskedasticity-robust nearest neighbor variance estimator with \code{nnmatch} indicating the minimum number of neighbors to be used. Default is \code{nnmatch=3}}
   \item{level}{sets the confidence level for confidence intervals; default is \code{level = 95}.}
   \item{scalepar}{specifies scaling factor for RD parameter of interest. This option is useful when the population parameter of interest involves a known multiplicative factor (e.g., sharp kink RD).  Default is \code{scalepar = 1} (no scaling).}
   \item{scaleregul}{specifies scaling factor for the regularization term added to the denominator of the bandwidth selectors. Setting \code{scaleregul = 0} removes the regularization term from the bandwidth selectors; default is \code{scaleregul = 1}.}
   \item{sharpbw}{option to perform fuzzy RD estimation using a bandwidth selection procedure for the sharp RD model. This option is automatically selected if there is perfect compliance at either side of the cutoff.}
-  \item{detail}{if specified, \code{\link{rdrobust}} reports the output from versions 2.2.0 and earlier.}
-  \item{all}{if specified, \code{\link{rdrobust}} reports three different procedures:
-  
-  (i) conventional RD estimates with conventional standard errors.
-  
-  (ii) bias-corrected estimates with conventional standard errors.
-  
-  (iii) bias-corrected estimates with robust standard errors.}
-  
   \item{subset}{an optional vector specifying a subset of observations to be used.}
   \item{masspoints}{checks and controls for repeated observations in the running variable. Options are:
   
@@ -103,7 +107,7 @@ Default is \code{vce=nn}.}
     
     (ii) \code{check}: looks for and reports the number of unique observations at each side of the cutoff. 
     
-    (iii) \code{adjust}: controls that the preliminary bandwidths used in the calculations contain a minimal number of unique observations. By default it uses 10 observations, but it can be manually adjusted with the option \code{bwcheck}). 
+    (iii) \code{adjust}: controls that the preliminary bandwidths used in the calculations contain a minimal number of unique observations. By default it uses 10 observations, but it can be manually adjusted with the option \code{bwcheck}. 
     
     Default option is \code{masspoints=adjust}.}
     \item{bwcheck}{if a positive integer is provided, the preliminary bandwidth used in the calculations is enlarged so that at least \code{bwcheck} unique observations are used.}
@@ -111,15 +115,18 @@ Default is \code{vce=nn}.}
     \item{bwrestrict}{if \code{TRUE}, computed bandwidths are restricted to lie within the range of \code{x}; default is \code{bwrestrict = TRUE}.}
       
     \item{stdvars}{if \code{TRUE}, \code{x} and \code{y} are standardized before computing the bandwidths; default is \code{stdvars = FALSE}.}
+  \item{data}{an optional data frame. When supplied, \code{y}, \code{x}, \code{covs}, \code{cluster}, \code{fuzzy}, \code{weights}, and \code{subset} may be given as bare variable names referring to columns of \code{data}.}
       
 }
 \value{
   \item{N}{vector with the sample sizes used to the left and to the right of the cutoff.}
   \item{N_h}{vector with the effective sample sizes used to the left and to the right of the cutoff.}
+  \item{N_b}{vector with the effective sample sizes used to the left and to the right of the cutoff for bias estimation.}
+  \item{M}{vector with the number of unique observations to the left and to the right of the cutoff (when \code{masspoints} is not \code{off}).}
   \item{c}{cutoff value.}
   \item{p}{order of the polynomial used for estimation of the regression function.}
   \item{q}{order of the polynomial used for estimation of the bias of the regression function.}
-  \item{bws}{matrix containing the bandwidths used.}
+  \item{bws}{matrix containing the bandwidths used: row \code{h} for the estimation bandwidth, row \code{b} for the bias bandwidth; columns \code{left} and \code{right}.}
   \item{tau_cl}{conventional local-polynomial estimate to the left and to the right of the cutoff.}
   \item{tau_bc}{bias-corrected local-polynomial estimate to the left and to the right of the cutoff.}
   \item{coef}{vector containing conventional and bias-corrected local-polynomial RD estimates.}
@@ -129,16 +136,25 @@ Default is \code{vce=nn}.}
   \item{beta_Y_p_r}{conventional p-order local-polynomial estimates to the right of the cutoff for the outcome variable.}
   \item{beta_T_p_l}{conventional p-order local-polynomial estimates to the left of the cutoff for the first stage (fuzzy RD).}
   \item{beta_T_p_r}{conventional p-order local-polynomial estimates to the right of the cutoff for the first stage (fuzzy RD).}
-  \item{beta_covs}{coefficients of the additional covariates, only returned when \code{covs()} are used.}
+  \item{coef_covs}{coefficients of the additional covariates, only returned when \code{covs} is specified.}
   \item{V_cl_l}{conventional variance-covariance matrix estimated below the cutoff.}
   \item{V_cl_r}{conventional variance-covariance matrix estimated above the cutoff.}
   \item{V_rb_l}{robust variance-covariance matrix estimated below the cutoff.}
   \item{V_rb_r}{robust variance-covariance matrix estimated above the cutoff.}
+  \item{z}{vector containing the z-statistics associated with conventional, bias-corrected and robust local-polynomial RD estimates.}
   \item{pv}{vector containing the p-values associated with conventional, bias-corrected and robust local-polynomial RD estimates.}
   \item{ci}{matrix containing the confidence intervals associated with conventional, bias-corrected and robust local-polynomial RD estimates.}
+  \item{kernel}{kernel function used.}
+  \item{vce}{variance estimation method used.}
+  \item{bwselect}{bandwidth selection method used.}
+  \item{level}{confidence level used.}
+  \item{masspoints}{mass points option used.}
+  \item{rdmodel}{character string describing the model estimated: design type (sharp/fuzzy/kink), whether covariates were included, and whether standard errors are clustered.}
+  \item{n_clust}{vector with the number of clusters to the left and to the right of the cutoff. \code{NULL} when \code{cluster} is not specified.}
+  \item{tau_T, se_T, z_T, pv_T, ci_T}{first-stage estimates, standard errors, z-statistics, p-values, and confidence intervals for the treatment indicator (fuzzy RD only).}
 }
 \references{
-Calonico, S., M. D. Cattaneo, and M. H. Farrell. 2018. \href{https://nppackages.github.io/references/Calonico-Cattaneo-Farrell_2018_JASA.pdf}{On the Effect of Bias Estimation on Coverage Accuracy in Nonparametric Inference.} \emph{Journal of the American Statistical Association}, 113(522): 767-779.
+Calonico, S., M. D. Cattaneo, and M. H. Farrell. 2018. \href{https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2018_JASA.pdf}{On the Effect of Bias Estimation on Coverage Accuracy in Nonparametric Inference.} \emph{Journal of the American Statistical Association}, 113(522): 767-779.
 
 Calonico, S., M. D. Cattaneo, and M. H. Farrell. 2020. \href{https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2020_ECTJ.pdf}{Optimal Bandwidth Choice for Robust Bias Corrected Inference in Regression Discontinuity Designs.} \emph{Econometrics Journal}, 23(2): 192-210.
 
@@ -159,19 +175,23 @@ Cattaneo, M. D., B. Frandsen, and R. Titiunik. 2015. \href{https://rdpackages.gi
 \author{
 Sebastian Calonico, University of California, Davis, CA.  \email{scalonico@ucdavis.edu}.
 
-Matias D. Cattaneo, Princeton University, Princeton, NJ.  \email{cattaneo@princeton.edu}.
+Matias D. Cattaneo, Princeton University, Princeton, NJ.  \email{matias.d.cattaneo@gmail.com}.
 
-Max H. Farrell, University of California, Santa Barbara, CA. \email{maxhfarrell@ucsb.edu}.
+Max H. Farrell, University of California, Santa Barbara, CA. \email{mhfarrell@gmail.com}.
 
-Rocio Titiunik, Princeton University, Princeton, NJ.  \email{titiunik@princeton.edu}.
+Rocio Titiunik, Princeton University, Princeton, NJ.  \email{rocio.titiunik@gmail.com}.
 }
-\examples{ 
+\examples{
 x <- runif(1000,-1,1)
 y <- 5 + 3*x + 2*(x>=0) + rnorm(1000)
 rdrobust(y,x)
+
+# Using a data frame with covariates via the `data =` argument
+df <- data.frame(y = y, x = x, z1 = rnorm(1000), z2 = rnorm(1000))
+rdrobust(y, x, covs = ~ z1 + z2, data = df)
 }
 \keyword{ RDD }
 \keyword{ Robust Estimation }
 \seealso{
-  \code{\link{rdbwselect}}, \code{\link{rdplot}}
+  \code{\link{rdbwselect}}, \code{\link{rdplot}}, \code{\link{plot.rdrobust}}
 }

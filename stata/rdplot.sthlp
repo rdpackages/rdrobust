@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 10.0.0  2025-06-30}{...}
+{* *!version 10.0.0  2026-05-15}{...}
 {viewerjumpto "Syntax" "rdplot##syntax"}{...}
 {viewerjumpto "Description" "rdplot##description"}{...}
 {viewerjumpto "Options" "rdplot##options"}{...}
@@ -42,7 +42,7 @@
 {marker description}{...}
 {title:Description}
 
-{p 4 8}{cmd:rdplot} implements several data-driven Regression Discontinuity (RD) plots, using either evenly-spaced or quantile-spaced partitioning. Two type of RD plots are constructed: (i) RD plots with binned sample means tracing out the underlying regression function, and (ii) RD plots with binned sample means
+{p 4 8}{cmd:rdplot} implements several data-driven Regression Discontinuity (RD) plots, using either evenly-spaced or quantile-spaced partitioning. Two types of RD plots are constructed: (i) RD plots with binned sample means tracing out the underlying regression function, and (ii) RD plots with binned sample means
 mimicking the underlying variability of the data. For technical and methodological details see 
 {browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Titiunik_2015_JASA.pdf":Calonico, Cattaneo and Titiunik (2015a)}.{p_end}
 
@@ -114,7 +114,7 @@ Default is {cmd:kernel(uniform)} (i.e., equal/no weighting to all observations o
 
 {p 4 8}{cmd:covs_eval(}{it:covars_eval}{cmd:)} sets the evaluation points for the additional covariates, when included in the estimation. Options are: {opt 0} and {opt mean} (default).
 
-{p 4 8}{cmd:covs_drop(}{it:covsdropoption}{cmd:)} assess collinearity in additional covariates used for estimation and inference. Options {opt pinv} (default choice) and {opt invsym} drops collinear additional covariates, differing only in the type of inverse function used. Option {opt off} omits the check for collinear additional covariates.{p_end}
+{p 4 8}{cmd:covs_drop(}{it:covsdropoption}{cmd:)} assesses collinearity in additional covariates used for estimation and inference. Options {opt pinv} (default choice) and {opt invsym} drop collinear additional covariates, differing only in the type of inverse function used. Option {opt off} omits the check for collinear additional covariates.{p_end}
 
 {dlgtab:Plot Options}
 
@@ -211,13 +211,13 @@ Default is {cmd:kernel(uniform)} (i.e., equal/no weighting to all observations o
 {browse "mailto:scalonico@ucdavis.edu":scalonico@ucdavis.edu}.{p_end}
 
 {p 4 8}Matias D. Cattaneo, Princeton University, Princeton, NJ.
-{browse "mailto:cattaneo@princeton.edu":cattaneo@princeton.edu}.{p_end}
+{browse "mailto:matias.d.cattaneo@gmail.com":matias.d.cattaneo@gmail.com}.{p_end}
 
 {p 4 8}Max H. Farrell, University of California, Santa Barbara, CA.
-{browse "mailto:maxhfarrell@ucsb.edu":maxhfarrell@ucsb.edu}.{p_end}
+{browse "mailto:mhfarrell@gmail.com":mhfarrell@gmail.com}.{p_end}
 
 {p 4 8}Rocio Titiunik, Princeton University, Princeton, NJ.
-{browse "mailto:titiunik@princeton.edu":titiunik@princeton.edu}.{p_end}
+{browse "mailto:rocio.titiunik@gmail.com":rocio.titiunik@gmail.com}.{p_end}
 
 
 

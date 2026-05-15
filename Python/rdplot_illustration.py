@@ -1,11 +1,9 @@
 ###########################################################################
 ## RDROBUST Python Package
-## Python Script for Empirical Illustration
-## Authors: Sebastian Calonico, Matias D. Cattaneo,
-#           Max H. Farrell, Ricardo Masini and Rocio Titiunik 
+## RDPLOT Empirical Illustration
 ###########################################################################
 
-### Impot rdrobust package
+### Import rdrobust package
 from rdrobust import rdplot
 import pandas as pd
 from plotnine import *

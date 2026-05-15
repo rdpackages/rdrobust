@@ -1,4 +1,4 @@
-*!version 6.0  2014-10-14
+*!version 6.0  2026-05-15
 
 capture mata mata drop rdbwselect_2014_rdvce()
 mata

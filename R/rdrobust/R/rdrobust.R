@@ -1,46 +1,69 @@
-rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,  
-                    p = NULL, q = NULL, h = NULL, b = NULL, rho = NULL, 
+rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
+                    p = NULL, q = NULL, h = NULL, b = NULL, rho = NULL,
                     covs = NULL, covs_drop = TRUE, ginv.tol = 1e-20,
                     kernel = "tri", weights = NULL, bwselect = "mserd",
-                    vce = "nn", cluster = NULL, nnmatch = 3, level = 95, 
-                    scalepar = 1, scaleregul = 1, sharpbw = FALSE, 
-                    detail = NULL, all = NULL, subset = NULL, masspoints = "adjust",
-                    bwcheck = NULL, bwrestrict = TRUE, stdvars = FALSE) {
- 
-  #print("Start Code")
-  #start_time <- Sys.time()
-  
+                    vce = "nn", cluster = NULL, nnmatch = 3, level = 95,
+                    scalepar = 1, scaleregul = 1, sharpbw = FALSE,
+                    subset = NULL, masspoints = "adjust",
+                    bwcheck = NULL, bwrestrict = TRUE, stdvars = FALSE,
+                    data = NULL) {
+
+  if (!is.null(data)) {
+    .vars <- .rdrobust_resolve_data(match.call(), data, parent.frame(),
+              c("y","x","covs","cluster","fuzzy","weights","subset"))
+    y <- .vars$y; x <- .vars$x; covs <- .vars$covs
+    cluster <- .vars$cluster; fuzzy <- .vars$fuzzy
+    weights <- .vars$weights; subset <- .vars$subset
+  }
+
+  covs <- .rdrobust_resolve_covs(covs, data, parent.frame())
+
+  # Validate auxiliary-vector lengths against length(x) BEFORE subset filtering,
+  # so wrong-length inputs error explicitly instead of being silently recycled
+  # by `[subset]` / `[na.ok]` indexing.
+  n_orig <- length(x)
+  .rdrobust_check_length(y,       "y",       n_orig)
+  .rdrobust_check_length(weights, "weights", n_orig)
+  .rdrobust_check_length(fuzzy,   "fuzzy",   n_orig)
+  .rdrobust_check_length(covs,    "covs",    n_orig)
+  .rdrobust_check_length(cluster, "cluster", n_orig)
+  .rdrobust_check_subset(subset, n_orig)
+
   if (!is.null(subset)) {
     x <- x[subset]
     y <- y[subset]
+    if (length(x) == 0L)
+      stop("'subset' removed all observations.", call. = FALSE)
   }
-  
+
   if (is.null(c)) c <- 0
+  if (length(c) != 1 || !is.numeric(c) || !is.finite(c))
+    stop(sprintf("Cutoff 'c' must be a single finite numeric value (received: %s).", toString(c)), call. = FALSE)
   if (is.null(p) & !is.null(deriv)) {p = deriv+1}
   
   if (length(p) == 0) {
     flag_no_p <- TRUE
     p <- 1
   } else if ((length(p) != 1) | !(p[1]%in%0:20)) {
-    stop("Polynomial order p incorrectly specified.\n")
+    stop(sprintf("Polynomial order 'p' must be a single integer in 0:20 (received: %s).", toString(p)))
   } else {
     flag_no_p <- FALSE
   }
-  
+
   if (length(q) == 0) {
     flag_no_q <- TRUE
     q <- p + 1
-  } else if ((length(q) > 1) | !(q[1]%in%c(0:20)) | (q[1]<p)) {
-    stop("Polynomial order (for bias correction) q incorrectly specified.\n")
+  } else if ((length(q) != 1) | !(q[1]%in%0:20) | (q[1]<=p)) {
+    stop(sprintf("Polynomial order 'q' (for bias correction) must be a single integer in 0:20 with q > p (received q=%s, p=%s).", toString(q), toString(p)))
   } else {
     flag_no_q <- FALSE
   }
-  
+
   if (length(deriv) == 0) {
     flag_no_deriv <- TRUE
     deriv <- 0
-  } else if ((length(deriv) > 1) | !(deriv[1]%in%c(0:20)) | (deriv[1]>p)) {
-    stop("Derivative order incorrectly specified.\n")
+  } else if ((length(deriv) != 1) | !(deriv[1]%in%0:20) | (deriv[1]>p)) {
+    stop(sprintf("Derivative order must be a single integer in 0:20 with deriv <= p (received deriv=%s, p=%s).", toString(deriv), toString(p)))
   } else {
     flag_no_deriv <- FALSE
   }
@@ -49,8 +72,10 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   
   if (!is.null(cluster)){
     if (!is.null(subset))  cluster <- cluster[subset]
+    if (length(cluster) != length(x))
+      stop("cluster must have the same length as y and x.")
     na.ok <- na.ok & complete.cases(cluster)
-  } 
+  }
   
   if (!is.null(covs)){
     #if (!is.null(subset))  covs <- subset(covs,subset)
@@ -73,6 +98,10 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   
   if (!is.null(covs))    covs    = as.matrix(covs)[na.ok, , drop = FALSE]
   if (!is.null(fuzzy))   fuzzy   = as.matrix(  fuzzy[na.ok])
+  # Keep cluster as matrix (not factor): the cluster vector gets sliced into
+  # left / right sides, and factor subsetting preserves unused levels, which
+  # inflates `g = length(split(seq_along(C), C))` inside rdrobust_vce (empty
+  # groups contribute 0 to M but change the CR1 df correction g/(g-1)).
   if (!is.null(cluster)) cluster = as.matrix(cluster[na.ok])
   if (!is.null(weights)) weights = as.matrix(weights[na.ok])
   
@@ -90,7 +119,7 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
 
   ############## COLLINEARITY
   covs_drop_coll=dZ=0
-  if (covs_drop == TRUE) covs_drop_coll = 1 
+  if (isTRUE(covs_drop)) covs_drop_coll = 1
   if (!is.null(covs)) dZ = ncol(covs)
   
   if (!is.null(covs) & isTRUE(covs_drop)) {
@@ -114,19 +143,13 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   bwselect <- tolower(bwselect)
   vce      <- tolower(vce)
   
-  if (is.null(h)) {
-    x_iq = quantile(x,.75,type=2) - quantile(x,.25,type=2)
-    BWp = min(c(sd(x),x_iq/1.349))
-    x_sd = y_sd = 1
-    c_orig = c
-    if (isTRUE(stdvars)) { 
-      y_sd = sd(y)
-      x_sd = sd(x)
-      y = y/y_sd
-      x = x/x_sd
-      c = c/x_sd
-      BWp = min(c(1,(x_iq/x_sd)/1.349))
-    }
+  x_sd = y_sd = 1
+  if (is.null(h) & isTRUE(stdvars)) {
+    y_sd = sd(y)
+    x_sd = sd(x)
+    y = y/y_sd
+    x = x/x_sd
+    c = c/x_sd
   }
 
   ind_l = x<c;  ind_r = x>=c
@@ -144,10 +167,18 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   if (!is.null(fuzzy)) {
     dT = 1
     T_l  = fuzzy[ind_l,,drop=FALSE];  T_r  = fuzzy[ind_r,,drop=FALSE]
-    
+
+    # Reject only the *fully* degenerate case: T constant across the whole
+    # sample (zero variance on both sides AND no jump at the cutoff). The
+    # one-sided cases (e.g. T=0 left and varying right, or T=0 left and T=1
+    # right) are legitimate and handled by the perf_comp branch below.
+    if (var(T_l) == 0 && var(T_r) == 0 && abs(mean(T_l) - mean(T_r)) < .Machine$double.eps^0.5) {
+      stop("Fuzzy RD: first-stage variable has no variation and no jump at the cutoff. The fuzzy estimator is not identified.", call. = FALSE)
+    }
+
     if (var(T_l)==0 | var(T_r)==0) perf_comp=TRUE
-    
-  if (perf_comp==TRUE | sharpbw==TRUE) {
+
+  if (isTRUE(perf_comp) | isTRUE(sharpbw)) {
       dT = 0
       T_l = T_r = NULL
     }
@@ -168,46 +199,45 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
     C_r = cluster[ind_r,,drop=FALSE]; g_r = length(unique(C_r))
   }
   
-  fw_l = fw_r = 0 
+  fw_l = fw_r = 0
   if (!is.null(weights)) {
     fw_l = weights[ind_l,,drop=FALSE];  fw_r = weights[ind_r,,drop=FALSE]
-  }  	
-  
-  vce_type = "NN"
-  if (vce=="hc0")         vce_type = "HC0"
-  if (vce=="hc1")         vce_type = "HC1"
-  if (vce=="hc2")         vce_type = "HC2"
-  if (vce=="hc3")      	  vce_type = "HC3"
-  if (!is.null(cluster))	vce_type = "Cluster"
+  }
 
   if (vce=="nn") {
-    nn_l = rep(1,N_l)
-    nn_r = rep(1,N_r)
-    dups_l   = ave(nn_l, X_l, FUN = sum)
-    dups_r   = ave(nn_r, X_r, FUN = sum)
-    dupsid_l = ave(nn_l, X_l, FUN = cumsum)
-    dupsid_r = ave(nn_r, X_r, FUN = cumsum)
-  }          
+    runs_l   = rle(as.vector(X_l))
+    dups_l   = rep(runs_l$lengths, runs_l$lengths)
+    dupsid_l = sequence(runs_l$lengths)
+    runs_r   = rle(as.vector(X_r))
+    dups_r   = rep(runs_r$lengths, runs_r$lengths)
+    dupsid_r = sequence(runs_r$lengths)
+  }
   
   #####################################################   CHECK ERRORS
   exit=0
-  if (kernel!="uni" & kernel!="uniform" & kernel!="tri" & kernel!="triangular" & kernel!="epa" & kernel!="epanechnikov" & kernel!="" ){
-    warning("kernel incorrectly specified")
+  valid_kernels  <- c("uni","uniform","tri","triangular","epa","epanechnikov","")
+  valid_bwselect <- c("mserd","msetwo","msesum","msecomb1","msecomb2",
+                      "cerrd","certwo","cersum","cercomb1","cercomb2","")
+  valid_vce      <- c("nn","hc0","hc1","hc2","hc3","cr1","cr2","cr3","")
+
+  if (!kernel %in% valid_kernels) {
+    warning(sprintf("kernel incorrectly specified (received '%s'); allowed: tri, epa, uni.", kernel))
     exit = 1
   }
-  
-  if  (bwselect!="mserd" & bwselect!="msetwo" & bwselect!="msesum" & bwselect!="msecomb1" & bwselect!="msecomb2" & bwselect!="cerrd" & bwselect!="certwo" & bwselect!="cersum" & bwselect!="cercomb1" & bwselect!="cercomb2" & bwselect!=""){
-    warning("bwselect incorrectly specified")  
+
+  if (!bwselect %in% valid_bwselect) {
+    if (bwselect %in% c("cct","ik","cv")) {
+      warning("bwselect options IK, CCT and CV have been deprecated. Please see help for new options.")
+    } else if (bwselect %in% c("manual")) {
+      warning("bwselect='manual' is internal-only; pass `h = ` directly to specify a manual bandwidth.")
+    } else {
+      warning(sprintf("bwselect incorrectly specified (received '%s').", bwselect))
+    }
     exit = 1
   }
-  
-  if (bwselect=="cct" | bwselect=="ik" | bwselect=="cv"){
-    warning("bwselect options IK, CCT and CV have been depricated. Please see help for new options")  
-    exit = 1
-  }
-  
-  if (vce!="nn" & vce!="" & vce!="hc1" & vce!="hc2" & vce!="hc3" & vce!="hc0"){ 
-    warning("vce incorrectly specified")
+
+  if (!vce %in% valid_vce) {
+    warning(sprintf("vce incorrectly specified (received '%s'); allowed: nn, hc0, hc1, hc2, hc3, cr1, cr2, cr3.", vce))
     exit = 1
   }
     
@@ -216,19 +246,52 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
     exit = 1
   }
     
-  if (level>100 | level<=0){
-    warning("level should be set between 0 and 100")
+  if (length(level) != 1 || !is.finite(level) || level >= 100 || level <= 0){
+    warning("level should be a single number in (0, 100)")
     exit = 1
   }
     
-  if (!is.null(rho)){  
-     if (rho<0){
-        warning("rho should be greater than 0")
+  if (!is.null(rho)){
+     if (length(rho) != 1 || !is.finite(rho) || rho<=0){
+        warning("rho should be a single positive number")
         exit = 1
       }
   }
-  
-  if (exit>0) stop()
+
+  if (!is.null(bwcheck)) {
+    if (length(bwcheck) != 1 || !is.finite(bwcheck) || bwcheck < 1 || bwcheck != round(bwcheck)) {
+      warning("bwcheck must be a single positive integer")
+      exit = 1
+    }
+  }
+
+  if (!is.null(masspoints) && !isFALSE(masspoints) &&
+      !(is.character(masspoints) && length(masspoints) == 1L &&
+        masspoints %in% c("check","adjust","off"))) {
+    warning("masspoints must be one of 'check', 'adjust', 'off', or FALSE")
+    exit = 1
+  }
+
+  if (!is.null(h)) {
+    if (length(h) > 2 || any(!is.finite(h)) || any(h <= 0)) {
+      warning("h must be a positive scalar or a length-2 positive vector")
+      exit = 1
+    }
+  }
+
+  if (!is.null(b)) {
+    if (length(b) > 2 || any(!is.finite(b)) || any(b <= 0)) {
+      warning("b must be a positive scalar or a length-2 positive vector")
+      exit = 1
+    }
+  }
+
+  if (!is.null(weights) && sum(weights, na.rm = TRUE) <= 0) {
+    warning("weights must include at least one positive value")
+    exit = 1
+  }
+
+  if (exit>0) stop("rdrobust: invalid input (see warnings above).")
   if (!is.null(h)) bwselect = "Manual"
   if (!is.null(h) & is.null(rho) & is.null(b)) {
     rho = 1
@@ -243,246 +306,202 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
 			bwselect = "Manual"
 		}
   
-  if (kernel=="epanechnikov" | kernel=="epa") {
+  if (kernel %in% c("epanechnikov", "epa")) {
     kernel_type = "Epanechnikov"
-    C_c = 2.34
-  }  else if (kernel=="uniform" | kernel=="uni") {
+  } else if (kernel %in% c("uniform", "uni")) {
     kernel_type = "Uniform"
-    C_c = 1.843
-  }   else  {
+  } else {
     kernel_type = "Triangular"
-    C_c = 2.576
   }
   
-  vce_type = "NN"
-  if (vce=="hc0")     		vce_type = "HC0"
-  if (vce=="hc1")      	  vce_type = "HC1"
-  if (vce=="hc2")      	  vce_type = "HC2"
-  if (vce=="hc3")      	  vce_type = "HC3"
-  if (vce=="cluster")  	  vce_type = "Cluster"
-  if (vce=="nncluster") 	vce_type = "NNcluster"
-  
-  
-  ############################################################################################
-  #cat(paste("Preparing data -> ",  Sys.time()-start_time,"\n", sep=""))
-  #start_time <- Sys.time()
-  ############################################################################################
-  mN = N;  M_l = N_l;  M_r = N_r
-  
-  if (is.null(h)) {
- 
-    if (masspoints=="check" | masspoints=="adjust") {
-      X_uniq_l = sort(unique(X_l), decreasing=TRUE)
-      X_uniq_r = unique(X_r)
-      M_l = length(X_uniq_l)
-      M_r = length(X_uniq_r)
-      M = M_l + M_r
-      mass_l = 1-M_l/N_l
-      mass_r = 1-M_r/N_r				
-      if (mass_l>=0.2 | mass_r>=0.2){
-        warning("Mass points detected in the running variable.")
-        if (masspoints=="check") warning("Try using option masspoints=adjust.")
-        if (is.null(bwcheck) & masspoints=="adjust") bwcheck <- 10
-      }				
+  # Cluster vce validation: with cluster, only cr1/cr2/cr3 are valid.
+  # Without cluster, cr1/cr2/cr3 fall back to hc1/hc2/hc3.
+  if (!is.null(cluster)) {
+    if (vce %in% c("nn","")) {
+      vce = "cr1"  # silent default
+    } else if (vce %in% c("hc0","hc1")) {
+      warning(paste0("vce='", vce, "' is not a cluster option. Switching to vce='cr1'."))
+      vce = "cr1"
+    } else if (vce == "hc2") {
+      warning("vce='hc2' is not a cluster option. Switching to vce='cr2'.")
+      vce = "cr2"
+    } else if (vce == "hc3") {
+      warning("vce='hc3' is not a cluster option. Switching to vce='cr3'.")
+      vce = "cr3"
+    } else if (!vce %in% c("cr1","cr2","cr3")) {
+      warning(paste0("vce='", vce, "' is not a valid cluster option. Switching to vce='cr1'."))
+      vce = "cr1"
     }
-  
+  } else {
+    if (vce=="cr1") {
+      warning("vce='cr1' requires a cluster variable. Falling back to vce='hc1'.")
+      vce = "hc1"
+    } else if (vce=="cr2") {
+      warning("vce='cr2' requires a cluster variable. Falling back to vce='hc2'.")
+      vce = "hc2"
+    } else if (vce=="cr3") {
+      warning("vce='cr3' requires a cluster variable. Falling back to vce='hc3'.")
+      vce = "hc3"
+    }
+  }
+
+  # Map user-facing cr1/cr2/cr3 to internal vce values
+  vce_type = "NN"
+  if (vce=="hc0")  vce_type = "HC0"
+  if (vce=="hc1")  vce_type = "HC1"
+  if (vce=="hc2")  vce_type = "HC2"
+  if (vce=="hc3")  vce_type = "HC3"
+  if (vce=="cr1") { vce_type = "CR1"; vce = "hc1" }
+  if (vce=="cr2") { vce_type = "CR2"; vce = "crv2" }
+  if (vce=="cr3") { vce_type = "CR3"; vce = "crv3" }
+
+  crv3 = (vce=="crv3") & !is.null(cluster)
+  crv2 = (vce=="crv2") & !is.null(cluster)
+
+  mN = N;  M_l = N_l;  M_r = N_r
+
+  # X_uniq_l/r and M_l/M_r are descriptive output fields and are also used
+  # by the bandwidth-selection masspoints and bwcheck logic below.
+  if (masspoints=="check" | masspoints=="adjust" | !is.null(bwcheck)) {
+    X_uniq_l = sort(unique(X_l), decreasing=TRUE)
+    X_uniq_r = unique(X_r)
+    M_l = length(X_uniq_l)
+    M_r = length(X_uniq_r)
+    M = M_l + M_r
+  }
+  if (masspoints=="check" | masspoints=="adjust") {
+    mass_l = 1-M_l/N_l
+    mass_r = 1-M_r/N_r
+    if (mass_l>=0.2 | mass_r>=0.2) {
+      warning("Mass points detected in the running variable.")
+      if (masspoints=="check") warning("Try using option masspoints=adjust.")
+      if (is.null(bwcheck) & masspoints=="adjust") bwcheck <- 10
+    }
+  }
+
+  if (is.null(h)) {
+    x_iq = quantile(x,.75,type=2) - quantile(x,.25,type=2)
+    BWp  = min(c(sd(x),x_iq/1.349))
+
+    C_c = 2.576
+    if (kernel %in% c("epanechnikov", "epa")) C_c = 2.34
+    if (kernel %in% c("uniform",      "uni")) C_c = 1.843
 
     c_bw = C_c*BWp*N^(-1/5)
     if (masspoints=="adjust") c_bw = C_c*BWp*M^(-1/5)
-        
+
     if (isTRUE(bwrestrict)) {
-        bw_max_l = abs(c-x_min)
-        bw_max_r = abs(c-x_max)
-        bw_max = max(bw_max_l, bw_max_r)
-        c_bw <- min(c_bw, bw_max)
+      bw_max_l = abs(c-x_min);  bw_max_r = abs(c-x_max)
+      bw_max   = max(bw_max_l, bw_max_r)
+      c_bw <- min(c_bw, bw_max)
     }
-    
-      bw.adj <- 0
-      if (!is.null(bwcheck)) {
-        bwcheck_l = min(bwcheck, M_l)
-        bwcheck_r = min(bwcheck, M_r)
-        bw_min_l = abs(X_uniq_l-c)[bwcheck_l] + 1e-8
-        bw_min_r = abs(X_uniq_r-c)[bwcheck_r] + 1e-8
-        c_bw = max(c_bw, bw_min_l, bw_min_r)
-        bw.adj <- 1
-      }
-      
-      ### Step 1: d_bw
-      C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw, h_B=range_l, 0, vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol)
-      C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw, h_B=range_r, 0, vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol)
-      
-      #### TWO
-      if  (bwselect=="msetwo" |  bwselect=="certwo" | bwselect=="msecomb2" | bwselect=="cercomb2" )  {		
-        d_bw_l = c((  C_d_l$V              /   C_d_l$B^2             )^C_d_l$rate)
-        d_bw_r = c((  C_d_r$V              /   C_d_r$B^2             )^C_d_l$rate)
-        if (isTRUE(bwrestrict)) {
-          d_bw_l <- min(d_bw_l, bw_max_l)
-          d_bw_r <- min(d_bw_r, bw_max_r)
-        }
-        
-        if (!is.null(bwcheck)) {
-          d_bw_l  <- max(d_bw_l, bw_min_l)
-          d_bw_r  <- max(d_bw_r, bw_min_r)
-        }
-        C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw, h_B=d_bw_l, scaleregul, vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol)
-        b_bw_l = c((  C_b_l$V              /   (C_b_l$B^2 + scaleregul*C_b_l$R)        )^C_b_l$rate)
-        C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw, h_B=d_bw_r, scaleregul, vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol)
-        b_bw_r = c((  C_b_r$V              /   (C_b_r$B^2 + scaleregul*C_b_r$R)        )^C_b_l$rate)
-        
-        if (isTRUE(bwrestrict)) {
-          b_bw_l <- min(b_bw_l, bw_max_l)
-          b_bw_r <- min(b_bw_r, bw_max_r)
-        }
-        
-        C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=p, nu=deriv, o_B=q, h_V=c_bw, h_B=b_bw_l, scaleregul, vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol)
-        h_bw_l = c((  C_h_l$V              /   (C_h_l$B^2 + scaleregul*C_h_l$R)         )^C_h_l$rate)
-        C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=p, nu=deriv, o_B=q, h_V=c_bw, h_B=b_bw_r, scaleregul, vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol)
-        h_bw_r = c((  C_h_r$V              /   (C_h_r$B^2 + scaleregul*C_h_r$R)         )^C_h_l$rate)
-        
-        if (isTRUE(bwrestrict)) {
-          h_bw_l <- min(h_bw_l, bw_max_l)
-          h_bw_r <- min(h_bw_r, bw_max_r) 
-        }
-        
-      }
-      
-      ### SUM
-      if  (bwselect=="msesum" | bwselect=="cersum" |  bwselect=="msecomb1" | bwselect=="msecomb2" |  bwselect=="cercomb1" | bwselect=="cercomb2")  {
-        
-        d_bw_s = c(( (C_d_l$V + C_d_r$V)  /  (C_d_r$B + C_d_l$B)^2 )^C_d_l$rate)
-        
-        if (isTRUE(bwrestrict)) {
-          d_bw_s <- min(d_bw_s, bw_max)
-        }
-        
-        if (!is.null(bwcheck)) d_bw_s  <-  max(d_bw_s, bw_min_l, bw_min_r)
-        
-        C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw, h_B=d_bw_s, scaleregul, vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol)
-        C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw, h_B=d_bw_s, scaleregul, vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol)
-        b_bw_s = c(( (C_b_l$V + C_b_r$V)  /  ((C_b_r$B + C_b_l$B)^2 + scaleregul*(C_b_r$R+C_b_l$R)) )^C_b_l$rate)
-        
-        if (isTRUE(bwrestrict)) {
-          b_bw_s <- min(b_bw_s, bw_max)
-        }
-        
-        C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=p, nu=deriv, o_B=q, h_V=c_bw, h_B=b_bw_s, scaleregul, vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol)
-        C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=p, nu=deriv, o_B=q, h_V=c_bw, h_B=b_bw_s, scaleregul, vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol)
-        h_bw_s = c(( (C_h_l$V + C_h_r$V)  /  ((C_h_r$B + C_h_l$B)^2 + scaleregul*(C_h_r$R + C_h_l$R)) )^C_h_l$rate)
-        
-        if (isTRUE(bwrestrict)) {
-          h_bw_s <- min(h_bw_s, bw_max)
-        }
-      }
-      
-      ### RD
-      if  (bwselect=="mserd" | bwselect=="cerrd" | bwselect=="msecomb1" | bwselect=="msecomb2" | bwselect=="cercomb1" | bwselect=="cercomb2" | bwselect=="" ) {
-        d_bw_d = c(( (C_d_l$V + C_d_r$V)  /  (C_d_r$B - C_d_l$B)^2 )^C_d_l$rate)
-        
-        if (isTRUE(bwrestrict)) {
-          d_bw_d <- min(d_bw_d, bw_max)
-        }
-        
-        if (!is.null(bwcheck)) d_bw_d  <- max(d_bw_d, bw_min_l, bw_min_r)
-        
-        C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw, h_B=d_bw_d, scaleregul, vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol)
-        C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw, h_B=d_bw_d, scaleregul, vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol)
-        b_bw_d = c(( (C_b_l$V + C_b_r$V)  /  ((C_b_r$B - C_b_l$B)^2 + scaleregul*(C_b_r$R + C_b_l$R)) )^C_b_l$rate)
-        
-        if (isTRUE(bwrestrict)) {
-          b_bw_d <- min(b_bw_d, bw_max)
-        }
-        
-        C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=p, nu=deriv, o_B=q, h_V=c_bw, h_B=b_bw_d, scaleregul, vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol)
-        C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=p, nu=deriv, o_B=q, h_V=c_bw, h_B=b_bw_d, scaleregul, vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol)
-        h_bw_d = c(( (C_h_l$V + C_h_r$V)  /  ((C_h_r$B - C_h_l$B)^2 + scaleregul*(C_h_r$R + C_h_l$R)) )^C_h_l$rate)
-        
-        if (isTRUE(bwrestrict)) {
-          h_bw_d <- min(h_bw_d, bw_max)
-        }
-        
-      }	
-     
-      if  (bwselect=="mserd" | bwselect=="cerrd" | bwselect=="msecomb1" | bwselect=="msecomb2" | bwselect=="cercomb1" | bwselect=="cercomb2" | bwselect=="" ) {
-        h_mserd = x_sd*h_bw_d
-        b_mserd = x_sd*b_bw_d
-      }	
-      if  (bwselect=="msesum" | bwselect=="cersum" |  bwselect=="msecomb1" | bwselect=="msecomb2" |  bwselect=="cercomb1" | bwselect=="cercomb2" )  {
-        h_msesum = x_sd*h_bw_s
-        b_msesum = x_sd*b_bw_s
-      }
-      if  (bwselect=="msetwo" |  bwselect=="certwo" | bwselect=="msecomb2" | bwselect=="cercomb2")  {		
-        h_msetwo_l = x_sd*h_bw_l
-        h_msetwo_r = x_sd*h_bw_r
-        b_msetwo_l = x_sd*b_bw_l
-        b_msetwo_r = x_sd*b_bw_r
-      }
-      if  (bwselect=="msecomb1" | bwselect=="cercomb1" ) {
-        h_msecomb1 = min(c(h_mserd,h_msesum))
-        b_msecomb1 = min(c(b_mserd,b_msesum))
-      }
-      if  (bwselect=="msecomb2" | bwselect=="cercomb2") {
-        h_msecomb2_l = median(c(h_mserd,h_msesum,h_msetwo_l))
-        h_msecomb2_r = median(c(h_mserd,h_msesum,h_msetwo_r))
-        b_msecomb2_l = median(c(b_mserd,b_msesum,b_msetwo_l))
-        b_msecomb2_r = median(c(b_mserd,b_msesum,b_msetwo_r))
-      }
-      
-      
-      cer_h = N^(-(p/((3+p)*(3+2*p))))
-      
-      if (!is.null(cluster)) {
-        cer_h = (g_l+g_r)^(-(p/((3+p)*(3+2*p))))
-      }
-      
-      cer_b = 1
-      if  (bwselect=="cerrd"){
-        h_cerrd = h_mserd*cer_h
-        b_cerrd = b_mserd*cer_b
-      }
-      if  (bwselect=="cersum"){
-        h_cersum = h_msesum*cer_h
-        b_cersum=  b_msesum*cer_b
-      }
-      if  (bwselect=="certwo"){
-        h_certwo_l   = h_msetwo_l*cer_h
-        h_certwo_r   = h_msetwo_r*cer_h
-        b_certwo_l   = b_msetwo_l*cer_b
-        b_certwo_r   = b_msetwo_r*cer_b
-      }
-      if  (bwselect=="cercomb1"){
-        h_cercomb1 = h_msecomb1*cer_h
-        b_cercomb1 = b_msecomb1*cer_b
-      }
-      if  (bwselect=="cercomb2"){
-        h_cercomb2_l = h_msecomb2_l*cer_h
-        h_cercomb2_r = h_msecomb2_r*cer_h
-        b_cercomb2_l = b_msecomb2_l*cer_b
-        b_cercomb2_r = b_msecomb2_r*cer_b
-      }
-      
-        bw_list = bwselect
-        bws = matrix(NA,1,4)
-        colnames(bws)=c("h (left)","h (right)","b (left)","b (right)")
-        rownames(bws)=bwselect
-        if  (bwselect=="mserd" | bwselect=="") bws[1,] = c(h_mserd,      h_mserd,      b_mserd,      b_mserd)
-        if  (bwselect=="msetwo")               bws[1,] = c(h_msetwo_l,   h_msetwo_r,   b_msetwo_l,   b_msetwo_r)
-        if  (bwselect=="msesum")               bws[1,] = c(h_msesum,     h_msesum,     b_msesum,     b_msesum)
-        if  (bwselect=="msecomb1")             bws[1,] = c(h_msecomb1,   h_msecomb1,   b_msecomb1,   b_msecomb1)
-        if  (bwselect=="msecomb2")             bws[1,] = c(h_msecomb2_l, h_msecomb2_r, b_msecomb2_l, b_msecomb2_r) 
-        if  (bwselect=="cerrd")                bws[1,] = c(h_cerrd,      h_cerrd,      b_cerrd,      b_cerrd)
-        if  (bwselect=="certwo")               bws[1,] = c(h_certwo_l,   h_certwo_r,   b_certwo_l,   b_certwo_r)
-        if  (bwselect=="cersum")               bws[1,] = c(h_cersum,     h_cersum,     b_cersum,     b_cersum)
-        if  (bwselect=="cercomb1")             bws[1,] = c(h_cercomb1,   h_cercomb1,   b_cercomb1,   b_cercomb1)
-        if  (bwselect=="cercomb2")             bws[1,] = c(h_cercomb2_l, h_cercomb2_r, b_cercomb2_l, b_cercomb2_r)
-     
-      h_l = c(bws[1]); b_l = c(bws[3])
-      h_r = c(bws[2]); b_r = c(bws[4])
- 
-      if (!is.null(rho)) {
-        b_l = h_l/rho
-    		b_r = h_r/rho
-      }
-      
+
+    bw.adj <- 0
+    if (!is.null(bwcheck)) {
+      bwcheck_l = min(bwcheck, M_l);  bwcheck_r = min(bwcheck, M_r)
+      bw_min_l = abs(X_uniq_l-c)[bwcheck_l] + 1e-8
+      bw_min_r = abs(X_uniq_r-c)[bwcheck_r] + 1e-8
+      c_bw = max(c_bw, bw_min_l, bw_min_r)
+      bw.adj <- 1
+    }
+
+    bw_fw_l = if (!is.null(weights)) fw_l else NULL
+    bw_fw_r = if (!is.null(weights)) fw_r else NULL
+
+    ### T1: per-side V-fit caches reused across all pilot calls.
+    vcache_l <- new.env(parent = emptyenv())
+    vcache_r <- new.env(parent = emptyenv())
+
+    ### Step 1: d_bw
+    C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, bw_fw_l, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw, h_B=range_l, 0,         vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol, vcache = vcache_l)
+    C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, bw_fw_r, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw, h_B=range_r, 0,         vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol, vcache = vcache_r)
+
+    ### TWO
+    if (bwselect=="msetwo" | bwselect=="certwo" | bwselect=="msecomb2" | bwselect=="cercomb2") {
+      d_bw_l = c((C_d_l$V / C_d_l$B^2)^C_d_l$rate)
+      d_bw_r = c((C_d_r$V / C_d_r$B^2)^C_d_r$rate)
+      if (isTRUE(bwrestrict)) { d_bw_l <- min(d_bw_l, bw_max_l); d_bw_r <- min(d_bw_r, bw_max_r) }
+      if (!is.null(bwcheck))  { d_bw_l <- max(d_bw_l, bw_min_l); d_bw_r <- max(d_bw_r, bw_min_r) }
+      C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, bw_fw_l, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw, h_B=d_bw_l, scaleregul, vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol, vcache = vcache_l)
+      b_bw_l = c((C_b_l$V / (C_b_l$B^2 + scaleregul*C_b_l$R))^C_b_l$rate)
+      C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, bw_fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw, h_B=d_bw_r, scaleregul, vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol, vcache = vcache_r)
+      b_bw_r = c((C_b_r$V / (C_b_r$B^2 + scaleregul*C_b_r$R))^C_b_r$rate)
+      if (isTRUE(bwrestrict)) { b_bw_l <- min(b_bw_l, bw_max_l); b_bw_r <- min(b_bw_r, bw_max_r) }
+      C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, bw_fw_l, c=c, o=p, nu=deriv, o_B=q, h_V=c_bw, h_B=b_bw_l, scaleregul, vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol, vcache = vcache_l)
+      h_bw_l = c((C_h_l$V / (C_h_l$B^2 + scaleregul*C_h_l$R))^C_h_l$rate)
+      C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, bw_fw_r, c=c, o=p, nu=deriv, o_B=q, h_V=c_bw, h_B=b_bw_r, scaleregul, vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol, vcache = vcache_r)
+      h_bw_r = c((C_h_r$V / (C_h_r$B^2 + scaleregul*C_h_r$R))^C_h_r$rate)
+      if (isTRUE(bwrestrict)) { h_bw_l <- min(h_bw_l, bw_max_l); h_bw_r <- min(h_bw_r, bw_max_r) }
+    }
+
+    ### SUM
+    if (bwselect=="msesum" | bwselect=="cersum" | bwselect=="msecomb1" | bwselect=="msecomb2" | bwselect=="cercomb1" | bwselect=="cercomb2") {
+      d_bw_s = c(((C_d_l$V+C_d_r$V) / (C_d_r$B+C_d_l$B)^2)^C_d_l$rate)
+      if (isTRUE(bwrestrict)) d_bw_s <- min(d_bw_s, bw_max)
+      if (!is.null(bwcheck))  d_bw_s <- max(d_bw_s, bw_min_l, bw_min_r)
+      C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, bw_fw_l, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw, h_B=d_bw_s, scaleregul, vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol, vcache = vcache_l)
+      C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, bw_fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw, h_B=d_bw_s, scaleregul, vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol, vcache = vcache_r)
+      b_bw_s = c(((C_b_l$V+C_b_r$V) / ((C_b_r$B+C_b_l$B)^2 + scaleregul*(C_b_r$R+C_b_l$R)))^C_b_l$rate)
+      if (isTRUE(bwrestrict)) b_bw_s <- min(b_bw_s, bw_max)
+      C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, bw_fw_l, c=c, o=p, nu=deriv, o_B=q, h_V=c_bw, h_B=b_bw_s, scaleregul, vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol, vcache = vcache_l)
+      C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, bw_fw_r, c=c, o=p, nu=deriv, o_B=q, h_V=c_bw, h_B=b_bw_s, scaleregul, vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol, vcache = vcache_r)
+      h_bw_s = c(((C_h_l$V+C_h_r$V) / ((C_h_r$B+C_h_l$B)^2 + scaleregul*(C_h_r$R+C_h_l$R)))^C_h_l$rate)
+      if (isTRUE(bwrestrict)) h_bw_s <- min(h_bw_s, bw_max)
+    }
+
+    ### RD
+    if (bwselect=="mserd" | bwselect=="cerrd" | bwselect=="msecomb1" | bwselect=="msecomb2" | bwselect=="cercomb1" | bwselect=="cercomb2" | bwselect=="") {
+      d_bw_d = c(((C_d_l$V+C_d_r$V) / (C_d_r$B-C_d_l$B)^2)^C_d_l$rate)
+      if (isTRUE(bwrestrict)) d_bw_d <- min(d_bw_d, bw_max)
+      if (!is.null(bwcheck))  d_bw_d <- max(d_bw_d, bw_min_l, bw_min_r)
+      C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, bw_fw_l, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw, h_B=d_bw_d, scaleregul, vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol, vcache = vcache_l)
+      C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, bw_fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw, h_B=d_bw_d, scaleregul, vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol, vcache = vcache_r)
+      b_bw_d = c(((C_b_l$V+C_b_r$V) / ((C_b_r$B-C_b_l$B)^2 + scaleregul*(C_b_r$R+C_b_l$R)))^C_b_l$rate)
+      if (isTRUE(bwrestrict)) b_bw_d <- min(b_bw_d, bw_max)
+      C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, bw_fw_l, c=c, o=p, nu=deriv, o_B=q, h_V=c_bw, h_B=b_bw_d, scaleregul, vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol, vcache = vcache_l)
+      C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, bw_fw_r, c=c, o=p, nu=deriv, o_B=q, h_V=c_bw, h_B=b_bw_d, scaleregul, vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol, vcache = vcache_r)
+      h_bw_d = c(((C_h_l$V+C_h_r$V) / ((C_h_r$B-C_h_l$B)^2 + scaleregul*(C_h_r$R+C_h_l$R)))^C_h_l$rate)
+      if (isTRUE(bwrestrict)) h_bw_d <- min(h_bw_d, bw_max)
+    }
+
+    if (bwselect=="mserd" | bwselect=="cerrd" | bwselect=="msecomb1" | bwselect=="msecomb2" | bwselect=="cercomb1" | bwselect=="cercomb2" | bwselect=="") { h_mserd = x_sd*h_bw_d; b_mserd = x_sd*b_bw_d }
+    if (bwselect=="msesum" | bwselect=="cersum" | bwselect=="msecomb1" | bwselect=="msecomb2" | bwselect=="cercomb1" | bwselect=="cercomb2")                { h_msesum = x_sd*h_bw_s; b_msesum = x_sd*b_bw_s }
+    if (bwselect=="msetwo" | bwselect=="certwo" | bwselect=="msecomb2" | bwselect=="cercomb2") { h_msetwo_l=x_sd*h_bw_l; h_msetwo_r=x_sd*h_bw_r; b_msetwo_l=x_sd*b_bw_l; b_msetwo_r=x_sd*b_bw_r }
+    if (bwselect=="msecomb1" | bwselect=="cercomb1") { h_msecomb1=min(c(h_mserd,h_msesum)); b_msecomb1=min(c(b_mserd,b_msesum)) }
+    if (bwselect=="msecomb2" | bwselect=="cercomb2") {
+      h_msecomb2_l=median(c(h_mserd,h_msesum,h_msetwo_l)); h_msecomb2_r=median(c(h_mserd,h_msesum,h_msetwo_r))
+      b_msecomb2_l=median(c(b_mserd,b_msesum,b_msetwo_l)); b_msecomb2_r=median(c(b_mserd,b_msesum,b_msetwo_r))
+    }
+
+    cer_h = N^(-(p/((3+p)*(3+2*p))))
+    if (!is.null(cluster)) cer_h = (g_l+g_r)^(-(p/((3+p)*(3+2*p))))
+    cer_b = 1
+    if (bwselect=="cerrd")    { h_cerrd=h_mserd*cer_h;       b_cerrd=b_mserd*cer_b }
+    if (bwselect=="cersum")   { h_cersum=h_msesum*cer_h;     b_cersum=b_msesum*cer_b }
+    if (bwselect=="certwo")   { h_certwo_l=h_msetwo_l*cer_h; h_certwo_r=h_msetwo_r*cer_h; b_certwo_l=b_msetwo_l*cer_b; b_certwo_r=b_msetwo_r*cer_b }
+    if (bwselect=="cercomb1") { h_cercomb1=h_msecomb1*cer_h; b_cercomb1=b_msecomb1*cer_b }
+    if (bwselect=="cercomb2") { h_cercomb2_l=h_msecomb2_l*cer_h; h_cercomb2_r=h_msecomb2_r*cer_h; b_cercomb2_l=b_msecomb2_l*cer_b; b_cercomb2_r=b_msecomb2_r*cer_b }
+
+    bws = matrix(NA,1,4)
+    colnames(bws) = c("h (left)","h (right)","b (left)","b (right)")
+    rownames(bws) = bwselect
+    if (bwselect=="mserd"   | bwselect=="") bws[1,] = c(h_mserd,      h_mserd,      b_mserd,      b_mserd)
+    if (bwselect=="msetwo")                 bws[1,] = c(h_msetwo_l,   h_msetwo_r,   b_msetwo_l,   b_msetwo_r)
+    if (bwselect=="msesum")                 bws[1,] = c(h_msesum,     h_msesum,     b_msesum,     b_msesum)
+    if (bwselect=="msecomb1")               bws[1,] = c(h_msecomb1,   h_msecomb1,   b_msecomb1,   b_msecomb1)
+    if (bwselect=="msecomb2")               bws[1,] = c(h_msecomb2_l, h_msecomb2_r, b_msecomb2_l, b_msecomb2_r)
+    if (bwselect=="cerrd")                  bws[1,] = c(h_cerrd,      h_cerrd,      b_cerrd,      b_cerrd)
+    if (bwselect=="certwo")                 bws[1,] = c(h_certwo_l,   h_certwo_r,   b_certwo_l,   b_certwo_r)
+    if (bwselect=="cersum")                 bws[1,] = c(h_cersum,     h_cersum,     b_cersum,     b_cersum)
+    if (bwselect=="cercomb1")               bws[1,] = c(h_cercomb1,   h_cercomb1,   b_cercomb1,   b_cercomb1)
+    if (bwselect=="cercomb2")               bws[1,] = c(h_cercomb2_l, h_cercomb2_r, b_cercomb2_l, b_cercomb2_r)
+
+    h_l = bws[1,1]; h_r = bws[1,2]
+    b_l = bws[1,3]; b_r = bws[1,4]
+    if (!is.null(rho)) {
+      b_l = h_l/rho
+      b_r = h_r/rho
+    }
     } else{
       if (length(h)==1) h_l = h_r = h
       if (length(h)==2) {
@@ -544,17 +563,11 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   }          
           
   u_l <- (eX_l-c)/h_l;	u_r <-(eX_r-c)/h_r
-  R_q_l = matrix(NA,eN_l,(q+1)); R_q_r = matrix(NA,eN_r,(q+1))
-  for (j in 1:(q+1))  {
-    R_q_l[,j] = (eX_l-c)^(j-1)
-    R_q_r[,j] = (eX_r-c)^(j-1)
-  }
-  R_p_l = R_q_l[,1:(p+1)]; R_p_r = R_q_r[,1:(p+1)]
+  R_q_l = .rdrobust_vander(as.numeric(eX_l - c), q)
+  R_q_r = .rdrobust_vander(as.numeric(eX_r - c), q)
+  R_p_l = R_q_l[, 1:(p+1), drop = FALSE]
+  R_p_r = R_q_r[, 1:(p+1), drop = FALSE]
 
-  
-  #print(Sys.time()-start_time)
-  #print("Computing RD estimates.")
-  #start_time <- Sys.time()
   
   L_l = crossprod(R_p_l*W_h_l,u_l^(p+1)); L_r = crossprod(R_p_r*W_h_r,u_r^(p+1)) 
   invG_q_l  = qrXXinv((sqrt(W_b_l)*R_q_l));	invG_q_r  = qrXXinv((sqrt(W_b_r)*R_q_r))
@@ -568,7 +581,7 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   eT_l = eT_r = NULL
   if (!is.null(fuzzy)) {
   
-    if (perf_comp==TRUE | sharpbw==TRUE) {
+    if (isTRUE(perf_comp) | isTRUE(sharpbw)) {
       dT = 1
       T_l  = fuzzy[x<c,,drop=FALSE];  T_r  = fuzzy[x>=c,,drop=FALSE]
     }
@@ -585,8 +598,12 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   }
     
   eC_l = eC_r = NULL
+  cidx_l = cidx_r = NULL
   if (!is.null(cluster)) {
     eC_l  = C_l[ind_l]; eC_r  = C_r[ind_r]
+    # T3: precompute per-side cluster index once for all V_Y/V_T vce calls.
+    cidx_l = .rdrobust_cluster_idx(eC_l)
+    cidx_r = .rdrobust_cluster_idx(eC_r)
   }
   
   beta_p_l  = invG_p_l%*%crossprod(R_p_l*W_h_l,D_l) 
@@ -677,13 +694,13 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
       tau_T_bc = c(         factorial(deriv)*t(s_T)%*%c(beta_bc[(deriv+1),2],beta_bc[(deriv+1),colsZ]))
 
       tau_Y_cl_l = c(scalepar*factorial(deriv)*t(s_Y)%*%c(beta_p_l[(deriv+1),1], beta_p_l[(deriv+1),colsZ]))
-      tau_Y_cl_r = c(scalepar*factorial(deriv)*t(s_Y)%*%c(beta_p_r[(deriv+1),2], beta_p_r[(deriv+1),colsZ]))
+      tau_Y_cl_r = c(scalepar*factorial(deriv)*t(s_Y)%*%c(beta_p_r[(deriv+1),1], beta_p_r[(deriv+1),colsZ]))
       tau_Y_bc_l = c(scalepar*factorial(deriv)*t(s_Y)%*%c(beta_bc_l[(deriv+1),1],beta_bc_l[(deriv+1),colsZ]))
-      tau_Y_bc_r = c(scalepar*factorial(deriv)*t(s_Y)%*%c(beta_bc_r[(deriv+1),2],beta_bc_r[(deriv+1),colsZ]))
+      tau_Y_bc_r = c(scalepar*factorial(deriv)*t(s_Y)%*%c(beta_bc_r[(deriv+1),1],beta_bc_r[(deriv+1),colsZ]))
 
-      tau_T_cl_l = c(factorial(deriv)*t(s_T)%*%c(beta_p_l[(deriv+1),1], beta_p_l[(deriv+1), colsZ]))
+      tau_T_cl_l = c(factorial(deriv)*t(s_T)%*%c(beta_p_l[(deriv+1),2], beta_p_l[(deriv+1), colsZ]))
       tau_T_cl_r = c(factorial(deriv)*t(s_T)%*%c(beta_p_r[(deriv+1),2], beta_p_r[(deriv+1), colsZ]))
-      tau_T_bc_l = c(factorial(deriv)*t(s_T)%*%c(beta_bc_l[(deriv+1),1],beta_bc_l[(deriv+1),colsZ]))
+      tau_T_bc_l = c(factorial(deriv)*t(s_T)%*%c(beta_bc_l[(deriv+1),2],beta_bc_l[(deriv+1),colsZ]))
       tau_T_bc_r = c(factorial(deriv)*t(s_T)%*%c(beta_bc_r[(deriv+1),2],beta_bc_r[(deriv+1),colsZ]))
 
       beta_Y_p_l = scalepar*factorial(deriv)*t(s_Y)%*%t(cbind(beta_p_l[,1], beta_p_l[,colsZ]))
@@ -706,56 +723,104 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
     }
   }
 
-  #print(Sys.time()-start_time)
-  #print("Computing variance-covariance matrix.")
-  #start_time <- Sys.time()
+
 
   hii_p_l = hii_p_r = hii_q_l = hii_q_r = predicts_p_l = predicts_p_r = predicts_q_l = predicts_q_r = 0
-  if (vce=="hc0" | vce=="hc1" | vce=="hc2" | vce=="hc3") {
+  if ((vce=="hc0" | vce=="hc1" | vce=="hc2" | vce=="hc3") & !crv3) {
     predicts_p_l = R_p_l%*%beta_p_l
     predicts_p_r = R_p_r%*%beta_p_r
     predicts_q_l = R_q_l%*%beta_q_l
     predicts_q_r = R_q_r%*%beta_q_r
-    
+
     if (vce=="hc2" | vce=="hc3") {
       hii_p_l = rowSums((R_p_l%*%invG_p_l)*(R_p_l*W_h_l))
       hii_p_r = rowSums((R_p_r%*%invG_p_r)*(R_p_r*W_h_r))
-      
+
       hii_q_l = rowSums((R_q_l%*%invG_q_l)*(R_q_l*W_b_l))
       hii_q_r = rowSums((R_q_r%*%invG_q_r)*(R_q_r*W_b_r))
     }
+  } else if (crv3 | crv2) {
+    # CRV2/CRV3: compute predictions for raw residuals; leverage adjustment done cluster-wise
+    predicts_p_l = R_p_l%*%beta_p_l
+    predicts_p_r = R_p_r%*%beta_p_r
+    predicts_q_l = R_q_l%*%beta_q_l
+    predicts_q_r = R_q_r%*%beta_q_r
   }
-  
-	res_h_l = rdrobust_res(eX_l, eY_l, eT_l, eZ_l, predicts_p_l, hii_p_l, vce, nnmatch, edups_l, edupsid_l, p+1)
-	res_h_r = rdrobust_res(eX_r, eY_r, eT_r, eZ_r, predicts_p_r, hii_p_r, vce, nnmatch, edups_r, edupsid_r, p+1)
+
+	res_h_l = rdrobust_res(eX_l, eY_l, eT_l, eZ_l, predicts_p_l, hii_p_l, vce, nnmatch, edups_l, edupsid_l, p+1, crv3=crv3, crv2=crv2, has_cluster=!is.null(cluster))
+	res_h_r = rdrobust_res(eX_r, eY_r, eT_r, eZ_r, predicts_p_r, hii_p_r, vce, nnmatch, edups_r, edupsid_r, p+1, crv3=crv3, crv2=crv2, has_cluster=!is.null(cluster))
 
 		if (vce=="nn") {
 			res_b_l = res_h_l;	res_b_r = res_h_r
 	} 	else {
-			res_b_l = rdrobust_res(eX_l, eY_l, eT_l, eZ_l, predicts_q_l, hii_q_l, vce, nnmatch, edups_l, edupsid_l, q+1)
-			res_b_r = rdrobust_res(eX_r, eY_r, eT_r, eZ_r, predicts_q_r, hii_q_r, vce, nnmatch, edups_r, edupsid_r, q+1)
+			res_b_l = rdrobust_res(eX_l, eY_l, eT_l, eZ_l, predicts_q_l, hii_q_l, vce, nnmatch, edups_l, edupsid_l, q+1, crv3=crv3, crv2=crv2, has_cluster=!is.null(cluster))
+			res_b_r = rdrobust_res(eX_r, eY_r, eT_r, eZ_r, predicts_q_r, hii_q_r, vce, nnmatch, edups_r, edupsid_r, q+1, crv3=crv3, crv2=crv2, has_cluster=!is.null(cluster))
   }
-			                       
-	V_Y_cl_l = invG_p_l%*%rdrobust_vce(dT+dZ, s_Y, as.matrix(R_p_l*W_h_l), res_h_l, eC_l)%*%invG_p_l
-	V_Y_cl_r = invG_p_r%*%rdrobust_vce(dT+dZ, s_Y, as.matrix(R_p_r*W_h_r), res_h_r, eC_r)%*%invG_p_r
-	V_Y_rb_l = invG_p_l%*%rdrobust_vce(dT+dZ, s_Y, as.matrix(Q_q_l),       res_b_l, eC_l)%*%invG_p_l
-	V_Y_rb_r = invG_p_r%*%rdrobust_vce(dT+dZ, s_Y, as.matrix(Q_q_r),       res_b_r, eC_r)%*%invG_p_r
+
+  # CRV2/CRV3: sqrt-kernel-weighted design matrices for symmetric hat-matrix blocks
+  sqrtRX_p_l = sqrtRX_p_r = NULL
+  if (crv3 | crv2) {
+    sqrtRX_p_l = R_p_l * sqrt(W_h_l)
+    sqrtRX_p_r = R_p_r * sqrt(W_h_r)
+  }
+  crv_invG_l = if (crv3 | crv2) invG_p_l else NULL
+  crv_invG_r = if (crv3 | crv2) invG_p_r else NULL
+
+	V_Y_cl_l = invG_p_l%*%rdrobust_vce(dT+dZ, s_Y, as.matrix(R_p_l*W_h_l), res_h_l, eC_l, cluster_idx=cidx_l, invG=crv_invG_l, sqrtRX=sqrtRX_p_l, crv2=crv2)%*%invG_p_l
+	V_Y_cl_r = invG_p_r%*%rdrobust_vce(dT+dZ, s_Y, as.matrix(R_p_r*W_h_r), res_h_r, eC_r, cluster_idx=cidx_r, invG=crv_invG_r, sqrtRX=sqrtRX_p_r, crv2=crv2)%*%invG_p_r
+
+  # V_rb: when h == b, use q-regression formulation directly (clean CRV2/CRV3).
+  # When h != b with CRV2/CRV3, use Q_q sandwich + q-regression cluster leverage
+  # (matrix analog of hii_q for HC2/HC3). Otherwise CR1.
+  hb_match = (h_l == b_l) & (h_r == b_r)
+  if (hb_match & (crv3 | crv2)) {
+    sqrtRX_q_l = R_q_l * sqrt(W_h_l)
+    sqrtRX_q_r = R_q_r * sqrt(W_h_r)
+    V_Y_rb_l = invG_q_l%*%rdrobust_vce(dT+dZ, s_Y, as.matrix(R_q_l*W_h_l), res_b_l, eC_l, cluster_idx=cidx_l, invG=invG_q_l, sqrtRX=sqrtRX_q_l, crv2=crv2)%*%invG_q_l
+    V_Y_rb_r = invG_q_r%*%rdrobust_vce(dT+dZ, s_Y, as.matrix(R_q_r*W_h_r), res_b_r, eC_r, cluster_idx=cidx_r, invG=invG_q_r, sqrtRX=sqrtRX_q_r, crv2=crv2)%*%invG_q_r
+  } else if (hb_match & !is.null(cluster)) {
+    V_Y_rb_l = invG_q_l%*%rdrobust_vce(dT+dZ, s_Y, as.matrix(R_q_l*W_h_l), res_b_l, eC_l, cluster_idx=cidx_l, invG=NULL, sqrtRX=NULL, crv2=FALSE)%*%invG_q_l
+    V_Y_rb_r = invG_q_r%*%rdrobust_vce(dT+dZ, s_Y, as.matrix(R_q_r*W_h_r), res_b_r, eC_r, cluster_idx=cidx_r, invG=NULL, sqrtRX=NULL, crv2=FALSE)%*%invG_q_r
+  } else if (crv3 | crv2) {
+    M_rb_l = .rdrobust_vce_qq_cluster(Q_q_l, R_q_l, W_b_l, invG_q_l, res_b_l, eC_l, cluster_idx=cidx_l, crv2=crv2, s=s_Y, d=dT+dZ)
+    M_rb_r = .rdrobust_vce_qq_cluster(Q_q_r, R_q_r, W_b_r, invG_q_r, res_b_r, eC_r, cluster_idx=cidx_r, crv2=crv2, s=s_Y, d=dT+dZ)
+    V_Y_rb_l = invG_p_l %*% M_rb_l %*% invG_p_l
+    V_Y_rb_r = invG_p_r %*% M_rb_r %*% invG_p_r
+  } else {
+    # k_override=q+1 aligns the CR1 df correction with the q-regression
+    # path used at h=b, so SE is continuous across the h=b boundary.
+    # Non-cluster paths ignore k (df adjustment is in rdrobust_res's w factor).
+    V_Y_rb_l = invG_p_l%*%rdrobust_vce(dT+dZ, s_Y, as.matrix(Q_q_l),       res_b_l, eC_l, cluster_idx=cidx_l, invG=NULL, sqrtRX=NULL, crv2=FALSE, k_override=q+1)%*%invG_p_l
+    V_Y_rb_r = invG_p_r%*%rdrobust_vce(dT+dZ, s_Y, as.matrix(Q_q_r),       res_b_r, eC_r, cluster_idx=cidx_r, invG=NULL, sqrtRX=NULL, crv2=FALSE, k_override=q+1)%*%invG_p_r
+  }
 	V_tau_cl = scalepar^2*factorial(deriv)^2*(V_Y_cl_l+V_Y_cl_r)[deriv+1,deriv+1]
 	V_tau_rb = scalepar^2*factorial(deriv)^2*(V_Y_rb_l+V_Y_rb_r)[deriv+1,deriv+1]
 	se_tau_cl = sqrt(V_tau_cl);	se_tau_rb = sqrt(V_tau_rb)
 
 	if (!is.null(fuzzy)) {
-		V_T_cl_l = invG_p_l%*%rdrobust_vce(dT+dZ, sV_T, as.matrix(R_p_l*W_h_l), res_h_l, eC_l)%*%invG_p_l
-		V_T_cl_r = invG_p_r%*%rdrobust_vce(dT+dZ, sV_T, as.matrix(R_p_r*W_h_r), res_h_r, eC_r)%*%invG_p_r
-		V_T_rb_l = invG_p_l%*%rdrobust_vce(dT+dZ, sV_T, as.matrix(Q_q_l), res_b_l, eC_l)%*%invG_p_l
-		V_T_rb_r = invG_p_r%*%rdrobust_vce(dT+dZ, sV_T, as.matrix(Q_q_r), res_b_r, eC_r)%*%invG_p_r
+		V_T_cl_l = invG_p_l%*%rdrobust_vce(dT+dZ, sV_T, as.matrix(R_p_l*W_h_l), res_h_l, eC_l, cluster_idx=cidx_l, invG=crv_invG_l, sqrtRX=sqrtRX_p_l, crv2=crv2)%*%invG_p_l
+		V_T_cl_r = invG_p_r%*%rdrobust_vce(dT+dZ, sV_T, as.matrix(R_p_r*W_h_r), res_h_r, eC_r, cluster_idx=cidx_r, invG=crv_invG_r, sqrtRX=sqrtRX_p_r, crv2=crv2)%*%invG_p_r
+    if (hb_match & (crv3 | crv2)) {
+      V_T_rb_l = invG_q_l%*%rdrobust_vce(dT+dZ, sV_T, as.matrix(R_q_l*W_h_l), res_b_l, eC_l, cluster_idx=cidx_l, invG=invG_q_l, sqrtRX=sqrtRX_q_l, crv2=crv2)%*%invG_q_l
+      V_T_rb_r = invG_q_r%*%rdrobust_vce(dT+dZ, sV_T, as.matrix(R_q_r*W_h_r), res_b_r, eC_r, cluster_idx=cidx_r, invG=invG_q_r, sqrtRX=sqrtRX_q_r, crv2=crv2)%*%invG_q_r
+    } else if (hb_match & !is.null(cluster)) {
+      V_T_rb_l = invG_q_l%*%rdrobust_vce(dT+dZ, sV_T, as.matrix(R_q_l*W_h_l), res_b_l, eC_l, cluster_idx=cidx_l, invG=NULL, sqrtRX=NULL, crv2=FALSE)%*%invG_q_l
+      V_T_rb_r = invG_q_r%*%rdrobust_vce(dT+dZ, sV_T, as.matrix(R_q_r*W_h_r), res_b_r, eC_r, cluster_idx=cidx_r, invG=NULL, sqrtRX=NULL, crv2=FALSE)%*%invG_q_r
+    } else if (crv3 | crv2) {
+      M_T_rb_l = .rdrobust_vce_qq_cluster(Q_q_l, R_q_l, W_b_l, invG_q_l, res_b_l, eC_l, cluster_idx=cidx_l, crv2=crv2, s=sV_T, d=dT+dZ)
+      M_T_rb_r = .rdrobust_vce_qq_cluster(Q_q_r, R_q_r, W_b_r, invG_q_r, res_b_r, eC_r, cluster_idx=cidx_r, crv2=crv2, s=sV_T, d=dT+dZ)
+      V_T_rb_l = invG_p_l %*% M_T_rb_l %*% invG_p_l
+      V_T_rb_r = invG_p_r %*% M_T_rb_r %*% invG_p_r
+    } else {
+      # See V_Y_rb path-B comment above (k_override aligns CR1 df with h=b).
+      V_T_rb_l = invG_p_l%*%rdrobust_vce(dT+dZ, sV_T, as.matrix(Q_q_l), res_b_l, eC_l, cluster_idx=cidx_l, invG=NULL, sqrtRX=NULL, crv2=FALSE, k_override=q+1)%*%invG_p_l
+      V_T_rb_r = invG_p_r%*%rdrobust_vce(dT+dZ, sV_T, as.matrix(Q_q_r), res_b_r, eC_r, cluster_idx=cidx_r, invG=NULL, sqrtRX=NULL, crv2=FALSE, k_override=q+1)%*%invG_p_r
+    }
 		V_T_cl = factorial(deriv)^2*(V_T_cl_l+V_T_cl_r)[deriv+1,deriv+1]
 		V_T_rb = factorial(deriv)^2*(V_T_rb_l+V_T_rb_r)[deriv+1,deriv+1]
 		se_tau_T_cl = sqrt(V_T_cl);	se_tau_T_rb = sqrt(V_T_rb)
 	}
   
-	#print(Sys.time()-start_time)
-	
 	if (is.null(fuzzy)) {
 	  if (is.null(covs)) {
 	    if      (deriv==0) rdmodel = "Sharp RD estimates using local polynomial regression." 
@@ -779,7 +844,13 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
 			else               rdmodel = paste("Covariate-adjusted Fuzzy RD estimates using local polynomial regression. Derivative of order ", deriv, ".")			
 	  }
 	}
-	
+
+  n_clust <- NULL
+  if (!is.null(cluster)) {
+    n_clust <- c(g_l, g_r)
+    rdmodel <- paste0(rdmodel, " Std. errors are clustered (", g_l + g_r, " clusters).")
+  }
+
   tau = c(tau_cl, tau_bc, tau_bc)
   se  = c(se_tau_cl,se_tau_cl,se_tau_rb)
   t   =  tau/se
@@ -791,11 +862,11 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   ci[2,] = c(tau[2] - quant*se[2], tau[2] + quant*se[2])
   ci[3,] = c(tau[3] - quant*se[3], tau[3] + quant*se[3])
     
-  if (!is.null(fuzzy)) {  
+  if (!is.null(fuzzy)) {
       tau_T = c(tau_T_cl, tau_T_bc, tau_T_bc)
       se_T  = c(se_tau_T_cl, se_tau_T_cl, se_tau_T_rb)
-      t_T   = tau_T/se_T
-      pv_T  = 2*pnorm(-abs(t_T))
+      z_T   = tau_T/se_T
+      pv_T  = 2*pnorm(-abs(z_T))
       ci_T  = matrix(NA,nrow=3,ncol=2)
       ci_T[1,] = c(tau_T[1] - quant*se_T[1], tau_T[1] + quant*se_T[1])
       ci_T[2,] = c(tau_T[2] - quant*se_T[2], tau_T[2] + quant*se_T[2])
@@ -825,26 +896,26 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   colnames(Estimate)=c("tau.us","tau.bc","se.us","se.rb")
   Estimate[1,] <- c(tau_cl,tau_bc, se_tau_cl, se_tau_rb) 
 
-  if (is.null(fuzzy)) { 
+  if (is.null(fuzzy)) {
   out <- list(Estimate = Estimate, bws = bws, coef = coef, se = se, z = z, pv = pv, ci = ci,
            beta_Y_p_l = beta_Y_p_l, beta_Y_p_r = beta_Y_p_r,
            V_cl_l=V_Y_cl_l, V_cl_r=V_Y_cl_r, V_rb_l=V_Y_rb_l, V_rb_r=V_Y_rb_r,
            N=c(N_l,N_r), N_h=c(N_h_l,N_h_r), N_b=c(N_b_l,N_b_r), M=c(M_l,M_r),
            tau_cl=c(tau_Y_cl_l,tau_Y_cl_r), tau_bc=c(tau_Y_bc_l,tau_Y_bc_r),
-           c=c, p=p, q=q, bias=c(bias_l,bias_r), kernel=kernel_type, detail=detail, all=all,
+           c=c, p=p, q=q, bias=c(bias_l,bias_r), kernel=kernel_type,
            vce=vce_type, bwselect=bwselect, level=level, masspoints=masspoints,
-           rdmodel=rdmodel, beta_covs=gamma_p)
-  } else {  
+           rdmodel=rdmodel, n_clust=n_clust, coef_covs=gamma_p)
+  } else {
     out <- list(Estimate = Estimate, bws = bws, coef = coef, se = se, z = z, pv = pv, ci = ci,
              beta_Y_p_l = beta_Y_p_l, beta_Y_p_r = beta_Y_p_r,
              beta_T_p_l = beta_T_p_l, beta_T_p_r = beta_T_p_r,
-             tau_T = tau_T, se_T  = se_T, t_T   = t_T, pv_T  = pv_T, ci_T  = ci_T,
+             tau_T = tau_T, se_T = se_T, z_T = z_T, pv_T = pv_T, ci_T = ci_T,
              V_cl_l=V_Y_cl_l, V_cl_r=V_Y_cl_r, V_rb_l=V_Y_rb_l, V_rb_r=V_Y_rb_r,
              N=c(N_l,N_r), N_h=c(N_h_l,N_h_r), N_b=c(N_b_l,N_b_r), M=c(M_l,M_r),
              tau_cl=c(tau_Y_cl_l,tau_Y_cl_r), tau_bc=c(tau_Y_bc_l,tau_Y_bc_r),
-             c=c, p=p, q=q, bias=c(bias_l,bias_r), kernel=kernel_type, detail=detail, all=all,
+             c=c, p=p, q=q, bias=c(bias_l,bias_r), kernel=kernel_type,
              vce=vce_type, bwselect=bwselect, level=level, masspoints=masspoints,
-             rdmodel=rdmodel, beta_covs=gamma_p)
+             rdmodel=rdmodel, n_clust=n_clust, coef_covs=gamma_p)
     }
   
   out$call <- match.call()
@@ -855,64 +926,57 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
 }
 
 
-print.rdrobust <- function(x,...){
+## Shared header used by print.rdrobust + print.summary.rdrobust.
+.print_rdrobust_header <- function(x) {
   cat("Call: rdrobust\n\n")
+  cat(paste(x$rdmodel,"\n", sep=""))
+  cat("\n")
   cat(paste("Number of Obs.           ",  format(x$N[1]+x$N[2], width=10, justify="right"),"\n", sep=""))
   cat(paste("BW type                  ",  format(x$bwselect, width=10, justify="right"),"\n", sep=""))
   cat(paste("Kernel                   ",  format(x$kernel,   width=10, justify="right"),"\n", sep=""))
   cat(paste("VCE method               ",  format(x$vce,      width=10, justify="right"),"\n", sep=""))
   cat("\n")
-  cat(paste("Number of Obs.           ",  format(x$N[1],  width=10, justify="right"),  "   ", format(x$N[2],   width=10, justify="right"),       "\n", sep=""))
-  cat(paste("Eff. Number of Obs.      ",  format(x$N_h[1],width=10, justify="right"),  "   ", format(x$N_h[2], width=10, justify="right"),       "\n", sep=""))
-  cat(paste("Order est. (p)           ",  format(x$p,     width=10, justify="right"),  "   ", format(x$p,      width=10, justify="right"),       "\n", sep=""))
-  cat(paste("Order bias  (q)          ",  format(x$q,     width=10, justify="right"),  "   ", format(x$q,      width=10, justify="right"),       "\n", sep=""))
-  cat(paste("BW est. (h)              ",  format(sprintf("%10.3f",x$bws[1,1])),         "   ", format(sprintf("%10.3f",x$bws[1,2])),       "\n", sep=""))
-  cat(paste("BW bias (b)              ",  format(sprintf("%10.3f",x$bws[2,1])),         "   ", format(sprintf("%10.3f",x$bws[2,2])),       "\n", sep=""))
-  cat(paste("rho (h/b)                ",  format(sprintf("%10.3f",x$bws[1,1]/x$bws[2,1])),  "   ", format(sprintf("%10.3f",x$bws[1,2]/x$bws[2,2])),       "\n", sep=""))
-  if (x$masspoints=="adjust" | x$masspoints=="check") cat(paste("Unique Obs.              ",  format(x$M[1], width=10, justify="right"), "   ", format(x$M[2],width=10, justify="right"),        "\n", sep=""))
+  cat(paste(format("", width=25), format("Left",  width=10, justify="right"), "   ", format("Right", width=10, justify="right"), "\n", sep=""))
+  cat(paste("Number of Obs.           ",  format(x$N[1],  width=10, justify="right"),  "   ", format(x$N[2],   width=10, justify="right"), "\n", sep=""))
+  cat(paste("Eff. Number of Obs.      ",  format(x$N_h[1],width=10, justify="right"),  "   ", format(x$N_h[2], width=10, justify="right"), "\n", sep=""))
+  cat(paste("Order est. (p)           ",  format(x$p,     width=10, justify="right"),  "   ", format(x$p,      width=10, justify="right"), "\n", sep=""))
+  cat(paste("Order bias (q)           ",  format(x$q,     width=10, justify="right"),  "   ", format(x$q,      width=10, justify="right"), "\n", sep=""))
+  cat(paste("BW est. (h)              ",  format(sprintf("%10.3f",x$bws[1,1])),        "   ", format(sprintf("%10.3f",x$bws[1,2])),        "\n", sep=""))
+  cat(paste("BW bias (b)              ",  format(sprintf("%10.3f",x$bws[2,1])),        "   ", format(sprintf("%10.3f",x$bws[2,2])),        "\n", sep=""))
+  cat(paste("rho (h/b)                ",  format(sprintf("%10.3f",x$bws[1,1]/x$bws[2,1])), "   ", format(sprintf("%10.3f",x$bws[1,2]/x$bws[2,2])), "\n", sep=""))
+  if (!is.null(x$n_clust)) cat(paste("Clusters (g)             ",  format(x$n_clust[1], width=10, justify="right"), "   ", format(x$n_clust[2], width=10, justify="right"), "\n", sep=""))
+  if (isTRUE(x$masspoints=="adjust") || isTRUE(x$masspoints=="check"))
+    cat(paste("Unique Obs.              ",  format(x$M[1], width=10, justify="right"), "   ", format(x$M[2], width=10, justify="right"), "\n", sep=""))
   cat("\n")
+  invisible()
 }
 
-summary.rdrobust <- function(object,...) {
-  x    <- object
-  args <- list(...)
+print.rdrobust <- function(x, ...) {
+  .print_rdrobust_header(x)
+  invisible(x)
+}
 
-  cat(paste(x$rdmodel,"\n", sep=""))
-  cat(paste("","\n", sep=""))
-  
-  #cat("Call: rdrobust\n\n")
-  cat(paste("Number of Obs.           ",  format(x$N[1]+x$N[2], width=10, justify="right"),"\n", sep=""))
-  cat(paste("BW type                  ",  format(x$bwselect, width=10, justify="right"),"\n", sep=""))
-  cat(paste("Kernel                   ",  format(x$kernel,   width=10, justify="right"),"\n", sep=""))
-  cat(paste("VCE method               ",  format(x$vce,      width=10, justify="right"),"\n", sep=""))
-  cat("\n")
-  cat(paste("Number of Obs.           ",  format(x$N[1],   width=10, justify="right"),  "   ", format(x$N[2],   width=10, justify="right"),       "\n", sep=""))
-  cat(paste("Eff. Number of Obs.      ",  format(x$N_h[1], width=10, justify="right"),  "   ", format(x$N_h[2], width=10, justify="right"),       "\n", sep=""))
-  cat(paste("Order est. (p)           ",  format(x$p,      width=10, justify="right"),  "   ", format(x$p,      width=10, justify="right"),       "\n", sep=""))
-  cat(paste("Order bias  (q)          ",  format(x$q,      width=10, justify="right"),  "   ", format(x$q,      width=10, justify="right"),       "\n", sep=""))
-  cat(paste("BW est. (h)              ",  format(sprintf("%10.3f",x$bws[1,1])),  "   ", format(sprintf("%10.3f",x$bws[1,2])),      "\n", sep=""))
-  cat(paste("BW bias (b)              ",  format(sprintf("%10.3f",x$bws[2,1])),  "   ", format(sprintf("%10.3f",x$bws[2,2])),      "\n", sep=""))
-  cat(paste("rho (h/b)                ",  format(sprintf("%10.3f",x$bws[1,1]/x$bws[2,1])),  "   ", format(sprintf("%10.3f",x$bws[1,2]/x$bws[2,2])),       "\n", sep=""))
-  if (x$masspoints=="adjust" | x$masspoints=="check") cat(paste("Unique Obs.              ",  format(x$M[1], width=10, justify="right"), "   ", format(x$M[2],width=10, justify="right"),        "\n", sep=""))
-  cat("\n")
+summary.rdrobust <- function(object, ..., detail = FALSE, all = FALSE) {
+  out <- object
+  out$.detail <- isTRUE(detail)
+  out$.all    <- isTRUE(all)
+  class(out)  <- c("summary.rdrobust", class(object))
+  out
+}
 
-  ### compute CI
-  z <- -qnorm(abs((1-(x$level/100))/2))
-  
-  CI_us_l <- x$Estimate[, "tau.us"] - x$Estimate[, "se.us"] * z;
-  CI_us_r <- x$Estimate[, "tau.us"] + x$Estimate[, "se.us"] * z;
-  CI_bc_l <- x$Estimate[, "tau.bc"] - x$Estimate[, "se.us"] * z;
-  CI_bc_r <- x$Estimate[, "tau.bc"] + x$Estimate[, "se.us"] * z;
-  CI_rb_l <- x$Estimate[, "tau.bc"] - x$Estimate[, "se.rb"] * z;
-  CI_rb_r <- x$Estimate[, "tau.bc"] + x$Estimate[, "se.rb"] * z;
-  
-  t_us =x$Estimate[, "tau.us"]/x$Estimate[, "se.us"]
-  t_bc =x$Estimate[, "tau.bc"]/x$Estimate[, "se.us"]
-  t_rb =x$Estimate[, "tau.bc"]/x$Estimate[, "se.rb"]
-  
-  pv_us = 2*pnorm(-abs(t_us))
-  pv_bc = 2*pnorm(-abs(t_bc))
-  pv_rb = 2*pnorm(-abs(t_rb))
+print.summary.rdrobust <- function(x, ...) {
+  .print_rdrobust_header(x)
+
+  detail <- isTRUE(x$.detail)
+  all    <- isTRUE(x$.all)
+
+  ### read stored CIs, z-statistics and p-values
+  CI_us_l <- x$ci[1, 1]; CI_us_r <- x$ci[1, 2]
+  CI_bc_l <- x$ci[2, 1]; CI_bc_r <- x$ci[2, 2]
+  CI_rb_l <- x$ci[3, 1]; CI_rb_r <- x$ci[3, 2]
+
+  t_us <- x$z[1, 1]; t_bc <- x$z[2, 1]; t_rb <- x$z[3, 1]
+  pv_us <- x$pv[1, 1]; pv_bc <- x$pv[2, 1]; pv_rb <- x$pv[3, 1]
   
   
   if (!is.null(x$tau_T)) {
@@ -922,7 +986,7 @@ summary.rdrobust <- function(object,...) {
     
     ### print output
 
-    if (!is.null(x$detail) | !is.null(x$all)) {
+    if (isTRUE(detail) | isTRUE(all)) {
     
     llength = 14 + 10 + 8 + 10 + 10 +  25
     
@@ -960,19 +1024,19 @@ summary.rdrobust <- function(object,...) {
     
       cat(format("Rd Effect", width=14, justify="right"))
       cat(format(      sprintf("%3.3f", x$tau_T[1]) , width=10, justify="right"))
-      cat(format(sprintf("%3.3f", x$t_T[3]) , width=10, justify="right"))
+      cat(format(sprintf("%3.3f", x$z_T[3]) , width=10, justify="right"))
       cat(format(sprintf("%3.3f", x$pv_T[3]), width=10, justify="right"))
       cat(format(paste("[", sprintf("%3.3f", x$ci_T[3,1]), " , ", sep="")  , width=14, justify="right"))
       cat(format(paste(sprintf("%3.3f", x$ci_T[3,2]), "]", sep=""), width=11, justify="left"))
      cat("\n")
     }
     
-    if (!is.null(x$detail)) {
+    if (isTRUE(detail)) {
         
     cat(format("Conventional", width=14, justify="right"))
     cat(format(      sprintf("%3.3f", x$tau_T[1]) , width=10, justify="right"))
     cat(format(paste(sprintf("%3.3f", x$se_T[1]), sep=""), width=10, justify="right"))
-    cat(format(      sprintf("%3.3f", x$t_T[1]) , width=10, justify="right"))
+    cat(format(      sprintf("%3.3f", x$z_T[1]) , width=10, justify="right"))
     cat(format(      sprintf("%3.3f", x$pv_T[1]), width=10, justify="right"))
     cat(format(paste("[", sprintf("%3.3f", x$ci_T[1,1]), " , ", sep="")  , width=14, justify="right"))
     cat(format(paste(     sprintf("%3.3f", x$ci_T[1,2]), "]", sep=""), width=11, justify="left"))
@@ -982,19 +1046,19 @@ summary.rdrobust <- function(object,...) {
       cat(format("Robust", width=14, justify="right"))
       cat(format("-", width=10, justify="right"))
       cat(format("-", width=10, justify="right"))
-       cat(format(sprintf("%3.3f", x$t_T[3]) , width=10, justify="right"))
+       cat(format(sprintf("%3.3f", x$z_T[3]) , width=10, justify="right"))
       cat(format(sprintf("%3.3f", x$pv_T[3]), width=10, justify="right"))
       cat(format(paste("[", sprintf("%3.3f", x$ci_T[3,1]), " , ", sep="")  , width=14, justify="right"))
       cat(format(paste(sprintf("%3.3f", x$ci_T[3,2]), "]", sep=""), width=11, justify="left"))
       cat("\n") 
       }
       
-    if (!is.null(x$all)) {
+    if (isTRUE(all)) {
       
       cat(format("Conventional", width=14, justify="right"))
       cat(format(      sprintf("%3.3f", x$tau_T[1]) , width=10, justify="right"))
       cat(format(paste(sprintf("%3.3f", x$se_T[1]), sep=""), width=10, justify="right"))
-      cat(format(      sprintf("%3.3f", x$t_T[1]) , width=10, justify="right"))
+      cat(format(      sprintf("%3.3f", x$z_T[1]) , width=10, justify="right"))
       cat(format(      sprintf("%3.3f", x$pv_T[1]), width=10, justify="right"))
       cat(format(paste("[", sprintf("%3.3f", x$ci_T[1,1]), " , ", sep="")  , width=14, justify="right"))
       cat(format(paste(     sprintf("%3.3f", x$ci_T[1,2]), "]", sep=""), width=11, justify="left"))
@@ -1003,7 +1067,7 @@ summary.rdrobust <- function(object,...) {
       cat(format("Bias-Corrected", width=14, justify="right"))
       cat(format(sprintf("%3.3f", x$tau_T[2]) , width=10, justify="right"))
       cat(format(paste(sprintf("%3.3f", x$se_T[2]), sep=""), width=10, justify="right"))
-      cat(format(sprintf("%3.3f", x$t_T[2]) , width=10, justify="right"))
+      cat(format(sprintf("%3.3f", x$z_T[2]) , width=10, justify="right"))
       cat(format(sprintf("%3.3f", x$pv_T[2]), width=10, justify="right"))
       cat(format(paste("[", sprintf("%3.3f", x$ci_T[2,1]), " , ", sep="")  , width=14, justify="right"))
       cat(format(paste(sprintf("%3.3f", x$ci_T[2,2]), "]", sep=""), width=11, justify="left"))
@@ -1012,7 +1076,7 @@ summary.rdrobust <- function(object,...) {
       cat(format("Robust", width=14, justify="right"))
       cat(format(sprintf("%3.3f", x$tau_T[3]) , width=10, justify="right"))
       cat(format(paste(sprintf("%3.3f", x$se_T[3]), sep=""), width=10, justify="right"))
-      cat(format(sprintf("%3.3f", x$t_T[3]) , width=10, justify="right"))
+      cat(format(sprintf("%3.3f", x$z_T[3]) , width=10, justify="right"))
       cat(format(sprintf("%3.3f", x$pv_T[3]), width=10, justify="right"))
       cat(format(paste("[", sprintf("%3.3f", x$ci_T[3,1]), " , ", sep="")  , width=14, justify="right"))
       cat(format(paste(sprintf("%3.3f", x$ci_T[3,2]), "]", sep=""), width=11, justify="left"))
@@ -1027,7 +1091,7 @@ summary.rdrobust <- function(object,...) {
   }
   
   ### print output
-  if (!is.null(x$detail) | !is.null(x$all)) {
+  if (isTRUE(detail) | isTRUE(all)) {
     
     llength = 14 + 10 + 8 + 10 + 10 + 10 + 25
     cat(paste(rep("=", llength), collapse="")); cat("\n")
@@ -1072,7 +1136,7 @@ summary.rdrobust <- function(object,...) {
     
   }
     
-    if (!is.null(x$detail)) {
+    if (isTRUE(detail)) {
       
     cat(format("Conventional", width=14, justify="right"))
     cat(format(sprintf("%3.3f", x$Estimate[1, "tau.us"]) , width=10, justify="right"))
@@ -1094,7 +1158,7 @@ summary.rdrobust <- function(object,...) {
   
     }      
       
-      if (!is.null(x$all)) {
+      if (isTRUE(all)) {
         
         cat(format("Conventional", width=14, justify="right"))
         cat(format(sprintf("%3.3f", x$Estimate[1, "tau.us"]) , width=10, justify="right"))
@@ -1123,10 +1187,31 @@ summary.rdrobust <- function(object,...) {
       cat(format(paste(sprintf("%3.3f", CI_rb_r[1]), "]", sep=""), width=11, justify="left"))
       cat("\n")
     }
-    
+
   cat(paste(rep("=", llength), collapse="")); cat("\n")
+
+  invisible(x)
 }
 
+
+coef.rdrobust <- function(object, ...) {
+  out <- as.vector(object$coef)
+  names(out) <- rownames(object$coef)
+  out
+}
+
+vcov.rdrobust <- function(object, ...) {
+  se <- as.vector(object$se)
+  V  <- diag(se^2, nrow = length(se), ncol = length(se))
+  dimnames(V) <- list(rownames(object$se), rownames(object$se))
+  V
+}
+
+
+## broom-compatible tidy()/glance() methods.
+##
+## Registered in NAMESPACE via `S3method(broom::tidy, <class>)` so they
+## dispatch when broom is loaded, without requiring broom at install time.
 
 tidy.rdrobust <- function(object, ...){
   ret <- data.frame(term = row.names(object$coef), 
@@ -1141,15 +1226,26 @@ tidy.rdrobust <- function(object, ...){
 }
 
 glance.rdrobust <- function(object, ...){
-  ret <- data.frame(nobs.left  = object$N[1],
-                    nobs.right = object$N[2],
-                    nobs.effective.left  = object$N_h[1],
-                    nobs.effective.right = object$N_h[2],
-                    cutoff = object$c,
-                    order.regression = object$q,
-                    order.bias = object$q,
-                    kernel  = object$kernel,
-                    bwselect = object$bwselect)
-  ret
+  ## glance() returns a single-row data.frame; split bilateral quantities
+  ## into .left/.right columns so cluster counts (which are per-side) don't
+  ## recycle into two rows.
+  has_clust <- !is.null(object$n_clust)
+  data.frame(nobs.left  = object$N[1],
+             nobs.right = object$N[2],
+             nobs.effective.left  = object$N_h[1],
+             nobs.effective.right = object$N_h[2],
+             h.left  = object$bws[1, 1],
+             h.right = object$bws[1, 2],
+             b.left  = object$bws[2, 1],
+             b.right = object$bws[2, 2],
+             cutoff = object$c,
+             order.regression = object$p,
+             order.bias = object$q,
+             kernel  = object$kernel,
+             vce     = object$vce,
+             bwselect = object$bwselect,
+             covariates = !is.null(object$coef_covs),
+             clusters.left  = if (has_clust) object$n_clust[1] else NA_integer_,
+             clusters.right = if (has_clust) object$n_clust[2] else NA_integer_,
+             stringsAsFactors = FALSE)
 }
-

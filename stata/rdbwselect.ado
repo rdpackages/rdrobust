@@ -1,8 +1,8 @@
 ********************************************************************************
 * RDROBUST STATA PACKAGE -- rdbwselect
-* Authors: Sebastian Calonico, Matias D. Cattaneo, Max Farrell, Rocio Tititunik
+* Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell, Rocio Titiunik
 ********************************************************************************
-*!version 10.0.0  2025-06-30
+*!version 10.0.0  2026-05-15
 
 capture program drop rdbwselect
 program define rdbwselect, eclass
@@ -45,7 +45,7 @@ program define rdbwselect, eclass
 	if ("`vce_select'"=="hc1")       local vce_type = "HC1"
 	if ("`vce_select'"=="hc2")       local vce_type = "HC2"
 	if ("`vce_select'"=="hc3")       local vce_type = "HC3"
-	if ("`vce_select'"=="cluster")   local vce_type = "Cluster"
+	if ("`vce_select'"=="cluster")   local vce_type = "CR1"
 	if ("`vce_select'"=="nncluster") local vce_type = "NNcluster"
 
 	if ("`vce_select'"=="cluster" | "`vce_select'"=="nncluster") local cluster = "cluster"
@@ -166,7 +166,7 @@ program define rdbwselect, eclass
 			}
 
 			if ("`bwselect'"=="CCT" | "`bwselect'"=="IK" | "`bwselect'"=="CV" |"`bwselect'"=="cct" | "`bwselect'"=="ik" | "`bwselect'"=="cv"){
-				di as error "{err}{cmd:bwselect()} options IK, CCT and CV have been depricated. Please see help for new options"  
+				di as error "{err}{cmd:bwselect()} options IK, CCT and CV have been deprecated. Please see help for new options"  
 				exit 7
 			}
 					

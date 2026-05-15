@@ -1,0 +1,40 @@
+name: Bug Report
+description: Report a problem with rdrobust.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: dropdown
+    id: implementation
+    attributes:
+      label: Implementation
+      options:
+        - R
+        - Python
+        - Stata
+        - Documentation
+        - Repository infrastructure
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Describe the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Minimal Example
+      description: Include code, data shape, and commands needed to reproduce the issue.
+      render: text
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include package version, operating system, and R/Python/Stata version.

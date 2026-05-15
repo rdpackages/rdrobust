@@ -2,11 +2,11 @@ v 3
 d STATA Package: RDROBUST
 d 
 d Authors: Sebastian Calonico, Graduate School of Management, University of California, Davis, scalonico@ucdavis.edu
-d          Matias D. Cattaneo, Operations Research and Financial Engineering, Princeton University, cattaneo@princeton.edu
-d          Max H. Farrell, Department of Economics, University of California, Santa Barbara, maxhfarrell@ucsb.edu
-d          Rocio Titiunik, Department of Politics, Princeton University, titiunik@princeton.edu
+d          Matias D. Cattaneo, Operations Research and Financial Engineering, Princeton University, matias.d.cattaneo@gmail.com
+d          Max H. Farrell, Department of Economics, University of California, Santa Barbara, mhfarrell@gmail.com
+d          Rocio Titiunik, Department of Politics, Princeton University, rocio.titiunik@gmail.com
 d
-d Distribution-Date: 20250627
+d Distribution-Date: 20260515
 d 
 f rdbwselect.ado
 f rdplot.ado
