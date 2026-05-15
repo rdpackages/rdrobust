@@ -2,7 +2,7 @@
 * RDROBUST STATA PACKAGE -- rdbwselect
 * Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell, Rocio Titiunik
 ********************************************************************************
-*!rdrobust Stata package v11.0.0  2026-05-13
+*!rdrobust Stata package v11.0.0  2026-05-15
 
 capture program drop rdbwselect
 program define rdbwselect, eclass

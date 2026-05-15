@@ -2,7 +2,7 @@
 * RDROBUST STATA PACKAGE -- rdrobust_functions
 * Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell, Rocio Titiunik
 ********************************************************************************
-*!version 11.0.0  2026-05-13
+*!version 11.0.0  2026-05-15
 
 version 16.0
 
@@ -89,7 +89,7 @@ mata
 real matrix rdrobust_bw(real matrix Y, real matrix X, real matrix T, real matrix Z, real matrix C, real matrix W, real scalar c, real scalar o, real scalar nu, real scalar o_B, real scalar h_V, real scalar h_B, real scalar scale, string vce, real scalar nnmatch, string kernel, dups, dupsid, covs_drop_coll, | string scalar cr_method, transmorphic vcache)
 {
 	// cr_method: "" | "cr1" | "crv2" | "crv3". Cluster path only.
-	// vcache: optional asarray("string") keyed by "o_nu". T1 (2026-05-12):
+	// vcache: optional asarray("string") keyed by "o_nu". T1 (2026-05-15):
 	// V-fit depends only on (o, nu) at fixed h_V. Callers pass a per-side
 	// asarray to share results across the 6-18 pilot calls per rdrobust.
 	real scalar has_vcache, used_cache
@@ -523,7 +523,7 @@ real matrix rdrobust_vce_qq_cluster(
 
         // T2: per-cluster Lambda (crv2) or M_g (crv3) depends only on
         // L_g / G_q / invG_q -- not on the residual column l. Compute
-        // once per cluster, reuse across the l-loop (2026-05-12).
+        // once per cluster, reuse across the l-loop (2026-05-15).
         real scalar use_simple
         use_simple = 0
         Lambda = J(0, 0, .)
