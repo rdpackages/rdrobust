@@ -1,6 +1,6 @@
 ********************************************************************************
 ** RDROBUST Stata Package
-** Illustration of new features (v11.0.0, 2026-05-13)
+** Illustration of new features (v11.0.0, 2026-05-15)
 ********************************************************************************
 ** New in this release:
 **   (1) Full HC family of heteroskedastic variance estimators:
