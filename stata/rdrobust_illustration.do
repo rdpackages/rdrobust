@@ -2,12 +2,6 @@
 ** RDROBUST Stata Package
 ** Do-file for Empirical Illustration 
 ********************************************************************************
-** hlp2winpdf, cdn(rdrobust) replace
-** hlp2winpdf, cdn(rdbwselect) replace
-** hlp2winpdf, cdn(rdplot) replace
-********************************************************************************
-** net install rdrobust, from(https://raw.githubusercontent.com/rdpackages/rdrobust/main/stata) replace
-********************************************************************************
 clear all
 set more off
 set linesize 80

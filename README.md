@@ -5,6 +5,7 @@ The package `rdrobust` implements estimation, inference, and graphical procedure
 - `rdrobust`: point estimation and robust bias-corrected inference.
 - `rdbwselect`: data-driven bandwidth selection for RD estimation and inference.
 - `rdplot`: data-driven RD plots based on binned means and local polynomial fits.
+- Stata also includes `rdrobustplot`, a postestimation diagnostic plot after `rdrobust`.
 
 
 ## Python Implementation
@@ -36,9 +37,9 @@ To install/update in Stata type:
 net install rdrobust, from(https://raw.githubusercontent.com/rdpackages/rdrobust/main/stata) replace
 ```
 
-- Help: [rdrobust](stata/rdrobust.pdf), [rdbwselect](stata/rdbwselect.pdf), [rdplot](stata/rdplot.pdf).
+- Help: [rdrobust](stata/rdrobust.pdf), [rdbwselect](stata/rdbwselect.pdf), [rdplot](stata/rdplot.pdf), [rdrobustplot](stata/rdrobustplot.pdf).
 
-- Replication: [do-file](stata/rdrobust_illustration.do), [rdplot illustration](stata/rdplot_illustration.do), [senate data](stata/rdrobust_senate.dta).
+- Replication: [rdrobust illustration](stata/rdrobust_illustration.do), [rdplot illustration](stata/rdplot_illustration.do), [new features illustration](stata/rdrobust_illustration_new.do), [senate data](stata/rdrobust_senate.dta).
 
 
 ## References

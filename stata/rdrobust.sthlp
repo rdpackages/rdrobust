@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 10.0.0  2026-05-15}{...}
+{* *!version 11.0.0  2026-05-13}{...}
 {viewerjumpto "Syntax" "rdrobust##syntax"}{...}
 {viewerjumpto "Description" "rdrobust##description"}{...}
 {viewerjumpto "Options" "rdrobust##options"}{...}
@@ -66,6 +66,8 @@ and {browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell-T
 
 {p 8 8}{browse "https://rdpackages.github.io/":https://rdpackages.github.io/}{p_end}
 
+{p 4 8}{it:Requires Stata 16 or later.}{p_end}
+
 
 {marker options}{...}
 {title:Options}
@@ -105,7 +107,7 @@ Default is {cmd:rho(1)} if {it:h} is specified but {it:b} is not.{p_end}
 
 {p 4 8}{cmd:covs(}{it:covars}{cmd:)} specifies additional covariates to be used for estimation and inference.{p_end}
 
-{p 4 8}{cmd:covs_drop(}{it:covsdropoption}{cmd:)} assesses collinearity in additional covariates used for estimation and inference. Options {opt pinv} (default choice) and {opt invsym} drop collinear additional covariates, differing only in the type of inverse function used. Option {opt off} omits the check for collinear additional covariates.{p_end}
+{p 4 8}{cmd:covs_drop(}{it:covsdropoption}{cmd:)} assess collinearity in additional covariates used for estimation and inference. Options {opt pinv} (default choice) and {opt invsym} drops collinear additional covariates, differing only in the type of inverse function used. Option {opt off} omits the check for collinear additional covariates.{p_end}
 
 {p 4 8}{cmd:kernel(}{it:kernelfn}{cmd:)} specifies the kernel function used to construct the local-polynomial estimator(s). Options are: {opt tri:angular}, {opt epa:nechnikov}, and {opt uni:form}.
 Default is {cmd:kernel(triangular)}.{p_end}
@@ -159,8 +161,11 @@ Options are:{p_end}
 {p 8 12}{cmd:vce(hc1)} for heteroskedasticity-robust plug-in residuals variance estimator with {it:hc1} weights.{p_end}
 {p 8 12}{cmd:vce(hc2)} for heteroskedasticity-robust plug-in residuals variance estimator with {it:hc2} weights.{p_end}
 {p 8 12}{cmd:vce(hc3)} for heteroskedasticity-robust plug-in residuals variance estimator with {it:hc3} weights.{p_end}
-{p 8 12}{cmd:vce(nncluster }{it:clustervar [nnmatch]}{cmd:)} for cluster-robust nearest neighbor variance estimation, with {it:clustervar} indicating the cluster ID variable and {it:nnmatch} indicating the minimum number of neighbors to be used.{p_end}
-{p 8 12}{cmd:vce(cluster }{it:clustervar}{cmd:)} for cluster-robust plug-in residuals variance estimation with degrees-of-freedom weights and {it:clustervar} indicating the cluster ID variable.{p_end}
+{p 8 12}{cmd:vce(cluster }{it:clustervar}{cmd:)} for cluster-robust plug-in residuals variance estimation with degrees-of-freedom weights; equivalent to {cmd:vce(cr1 }{it:clustervar}{cmd:)}.{p_end}
+{p 8 12}{cmd:vce(cr1 }{it:clustervar}{cmd:)} for cluster-robust plug-in residuals variance estimator with degrees-of-freedom correction ((n-1)/(n-k)*g/(g-1)).{p_end}
+{p 8 12}{cmd:vce(cr2 }{it:clustervar}{cmd:)} for the Bell-McCaffrey (2002) bias-reduced cluster-robust variance estimator (CRV2).{p_end}
+{p 8 12}{cmd:vce(cr3 }{it:clustervar}{cmd:)} for the Pustejovsky-Tipton (2018) cluster-robust variance estimator (CRV3), approximately unbiased with few clusters.{p_end}
+{p 8 12}The CR2/CR3 leverage correction applies to both the conventional and the robust bias-corrected standard errors, including when the point-estimation bandwidth h differs from the bias-correction bandwidth b; in that case the cluster leverage is computed from the bias (b) regression.{p_end}
 {p 8 12}Default is {cmd:vce(nn 3)}.{p_end}
 
 {p 4 8}{cmd:level(}{it:#}{cmd:)} specifies confidence level for confidence intervals.
@@ -235,24 +240,49 @@ Default is {cmd:level(95)}.{p_end}
 {synopt:{cmd:e(tau_bc_r)}}bias-corrected local-polynomial right estimate{p_end}
 {synopt:{cmd:e(se_tau_cl)}}conventional standard error of the local-polynomial RD estimator{p_end}
 {synopt:{cmd:e(se_tau_rb)}}robust standard error of the local-polynomial RD estimator{p_end}
+{synopt:{cmd:e(tau_T_cl)}}conventional first-stage estimate (fuzzy RD only){p_end}
+{synopt:{cmd:e(tau_T_cl_l)}}conventional first-stage left estimate (fuzzy RD only){p_end}
+{synopt:{cmd:e(tau_T_cl_r)}}conventional first-stage right estimate (fuzzy RD only){p_end}
+{synopt:{cmd:e(tau_T_bc)}}bias-corrected first-stage estimate (fuzzy RD only){p_end}
+{synopt:{cmd:e(tau_T_bc_l)}}bias-corrected first-stage left estimate (fuzzy RD only){p_end}
+{synopt:{cmd:e(tau_T_bc_r)}}bias-corrected first-stage right estimate (fuzzy RD only){p_end}
+{synopt:{cmd:e(se_tau_T_cl)}}conventional standard error of the first-stage estimator (fuzzy RD only){p_end}
+{synopt:{cmd:e(se_tau_T_rb)}}robust standard error of the first-stage estimator (fuzzy RD only){p_end}
 {synopt:{cmd:e(bias_l)}}estimated bias for the local-polynomial RD estimator below the cutoff{p_end}
 {synopt:{cmd:e(bias_r)}}estimated bias for the local-polynomial RD estimator above the cutoff{p_end}
+{synopt:{cmd:e(level)}}confidence level{p_end}
+{synopt:{cmd:e(ci_l_cl)}}lower endpoint of the conventional CI{p_end}
+{synopt:{cmd:e(ci_r_cl)}}upper endpoint of the conventional CI{p_end}
+{synopt:{cmd:e(ci_l_rb)}}lower endpoint of the robust bias-corrected CI{p_end}
+{synopt:{cmd:e(ci_r_rb)}}upper endpoint of the robust bias-corrected CI{p_end}
+{synopt:{cmd:e(pv_cl)}}p-value of the conventional test{p_end}
+{synopt:{cmd:e(pv_bc)}}p-value of the bias-corrected test (uses conventional SE){p_end}
+{synopt:{cmd:e(pv_rb)}}p-value of the robust bias-corrected test{p_end}
+{synopt:{cmd:e(n_clust)}}number of clusters (only when {cmd:vce(cluster}|{cmd:cr1}|{cmd:cr2}|{cmd:cr3} ...{cmd:)} is specified){p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
+{synopt:{cmd:e(cmd)}}{cmd:rdrobust}{p_end}
+{synopt:{cmd:e(cmdline)}}command as typed{p_end}
+{synopt:{cmd:e(title)}}title for the output ({cmd:Sharp}/{cmd:Fuzzy RD estimates}, optionally {cmd:(covariate-adjusted)}){p_end}
+{synopt:{cmd:e(depvar)}}name of dependent (outcome) variable{p_end}
 {synopt:{cmd:e(runningvar)}}name of running variable{p_end}
-{synopt:{cmd:e(outcomevar)}}name of outcome variable{p_end}
 {synopt:{cmd:e(clustvar)}}name of cluster variable{p_end}
-{synopt:{cmd:e(covs)}}name of covariates{p_end}
-{synopt:{cmd:e(vce_select)}}vcetype specified in vce(){p_end}
+{synopt:{cmd:e(covs)}}names of additional covariates{p_end}
+{synopt:{cmd:e(vce_select)}}vcetype specified in vce() (raw option name, e.g. "nn", "hc3", "cr3"){p_end}
+{synopt:{cmd:e(vce_type)}}display label for variance-covariance estimator (e.g. "NN", "HC3", "CR3"){p_end}
 {synopt:{cmd:e(bwselect)}}bandwidth selection choice{p_end}
 {synopt:{cmd:e(kernel)}}kernel choice{p_end}
+{synopt:{cmd:e(ci_rb)}}formatted robust bias-corrected CI string (e.g. {cmd:[3.989 ; 11.021]}); see {cmd:e(ci_l_rb)} / {cmd:e(ci_r_rb)} for numeric endpoints or {cmd:e(ci)} for the full matrix{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
+{synopt:{cmd:e(b)}}1x3 coefficient vector with column names {cmd:Conventional} (tau_cl), {cmd:Bias-corrected} (tau_bc), and {cmd:Robust} (tau_bc){p_end}
+{synopt:{cmd:e(V)}}3x3 block-diagonal variance-covariance matrix for {cmd:e(b)}: {cmd:V[Conventional,Conventional]} = {cmd:V[Bias-corrected,Bias-corrected]} = se_tau_cl^2 and {cmd:V[Robust,Robust]} = se_tau_rb^2. The Bias-corrected pairing of tau_bc with the conventional SE is not a recommended inferential object (CCT 2014); use {cmd:_b[Robust]} and {cmd:_se[Robust]} for the RBC inference.{p_end}
+{synopt:{cmd:e(ci)}}3x2 confidence-interval matrix; rows {cmd:Conventional} / {cmd:Bias-corrected} / {cmd:Robust}, columns {cmd:ll} / {cmd:ul}{p_end}
 {synopt:{cmd:e(beta_Y_p_r)}}conventional p-order local-polynomial estimates to the right of the cutoff for the outcome variable{p_end}
 {synopt:{cmd:e(beta_Y_p_l)}}conventional p-order local-polynomial estimates to the left of the cutoff for the outcome variable{p_end}
 {synopt:{cmd:e(beta_T_p_r)}}conventional p-order local-polynomial estimates to the right of the cutoff for the first stage (fuzzy RD){p_end}
 {synopt:{cmd:e(beta_T_p_l)}}conventional p-order local-polynomial estimates to the left of the cutoff for the first stage (fuzzy RD){p_end}
-{synopt:{cmd:e(beta_covs)}}coefficients of the additional covariates, only returned when {cmd:covs()} are used{p_end}
+{synopt:{cmd:e(coef_covs)}}coefficients of the additional covariates, only returned when {cmd:covs()} are used{p_end}
 {synopt:{cmd:e(V_cl_r)}}conventional variance-covariance matrix to the right of the cutoff{p_end}
 {synopt:{cmd:e(V_cl_l)}}conventional variance-covariance matrix to the left of the cutoff{p_end}
 {synopt:{cmd:e(V_rb_r)}}robust variance-covariance matrix to the right of the cutoff{p_end}

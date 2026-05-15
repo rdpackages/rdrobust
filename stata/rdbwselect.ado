@@ -2,15 +2,32 @@
 * RDROBUST STATA PACKAGE -- rdbwselect
 * Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell, Rocio Titiunik
 ********************************************************************************
-*!version 10.0.0  2026-05-15
+*!rdrobust Stata package v11.0.0  2026-05-13
 
 capture program drop rdbwselect
 program define rdbwselect, eclass
+	version 16.0
 	syntax anything [if] [in] [, c(real 0) fuzzy(string) deriv(real 0) p(string) q(real 0) covs(string) covs_drop(string) kernel(string) weights(string) bwselect(string) vce(string) scaleregul(real 1) all nochecks masspoints(string) bwcheck(real 0) bwrestrict(string) stdvars(string)]
 
 	marksample touse
-	preserve
-	qui keep if `touse'
+
+	* Snapshot Mata externals so we can drop only the variables WE create,
+	* leaving the user's Mata workspace and the loaded rdrobust_*.mo
+	* library functions untouched.
+	mata: _mtx = direxternal("*"); st_local("_mata_before", rows(_mtx) ? invtokens(_mtx') : "")
+	mata: mata drop _mtx
+
+	* M1: do all work in an isolated temp frame instead of preserve+keep.
+	* Only the touse=1 subset is copied (in-memory, no disk I/O), and the
+	* user's frame is restored even on error or Ctrl-Break via nobreak.
+	local _orig_frame `c(frame)'
+	tempname _work_frame
+	capture frame drop `_work_frame'
+	frame put * if `touse', into(`_work_frame')
+
+	nobreak {
+	cwf `_work_frame'
+	capture noisily {
 	tokenize "`anything'"
 	local y `1'
 	local x `2'
@@ -19,38 +36,84 @@ program define rdbwselect, eclass
 	
 	******************** Set VCE ***************************
 	local nnmatch = 3
-	tokenize `vce'	
-	local w : word count `vce' 
+	local cr_method = ""
+	tokenize `vce'
+	local w : word count `vce'
 	if `w' == 1 {
 		local vce_select `"`1'"'
 	}
 	if `w' == 2 {
 		local vce_select `"`1'"'
-		if ("`vce_select'"=="nn")      local nnmatch     `"`2'"'
-		if ("`vce_select'"=="cluster" | "`vce_select'"=="nncluster") local clustvar `"`2'"'	
+		if ("`vce_select'"=="nn") local nnmatch `"`2'"'
+		if inlist("`vce_select'","cluster","nncluster","cr1","cr2","cr3","hc0","hc1","hc2","hc3") local clustvar `"`2'"'
 	}
 	if `w' == 3 {
 		local vce_select `"`1'"'
 		local clustvar   `"`2'"'
 		local nnmatch    `"`3'"'
-		if ("`vce_select'"!="cluster" & "`vce_select'"!="nncluster") di as error "{err}{cmd:vce()} incorrectly specified"  
+		if !inlist("`vce_select'","cluster","nncluster","cr1","cr2","cr3") {
+			di as error "{err}{cmd:vce()} incorrectly specified"
+			exit 125
+		}
 	}
 	if `w' > 3 {
-		di as error "{err}{cmd:vce()} incorrectly specified"  
+		di as error "{err}{cmd:vce()} incorrectly specified"
 		exit 125
 	}
-	
-	local vce_type = "NN"
-	if ("`vce_select'"=="hc0")       local vce_type = "HC0"
-	if ("`vce_select'"=="hc1")       local vce_type = "HC1"
-	if ("`vce_select'"=="hc2")       local vce_type = "HC2"
-	if ("`vce_select'"=="hc3")       local vce_type = "HC3"
-	if ("`vce_select'"=="cluster")   local vce_type = "CR1"
-	if ("`vce_select'"=="nncluster") local vce_type = "NNcluster"
 
-	if ("`vce_select'"=="cluster" | "`vce_select'"=="nncluster") local cluster = "cluster"
-	if ("`vce_select'"=="cluster")   local vce_select = "hc0"
-	if ("`vce_select'"=="nncluster") local vce_select = "nn"
+	* Disallow vce(nncluster ...): warn and shift to cr1
+	if ("`vce_select'"=="nncluster") {
+		di as text "Warning: vce(nncluster) is not supported. Switching to vce(cr1) (the default when clusters)."
+		local vce_select = "cr1"
+	}
+
+	* With a cluster variable, map hc0/hc1/hc2/hc3 to cr1/cr1/cr2/cr3.
+	* Per cluster_validation design: hc0+cluster is a silent remap to cr1
+	* (the default); hc1/2/3 produce a warning so the user knows their
+	* requested HC variant is being upgraded to its cluster analogue.
+	if ("`clustvar'"!="") {
+		if ("`vce_select'"=="hc0") local vce_select = "cr1"
+		if ("`vce_select'"=="hc1") {
+			di as text "Warning: vce(hc1 `clustvar') is not a cluster option. Switching to vce(cr1 `clustvar')."
+			local vce_select = "cr1"
+		}
+		if ("`vce_select'"=="hc2") {
+			di as text "Warning: vce(hc2 `clustvar') is not a cluster option. Switching to vce(cr2 `clustvar')."
+			local vce_select = "cr2"
+		}
+		if ("`vce_select'"=="hc3") {
+			di as text "Warning: vce(hc3 `clustvar') is not a cluster option. Switching to vce(cr3 `clustvar')."
+			local vce_select = "cr3"
+		}
+		if ("`vce_select'"=="cluster") local vce_select = "cr1"
+	}
+
+	* Preserve the raw vce option for e(vce_select) before internal remapping
+	local vce_raw = "`vce_select'"
+	if ("`vce_raw'"=="") local vce_raw = "nn"
+
+	* Display label
+	local vce_type = "NN"
+	if ("`vce_select'"=="hc0")        local vce_type = "HC0"
+	if ("`vce_select'"=="hc1")        local vce_type = "HC1"
+	if ("`vce_select'"=="hc2")        local vce_type = "HC2"
+	if ("`vce_select'"=="hc3")        local vce_type = "HC3"
+	if ("`vce_select'"=="cr1")        local vce_type = "CR1"
+	if ("`vce_select'"=="cr2")        local vce_type = "CR2"
+	if ("`vce_select'"=="cr3")        local vce_type = "CR3"
+
+	* Cluster / CR mapping
+	if inlist("`vce_select'","cr1","cr2","cr3") {
+		if ("`clustvar'"=="") {
+			di as error "{err}{cmd:vce(`vce_select' clustervar)} requires a cluster variable"
+			exit 125
+		}
+		local cluster = "cluster"
+	}
+	if ("`vce_select'"=="cr1") local cr_method = "cr1"
+	if ("`vce_select'"=="cr2") local cr_method = "crv2"
+	if ("`vce_select'"=="cr3") local cr_method = "crv3"
+	if inlist("`vce_select'","cr1","cr2","cr3") local vce_select = "hc0"
 	if ("`vce_select'"=="")          local vce_select = "nn"
 	
 	******************** Set Fuzzy***************************
@@ -74,26 +137,38 @@ program define rdbwselect, eclass
 	************************************************************
 
 	**** DROP MISSINGS ******************************************
-	qui drop if mi(`y') | mi(`x')
-	if ("`cluster'"!="") qui drop if mi(`clustvar')
-	if ("`fuzzy'"~="") {
-		qui drop if mi(`fuzzyvar')
-	}
-
 	if ("`covs'"~="") {
 		qui ds `covs', alpha
 		local covs_list = r(varlist)
-		local ncovs: word count `covs_list'	
-		foreach z in `covs_list' {
-			qui drop if mi(`z')
+		local ncovs: word count `covs_list'
+	}
+	* Combine all missing-value drops into a single scan.
+	local drop_cond "mi(`y') | mi(`x')"
+	if ("`fuzzy'"!="")   local drop_cond "`drop_cond' | mi(`fuzzyvar')"
+	if ("`cluster'"!="") local drop_cond "`drop_cond' | mi(`clustvar')"
+	foreach z of local covs_list {
+		local drop_cond "`drop_cond' | mi(`z')"
+	}
+	if ("`weights'"!="") local drop_cond "`drop_cond' | mi(`weights') | `weights'<=0"
+	qui drop if `drop_cond'
+
+	**** Convert string clustvar to numeric ************************
+	* vce(cluster var) traditionally accepts string/categorical clusters in
+	* Stata. rdbwselect's Mata path uses st_data(), which is numeric-only,
+	* so map a string clustvar to an integer factor via egen group() in a
+	* tempvar used only by the Mata call. The original `clustvar' is kept
+	* unchanged so display and ereturn report the user's variable name.
+	local clustvar_num "`clustvar'"
+	if ("`cluster'"!="") {
+		cap confirm numeric variable `clustvar'
+		if (_rc) {
+			tempvar _clustvar_num
+			qui egen `_clustvar_num' = group(`clustvar')
+			local clustvar_num "`_clustvar_num'"
 		}
 	}
 
-	if ("`weights'"~="") {
-	    qui drop if mi(`weights')
-		qui drop if `weights'<=0
-	}
-	
+
 	
 	**** CHECK colinearity ******************************************
 	local covs_drop_coll = 0	
@@ -143,12 +218,12 @@ program define rdbwselect, eclass
 			local x_iq = r(p75)-r(p25)
 			local x_sd = r(sd)
 			
-			if ("`deriv'">"0" & "`p'"=="" & "`q'"=="0")  local p = (`deriv'+1)
+			if (`deriv'>0 & "`p'"=="" & `q'==0)  local p = (`deriv'+1)
 			if ("`p'"=="") local p = 1
 			if ("`q'"=="0")                              local q = (`p'+1)
 			
 			**************************** BEGIN ERROR CHECKING ************************************************
-			if ("`nochecks'"=="") {
+			if ("`checks'"=="") {
 			
 			if (`c'<=`x_min' | `c'>=`x_max'){
 			 di as error "{err}{cmd:c()} should be set within the range of `x'"  
@@ -166,7 +241,7 @@ program define rdbwselect, eclass
 			}
 
 			if ("`bwselect'"=="CCT" | "`bwselect'"=="IK" | "`bwselect'"=="CV" |"`bwselect'"=="cct" | "`bwselect'"=="ik" | "`bwselect'"=="cv"){
-				di as error "{err}{cmd:bwselect()} options IK, CCT and CV have been deprecated. Please see help for new options"  
+				di as error "{err}{cmd:bwselect()} options IK, CCT and CV have been depricated. Please see help for new options"
 				exit 7
 			}
 					
@@ -180,34 +255,58 @@ program define rdbwselect, eclass
 			 exit 7
 			}
 
-			if ("`p'"<"0" | "`q'"<="0" | "`deriv'"<"0" | "`nnmatch'"<="0" ){
-			 di as error  "{err}{cmd:p()}, {cmd:q()}, {cmd:deriv()}, {cmd:nnmatch()} imson should be positive"  
+			if (`p'<0 | `q'<=0 | `deriv'<0 | `nnmatch'<=0){
+			 di as error  "{err}{cmd:p()}, {cmd:q()}, {cmd:deriv()}, {cmd:nnmatch()} should be positive"
 			 exit 411
 			}
 
-			if ("`p'">="`q'" & "`q'">"0"){
-			 di as error  "{err}{cmd:q()} should be higher than {cmd:p()}"  
+			if (`p'>=`q' & `q'>0){
+			 di as error  "{err}{cmd:q()} should be higher than {cmd:p()}"
 			 exit 125
 			}
 
-			if ("`deriv'">"`p'" & "`deriv'">"0" ){
-			 di as error  "{err}{cmd:deriv()} can not be higher than {cmd:p()}"  
+			if (`deriv'>`p' & `deriv'>0){
+			 di as error  "{err}{cmd:deriv()} can not be higher than {cmd:p()}"
 			 exit 125
 			}
 
-			if ("`p'">"0" ) {
+			if (`p'>0) {
 				local p_round = round(`p')/`p'
 				local q_round = round(`q')/`q'
 				local d_round = round(`deriv'+1)/(`deriv'+1)
 				local m_round = round(`nnmatch')/`nnmatch'
 
 				if (`p_round'!=1 | `q_round'!=1 |`d_round'!=1 |`m_round'!=1 ){
-				 di as error  "{err}{cmd:p()}, {cmd:q()}, {cmd:deriv()} and {cmd:nnmatch()} should be integers"  
+				 di as error  "{err}{cmd:p()}, {cmd:q()}, {cmd:deriv()} and {cmd:nnmatch()} should be integers"
 				 exit 126
 				}
-			}			
+			}
+			if (`bwcheck' < 0 | (`bwcheck' != round(`bwcheck'))) {
+			 di as error  "{err}{cmd:bwcheck()} must be a non-negative integer (0 = unset)"
+			 exit 125
+			}
+			if ("`masspoints'" != "" & ///
+			    !inlist("`masspoints'", "check", "adjust", "off", "false")) {
+			 di as error  "{err}{cmd:masspoints()} must be one of check, adjust, off"
+			 exit 125
+			}
 		}
-			
+	}
+	* End of validation-only capture block. Splitting validation from the
+	* Mata-work block sidesteps a Stata quirk where `exit N` inside an `if{}`
+	* inside `capture noisily { ... }` does NOT halt the noisily block when
+	* later `mata { ... }` blocks exist at the same scope; control jumps past
+	* the first mata block and lands in the second, leaking transient Mata
+	* externals and surfacing a misleading rc=3499 instead of the real
+	* validation error. See rdrobust.ado for the same pattern.
+	local _rc = _rc
+	if `_rc' {
+		cwf `_orig_frame'
+		frame drop `_work_frame'
+		exit `_rc'
+	}
+	capture noisily {
+
 	if ("`kernel'"=="epanechnikov" | "`kernel'"=="epa") {
 		local kernel_type = "Epanechnikov"
 		local C_c = 2.34
@@ -287,6 +386,11 @@ program define rdbwselect, eclass
 	if ("`fuzzy'"~="") {
 		T   = st_data(.,("`fuzzyvar'"), 0)
 		T_l = select(T,ind_l);	T_r = select(T,ind_r)
+		// Reject fully degenerate first stage (no variation, no jump).
+		// One-sided non-compliance falls through to the perf_comp branch.
+		if (variance(T_l)==0 & variance(T_r)==0 & abs(mean(T_l) - mean(T_r)) < sqrt(epsilon(1))) {
+			_error("Fuzzy RD: first-stage variable has no variation and no jump at the cutoff. The fuzzy estimator is not identified.")
+		}
 		if (variance(T_l)==0 | variance(T_r)==0){
 			T_l = T_r =0
 			st_local("perf_comp","perf_comp")
@@ -299,7 +403,7 @@ program define rdbwselect, eclass
 	
 	C_l=C_r=0
 	if ("`cluster'"!="") {
-		C  = st_data(.,("`clustvar'"), 0)
+		C  = st_data(.,("`clustvar_num'"), 0)
 		C_l  = select(C,ind_l); C_r  = select(C,ind_r)
 		indC_l = order(C_l,1);  indC_r = order(C_r,1) 
 		g_l = rows(panelsetup(C_l[indC_l],1));	g_r = rows(panelsetup(C_r[indC_r],1))
@@ -315,12 +419,14 @@ program define rdbwselect, eclass
 	mN = N
 	bwcheck = `bwcheck'
 	masspoints_found = 0
+	// Always compute unique-value vectors so bwcheck has them available
+	// even when masspoints=="off".
+	X_uniq_l = sort(uniqrows(X_l),-1)
+	X_uniq_r = uniqrows(X_r)
+	M_l = length(X_uniq_l)
+	M_r = length(X_uniq_r)
+	M = M_l + M_r
 	if ("`masspoints'"=="check" | "`masspoints'"=="adjust") {
-		X_uniq_l = sort(uniqrows(X_l),-1)
-		X_uniq_r = uniqrows(X_r)
-		M_l = length(X_uniq_l)
-		M_r = length(X_uniq_r)
-		M = M_l + M_r
 		st_numscalar("M_l", M_l); st_numscalar("M_r", M_r)
 		mass_l = 1-M_l/N_l
 		mass_r = 1-M_r/N_r
@@ -329,7 +435,7 @@ program define rdbwselect, eclass
 			display("{err}Mass points detected in the running variable.")
 			if ("`masspoints'"=="adjust" & "`bwcheck'"=="0") bwcheck = 10
 			if ("`masspoints'"=="check") display("{err}Try using option {cmd:masspoints(adjust)}")
-		}				
+		}
 	}
 	
 
@@ -353,19 +459,22 @@ program define rdbwselect, eclass
 	}	
 		
 	c_bw_l = c_bw_r = c_bw
-	
-	
+
+	// T1: per-side V-fit caches reused across all pilot calls.
+	vcache_l = asarray_create("string")
+	vcache_r = asarray_create("string")
+
 	*** Step 1: d_bw
-	C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw_l, h_B=range_l+1e-8, 0, "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll)
-	C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw_r, h_B=range_r+1e-8, 0, "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
+	C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw_l, h_B=range_l+1e-8, 0, "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+	C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw_r, h_B=range_r+1e-8, 0, "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
 	
 	if (C_d_l[1]==. | C_d_l[2]==. | C_d_l[3]==. |C_d_r[1]==. | C_d_r[2]==. | C_d_r[3]==.) printf("{err}Invertibility problem in the computation of preliminary bandwidth. Try checking for mass points with option {cmd:masspoints(check)}.\n")  
 	if (C_d_l[1]==0 | C_d_l[2]==0 | C_d_r[1]==0 | C_d_r[2]==0)                            printf("{err}Not enough variability to compute the preliminary bandwidth. Try checking for mass points with option {cmd:masspoints(check)}.\n")  
 			
 	*** TWO
 	if  ("`bwselect'"=="msetwo" |  "`bwselect'"=="certwo" | "`bwselect'"=="msecomb2" | "`bwselect'"=="cercomb2"  | "`all'"!="")  {		
-		d_bw_l = (  (C_d_l[1]              /   C_d_l[2]^2)    * (N/mN)         )^C_d_l[4] 
-		d_bw_r = (  (C_d_r[1]              /   C_d_r[2]^2)    * (N/mN)         )^C_d_l[4]
+		d_bw_l = (  (C_d_l[1]              /   C_d_l[2]^2))^C_d_l[4]
+		d_bw_r = (  (C_d_r[1]              /   C_d_r[2]^2))^C_d_r[4]
 		if  ("`bwrestrict'"=="on")  {		
 			d_bw_l = min((d_bw_l, range_l))
 			d_bw_r = min((d_bw_r, range_r))
@@ -374,19 +483,19 @@ program define rdbwselect, eclass
 			d_bw_l = max((d_bw_l, bw_min_l))
 			d_bw_r = max((d_bw_r, bw_min_r))
 		}
-		C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_l, h_B=d_bw_l, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll)
-		b_bw_l = (  (C_b_l[1]              /   (C_b_l[2]^2 + `scaleregul'*C_b_l[3]))  * (N/mN)     )^C_b_l[4]
-		C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_r, h_B=d_bw_r, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
-		b_bw_r = (  (C_b_r[1]              /   (C_b_r[2]^2 + `scaleregul'*C_b_r[3]))   * (N/mN)    )^C_b_l[4]
+		C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_l, h_B=d_bw_l, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+		b_bw_l = (  (C_b_l[1]              /   (C_b_l[2]^2 + `scaleregul'*C_b_l[3])))^C_b_l[4]
+		C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_r, h_B=d_bw_r, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+		b_bw_r = (  (C_b_r[1]              /   (C_b_r[2]^2 + `scaleregul'*C_b_r[3])))^C_b_r[4]
 		if  ("`bwrestrict'"=="on")  {	
 			b_bw_l = min((b_bw_l, range_l))
 			b_bw_r = min((b_bw_r, range_r))
 		}
 
-		C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_l, h_B=b_bw_l, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll)
-		h_bw_l = (  (C_h_l[1]              /   (C_h_l[2]^2 + `scaleregul'*C_h_l[3]))  * (N/mN)       )^C_h_l[4]
-		C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_r, h_B=b_bw_r, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
-		h_bw_r = (  (C_h_r[1]              /   (C_h_r[2]^2 + `scaleregul'*C_h_r[3]))  * (N/mN)       )^C_h_l[4]
+		C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_l, h_B=b_bw_l, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+		h_bw_l = (  (C_h_l[1]              /   (C_h_l[2]^2 + `scaleregul'*C_h_l[3])))^C_h_l[4]
+		C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_r, h_B=b_bw_r, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+		h_bw_r = (  (C_h_r[1]              /   (C_h_r[2]^2 + `scaleregul'*C_h_r[3])))^C_h_r[4]
 		
 		if  ("`bwrestrict'"=="on")  {	
 			h_bw_l = min((h_bw_l, range_l))
@@ -397,31 +506,31 @@ program define rdbwselect, eclass
 	
 	*** SUM
 	if  ("`bwselect'"=="msesum" | "`bwselect'"=="cersum" |  "`bwselect'"=="msecomb1" | "`bwselect'"=="msecomb2" |  "`bwselect'"=="cercomb1" | "`bwselect'"=="cercomb2"  |  "`all'"!="")  {
-		d_bw_s = ( ((C_d_l[1] + C_d_r[1])  /  (C_d_r[2] + C_d_l[2])^2)  * (N/mN)  )^C_d_l[4]
+		d_bw_s = ( ((C_d_l[1] + C_d_r[1])  /  (C_d_r[2] + C_d_l[2])^2))^C_d_l[4]
 		if  ("`bwrestrict'"=="on")  d_bw_s = min((d_bw_s, bw_max))
 		if (bwcheck > 0) d_bw_s = max((d_bw_s, bw_min_l, bw_min_r))		
-		C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_l, h_B=d_bw_s, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll)
-		C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_r, h_B=d_bw_s, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
-		b_bw_s = ( ((C_b_l[1] + C_b_r[1])  /  ((C_b_r[2] + C_b_l[2])^2 + `scaleregul'*(C_b_r[3]+C_b_l[3])))  * (N/mN)  )^C_b_l[4]
+		C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_l, h_B=d_bw_s, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+		C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_r, h_B=d_bw_s, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+		b_bw_s = ( ((C_b_l[1] + C_b_r[1])  /  ((C_b_r[2] + C_b_l[2])^2 + `scaleregul'*(C_b_r[3]+C_b_l[3]))))^C_b_l[4]
 		if  ("`bwrestrict'"=="on")  b_bw_s = min((b_bw_s, bw_max))
-		C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_l, h_B=b_bw_s, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll)
-		C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_r, h_B=b_bw_s, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
-		h_bw_s = ( ((C_h_l[1] + C_h_r[1])  /  ((C_h_r[2] + C_h_l[2])^2 + `scaleregul'*(C_h_r[3] + C_h_l[3])))  * (N/mN)  )^C_h_l[4]
+		C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_l, h_B=b_bw_s, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+		C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_r, h_B=b_bw_s, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+		h_bw_s = ( ((C_h_l[1] + C_h_r[1])  /  ((C_h_r[2] + C_h_l[2])^2 + `scaleregul'*(C_h_r[3] + C_h_l[3]))))^C_h_l[4]
 		if  ("`bwrestrict'"=="on")  h_bw_s = min((h_bw_s, bw_max))
 	}
 	
 	*** RD
 	if  ("`bwselect'"=="mserd" | "`bwselect'"=="cerrd" | "`bwselect'"=="msecomb1" | "`bwselect'"=="msecomb2" | "`bwselect'"=="cercomb1" | "`bwselect'"=="cercomb2" | "`bwselect'"=="" | "`all'"!="" ) {
-		d_bw_d = ( ((C_d_l[1] + C_d_r[1])  /  (C_d_r[2] - C_d_l[2])^2)  * (N/mN)   )^C_d_l[4]
+		d_bw_d = ( ((C_d_l[1] + C_d_r[1])  /  (C_d_r[2] - C_d_l[2])^2))^C_d_l[4]
 		if  ("`bwrestrict'"=="on")  d_bw_d = min((d_bw_d, bw_max))
 		if (bwcheck > 0) d_bw_d = max((d_bw_d, bw_min_l, bw_min_r))		
-		C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_l, h_B=d_bw_d, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll)
-		C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_r, h_B=d_bw_d, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
-		b_bw_d = ( ((C_b_l[1] + C_b_r[1])  /  ((C_b_r[2] - C_b_l[2])^2 + `scaleregul'*(C_b_r[3] + C_b_l[3])))  * (N/mN)    )^C_b_l[4]
+		C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_l, h_B=d_bw_d, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+		C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q, nu=p+1, o_B=q+1, h_V=c_bw_r, h_B=d_bw_d, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+		b_bw_d = ( ((C_b_l[1] + C_b_r[1])  /  ((C_b_r[2] - C_b_l[2])^2 + `scaleregul'*(C_b_r[3] + C_b_l[3]))))^C_b_l[4]
 		if  ("`bwrestrict'"=="on")  b_bw_d = min((b_bw_d, bw_max))
-		C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_l, h_B=b_bw_d, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll)
-		C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_r, h_B=b_bw_d, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll)
-		h_bw_d = ( ((C_h_l[1] + C_h_r[1])  /  ((C_h_r[2] - C_h_l[2])^2 + `scaleregul'*(C_h_r[3] + C_h_l[3])))  * (N/mN)   )^C_h_l[4]
+		C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_l, h_B=b_bw_d, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+		C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=p, nu=`deriv', o_B=q, h_V=c_bw_r, h_B=b_bw_d, `scaleregul', "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+		h_bw_d = ( ((C_h_l[1] + C_h_r[1])  /  ((C_h_r[2] - C_h_l[2])^2 + `scaleregul'*(C_h_r[3] + C_h_l[3]))))^C_h_l[4]
 		if  ("`bwrestrict'"=="on")  h_bw_d = min((h_bw_d, bw_max))
 		
 	}	
@@ -524,10 +633,10 @@ program define rdbwselect, eclass
 		b_certwo_r   = b_msetwo_r*cer_b
 		st_numscalar("h_certwo_l", h_certwo_l); st_numscalar("h_certwo_r", h_certwo_r);
 		st_numscalar("b_certwo_l", b_certwo_l); st_numscalar("b_certwo_r", b_certwo_r);
-		mat_h[1, 1] = h_cersum
-		mat_h[1, 2] = h_cersum
-		mat_b[1, 1] = b_cersum
-		mat_b[1, 2] = b_cersum
+		mat_h[1, 1] = h_certwo_l
+		mat_h[1, 2] = h_certwo_r
+		mat_b[1, 1] = b_certwo_l
+		mat_b[1, 2] = b_certwo_r
 		}
 	if  ("`bwselect'"=="cercomb1" | "`all'"!="" ){
 		h_cercomb1 = h_msecomb1*cer_h
@@ -641,8 +750,7 @@ program define rdbwselect, eclass
 	}
 	disp in smcl in gr "{hline 19}{c BT}{hline 30}{c BT}{hline 29}" 
    	if ("`covs'"!="")        di "Covariate-adjusted estimates. Additional covariates included: `ncovs'"
-*	if (`covs_drop_coll'>=1) di "Variables dropped due to multicollinearity."
-	if ("`masspoints'"=="check")  di "Running variable checked for mass points."  
+	if ("`masspoints'"=="check")  di "Running variable checked for mass points."
 	if ("`masspoints'"=="adjust" &  masspoints_found==1) di "Estimates adjusted for mass points in the running variable."  	 	
 
 	if ("`cluster'"!="")     di "Std. Err. adjusted for clusters in " "`clustvar'"
@@ -650,22 +758,45 @@ program define rdbwselect, eclass
 	if ("`sharpbw'"~="")   	 di in red "WARNING: bandwidths automatically computed for sharp RD estimation."
 	if ("`perf_comp'"~="")   di in red "WARNING: bandwidths automatically computed for sharp RD estimation because perfect compliance was detected on at least one side of the threshold."
 
-	restore
+	}
+	local _rc = _rc
+	cwf `_orig_frame'
+	frame drop `_work_frame'
+	if `_rc' {
+		* Error path: best-effort per-name Mata cleanup before reraising.
+		capture mata: _mtx = direxternal("*"); st_local("_mata_after", rows(_mtx) ? invtokens(_mtx') : "")
+		capture mata: mata drop _mtx
+		local _mata_new : list _mata_after - _mata_before
+		foreach _mname of local _mata_new {
+			capture mata mata drop `_mname'
+		}
+		error `_rc'
+	}
+	}
+
 	ereturn clear
+	ereturn scalar N   = scalar(N)
 	ereturn scalar N_l = scalar(N_l)
 	ereturn scalar N_r = scalar(N_r)
 	ereturn scalar c = `c'
 	ereturn scalar p = `p'
 	ereturn scalar q = `q'
+	if ("`cluster'"!="") ereturn scalar n_clust = scalar(g_l) + scalar(g_r)
 	ereturn local kernel = "`kernel_type'"
 	ereturn local bwselect = "`bwselect'"
-	ereturn local vce_select = "`vce_type'"
+	ereturn local vce_select = "`vce_raw'"
+	ereturn local vce_type   = "`vce_type'"
 	if ("`covs'"!="")    ereturn local covs "`covs'"
 	if ("`cluster'"!="") ereturn local clustvar "`clustvar'"
-	ereturn local outcomevar "`y'"
 	ereturn local runningvar "`x'"
 	ereturn local depvar "`y'"
-	ereturn local cmd "rdbwselect"
+	* Title for estimates replay / estimates table
+	if ("`fuzzy'"=="") local _rd_title "RD bandwidth selection (sharp)"
+	else                local _rd_title "RD bandwidth selection (fuzzy)"
+	if ("`covs'"!="")   local _rd_title "`_rd_title', covariate-adjusted"
+	ereturn local title   "`_rd_title'"
+	ereturn local cmdline "rdbwselect `0'"
+	ereturn local cmd     "rdbwselect"
 
 	ereturn matrix mat_h = mat_h
 	ereturn matrix mat_b = mat_b
@@ -718,7 +849,13 @@ program define rdbwselect, eclass
 		ereturn scalar b_cercomb2_l = scalar(b_cercomb2_l)
 		ereturn scalar b_cercomb2_r = scalar(b_cercomb2_r)
 	}
-	
-	mata mata clear 
+
+	* Drop only the Mata externals we created (set difference vs the
+	* entry-time snapshot). Library functions stay loaded; the user's
+	* own Mata variables are preserved.
+	mata: _mtx = direxternal("*"); st_local("_mata_after", rows(_mtx) ? invtokens(_mtx') : "")
+	mata: mata drop _mtx
+	local _mata_new : list _mata_after - _mata_before
+	if `"`_mata_new'"' != "" mata mata drop `_mata_new'
 
 end

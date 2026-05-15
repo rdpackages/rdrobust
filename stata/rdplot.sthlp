@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 10.0.0  2026-05-15}{...}
+{* *!version 11.0.0  2026-05-13}{...}
 {viewerjumpto "Syntax" "rdplot##syntax"}{...}
 {viewerjumpto "Description" "rdplot##description"}{...}
 {viewerjumpto "Options" "rdplot##options"}{...}
@@ -42,7 +42,7 @@
 {marker description}{...}
 {title:Description}
 
-{p 4 8}{cmd:rdplot} implements several data-driven Regression Discontinuity (RD) plots, using either evenly-spaced or quantile-spaced partitioning. Two types of RD plots are constructed: (i) RD plots with binned sample means tracing out the underlying regression function, and (ii) RD plots with binned sample means
+{p 4 8}{cmd:rdplot} implements several data-driven Regression Discontinuity (RD) plots, using either evenly-spaced or quantile-spaced partitioning. Two type of RD plots are constructed: (i) RD plots with binned sample means tracing out the underlying regression function, and (ii) RD plots with binned sample means
 mimicking the underlying variability of the data. For technical and methodological details see 
 {browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Titiunik_2015_JASA.pdf":Calonico, Cattaneo and Titiunik (2015a)}.{p_end}
 
@@ -56,6 +56,8 @@ and {browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell-T
 {p 4 8}Related Stata and R packages useful for inference in RD designs are described in the following website:{p_end}
 
 {p 8 8}{browse "https://rdpackages.github.io":https://rdpackages.github.io}{p_end}
+
+{p 4 8}{it:Requires Stata 16 or later.}{p_end}
 
 
 {marker options}{...}
@@ -114,7 +116,7 @@ Default is {cmd:kernel(uniform)} (i.e., equal/no weighting to all observations o
 
 {p 4 8}{cmd:covs_eval(}{it:covars_eval}{cmd:)} sets the evaluation points for the additional covariates, when included in the estimation. Options are: {opt 0} and {opt mean} (default).
 
-{p 4 8}{cmd:covs_drop(}{it:covsdropoption}{cmd:)} assesses collinearity in additional covariates used for estimation and inference. Options {opt pinv} (default choice) and {opt invsym} drop collinear additional covariates, differing only in the type of inverse function used. Option {opt off} omits the check for collinear additional covariates.{p_end}
+{p 4 8}{cmd:covs_drop(}{it:covsdropoption}{cmd:)} assess collinearity in additional covariates used for estimation and inference. Options {opt pinv} (default choice) and {opt invsym} drops collinear additional covariates, differing only in the type of inverse function used. Option {opt off} omits the check for collinear additional covariates.{p_end}
 
 {dlgtab:Plot Options}
 
@@ -164,13 +166,22 @@ Default is {cmd:kernel(uniform)} (i.e., equal/no weighting to all observations o
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
+{synopt:{cmd:e(N)}}number of observations{p_end}
 {synopt:{cmd:e(N_l)}}original number of observations to the left of the cutoff{p_end}
 {synopt:{cmd:e(N_r)}}original number of observations to the right of the cutoff{p_end}
+{synopt:{cmd:e(N_h_l)}}effective number of observations (given the bandwidth) to the left of the cutoff{p_end}
+{synopt:{cmd:e(N_h_r)}}effective number of observations (given the bandwidth) to the right of the cutoff{p_end}
 {synopt:{cmd:e(c)}}cutoff value{p_end}
+{synopt:{cmd:e(p)}}order of the polynomial used for the fit{p_end}
 {synopt:{cmd:e(J_star_l)}}selected number of bins to the left of the cutoff{p_end}
 {synopt:{cmd:e(J_star_r)}}selected number of bins to the right of the cutoff{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
+{synopt:{cmd:e(cmd)}}{cmd:rdplot}{p_end}
+{synopt:{cmd:e(cmdline)}}command as typed{p_end}
+{synopt:{cmd:e(title)}}title ({cmd:RD plot}){p_end}
+{synopt:{cmd:e(depvar)}}name of dependent (outcome) variable{p_end}
+{synopt:{cmd:e(runningvar)}}name of running variable{p_end}
 {synopt:{cmd:e(binselect)}}method used to compute the optimal number of bins{p_end}
 
 {synoptset 20 tabbed}{...}
@@ -178,6 +189,8 @@ Default is {cmd:kernel(uniform)} (i.e., equal/no weighting to all observations o
 {synopt:{cmd:e(coef_l)}}coefficients of the {it:p}-th order polynomial estimated to the left of the cutoff{p_end}
 {synopt:{cmd:e(coef_r)}}coefficients of the {it:p}-th order polynomial estimated to the right of the cutoff{p_end}
 {synopt:{cmd:e(coef_covs)}}coefficients of the additional covariates, only returned when {cmd:covs()} are used{p_end}
+{synopt:{cmd:e(eq_l)}}polynomial equation (left of cutoff) as a string, suitable for overlaying the fit via {cmd:twoway function}{p_end}
+{synopt:{cmd:e(eq_r)}}polynomial equation (right of cutoff) as a string, suitable for overlaying the fit via {cmd:twoway function}{p_end}
 
 
 {marker references}{...}

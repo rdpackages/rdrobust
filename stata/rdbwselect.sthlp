@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 10.0.0  2026-05-15}{...}
+{* *!version 11.0.0  2026-05-13}{...}
 {viewerjumpto "Syntax" "rdbwselect##syntax"}{...}
 {viewerjumpto "Description" "rdbwselect##description"}{...}
 {viewerjumpto "Options" "rdbwselect##options"}{...}
@@ -59,6 +59,8 @@ and {browse "https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell-T
 
 {p 8 8}{browse "https://rdpackages.github.io/":https://rdpackages.github.io/}{p_end}
 
+{p 4 8}{it:Requires Stata 16 or later.}{p_end}
+
 
 {marker options}{...}
 {title:Options}
@@ -86,7 +88,7 @@ Default is {cmd:q(2)} (local quadratic regression).{p_end}
 
 {p 4 8}{cmd:covs(}{it:covars}{cmd:)} specifies additional covariates to be used for estimation and inference.{p_end}
 
-{p 4 8}{cmd:covs_drop(}{it:covsdropoption}{cmd:)} assesses collinearity in additional covariates used for estimation and inference. Options {opt pinv} (default choice) and {opt invsym} drop collinear additional covariates, differing only in the type of inverse function used. Option {opt off} omits the check for collinear additional covariates.{p_end}
+{p 4 8}{cmd:covs_drop(}{it:covsdropoption}{cmd:)} assess collinearity in additional covariates used for estimation and inference. Options {opt pinv} (default choice) and {opt invsym} drops collinear additional covariates, differing only in the type of inverse function used. Option {opt off} omits the check for collinear additional covariates.{p_end}
 
 {p 4 8}{cmd:kernel(}{it:kernelfn}{cmd:)} specifies the kernel function used to construct the local-polynomial estimator(s). Options are: {opt tri:angular}, {opt epa:nechnikov}, and {opt uni:form}.
 Default is {cmd:kernel(triangular)}.{p_end}
@@ -142,8 +144,11 @@ Options are:{p_end}
 {p 8 12}{cmd:vce(hc1)} for heteroskedasticity-robust plug-in residuals variance estimator with {it:hc1} weights.{p_end}
 {p 8 12}{cmd:vce(hc2)} for heteroskedasticity-robust plug-in residuals variance estimator with {it:hc2} weights.{p_end}
 {p 8 12}{cmd:vce(hc3)} for heteroskedasticity-robust plug-in residuals variance estimator with {it:hc3} weights.{p_end}
-{p 8 12}{cmd:vce(nncluster }{it:clustervar [nnmatch]}{cmd:)} for cluster-robust nearest neighbor variance estimation, with {it:clustervar} indicating the cluster ID variable and {it:nnmatch} indicating the minimum number of neighbors to be used.{p_end}
-{p 8 12}{cmd:vce(cluster }{it:clustervar}{cmd:)} for cluster-robust plug-in residuals variance estimation with degrees-of-freedom weights and {it:clustervar} indicating the cluster ID variable.{p_end}
+{p 8 12}{cmd:vce(cluster }{it:clustervar}{cmd:)} for cluster-robust plug-in residuals variance estimation with degrees-of-freedom weights; equivalent to {cmd:vce(cr1 }{it:clustervar}{cmd:)}.{p_end}
+{p 8 12}{cmd:vce(cr1 }{it:clustervar}{cmd:)} for cluster-robust plug-in residuals variance estimator with degrees-of-freedom correction.{p_end}
+{p 8 12}{cmd:vce(cr2 }{it:clustervar}{cmd:)} for the Bell-McCaffrey (2002) bias-reduced cluster-robust variance estimator (CRV2).{p_end}
+{p 8 12}{cmd:vce(cr3 }{it:clustervar}{cmd:)} for the Pustejovsky-Tipton (2018) cluster-robust variance estimator (CRV3), approximately unbiased with few clusters.{p_end}
+{p 8 12}The CR2/CR3 leverage correction applies to both the conventional and the robust bias-corrected standard errors, including when the point-estimation bandwidth h differs from the bias-correction bandwidth b; in that case the cluster leverage is computed from the bias (b) regression.{p_end}
 {p 8 12}Default is {cmd:vce(nn 3)}.{p_end}
 
     {hline}
@@ -159,7 +164,7 @@ Options are:{p_end}
 {p 4 8}MSE bandwidth selection procedure{p_end}
 {p 8 8}{cmd:. rdbwselect vote margin}{p_end}
 
-{p 4 8}All bandwidth selection procedures{p_end}
+{p 4 8}All bandwidth bandwidth selection procedures{p_end}
 {p 8 8}{cmd:. rdbwselect vote margin, all}{p_end}
 
 
@@ -170,11 +175,13 @@ Options are:{p_end}
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
+{synopt:{cmd:e(N)}}number of observations{p_end}
 {synopt:{cmd:e(N_l)}}number of observations to the left of the cutoff{p_end}
 {synopt:{cmd:e(N_r)}}number of observations to the right of the cutoff{p_end}
 {synopt:{cmd:e(c)}}cutoff value{p_end}
 {synopt:{cmd:e(p)}}order of the polynomial used for estimation of the regression function{p_end}
 {synopt:{cmd:e(q)}}order of the polynomial used for estimation of the bias of the regression function estimator{p_end}
+{synopt:{cmd:e(n_clust)}}number of clusters (only when {cmd:vce(cluster}|{cmd:cr1}|{cmd:cr2}|{cmd:cr3} ...{cmd:)} is specified){p_end}
 
 {synopt:{cmd:e(h_mserd)}}     MSE-optimal bandwidth selector for the RD treatment effect estimator.{p_end}
 {synopt:{cmd:e(h_msetwo_l)}}  MSE-optimal bandwidth selectors below the cutoff for the RD treatment effect estimator.{p_end}
@@ -209,13 +216,20 @@ Options are:{p_end}
 {synopt:{cmd:e(b_cercomb2_r)}} for median({opt certwo_r},{opt cerrd},{opt cersum}), above the cutoff.{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
+{synopt:{cmd:e(cmd)}}{cmd:rdbwselect}{p_end}
+{synopt:{cmd:e(cmdline)}}command as typed{p_end}
+{synopt:{cmd:e(title)}}title ({cmd:RD bandwidth selection (sharp/fuzzy)}, optionally {cmd:, covariate-adjusted}){p_end}
+{synopt:{cmd:e(depvar)}}name of dependent (outcome) variable{p_end}
 {synopt:{cmd:e(runningvar)}}name of running variable{p_end}
-{synopt:{cmd:e(outcomevar)}}name of outcome variable{p_end}
 {synopt:{cmd:e(clustvar)}}name of cluster variable{p_end}
-{synopt:{cmd:e(covs)}}name of covariates{p_end}
+{synopt:{cmd:e(covs)}}names of additional covariates{p_end}
 {synopt:{cmd:e(vce_select)}}vcetype specified in vce(){p_end}
 {synopt:{cmd:e(bwselect)}}bandwidth selection choice{p_end}
 {synopt:{cmd:e(kernel)}}kernel choice{p_end}
+
+{p2col 5 20 24 2: Matrices}{p_end}
+{synopt:{cmd:e(mat_h)}}1x2 matrix of bandwidths for the RD treatment effect estimator (left, right){p_end}
+{synopt:{cmd:e(mat_b)}}1x2 matrix of bandwidths for the bias of the RD treatment effect estimator (left, right){p_end}
 
 
 {marker references}{...}
