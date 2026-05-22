@@ -1,4 +1,4 @@
-# Robust Local Polynomial Methods for RD designs
+# Robust Local Polynomial Methods for RD Designs
 
 The package `rdrobust` implements estimation, inference, and graphical procedures for Regression Discontinuity (RD) designs using local polynomial methods.
 
