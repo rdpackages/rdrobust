@@ -21,10 +21,3 @@ f lrdrobust.mlib
 f rdrobust_illustration.do
 f rdrobust_illustration_new.do
 f rdrobust_senate.dta
-d -----------------------
-d BACK COMPATIBILITY:
-d -----------------------
-f rdbwselect_2014.ado
-f rdbwselect_2014.sthlp
-f rdbwselect_2014_functions.do
-f rdbwselect_2014_kconst.ado
