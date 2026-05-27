@@ -10,10 +10,11 @@ program define rdplot, eclass
 	syntax anything [if] [, c(real 0) p(integer 4) nbins(string) covs(string) covs_eval(string) covs_drop(string)  binselect(string) scale(string) kernel(string) weights(string) h(string) support(string) masspoints(string) genvars hide ci(real 0) shade graph_options(string asis) nochecks  *]
 
 	marksample touse
+	capture mata: mata describe rdrobust_kweight()
+	if _rc quietly mata: mata mlib index
 
 	* Snapshot Mata externals so we can drop only the variables WE create,
-	* leaving the user's Mata workspace and the loaded rdrobust_*.mo
-	* library functions untouched.
+	* leaving the user's Mata workspace and rdrobust Mata functions untouched.
 	mata: _mtx = direxternal("*"); st_local("_mata_before", rows(_mtx) ? invtokens(_mtx') : "")
 	mata: mata drop _mtx
 

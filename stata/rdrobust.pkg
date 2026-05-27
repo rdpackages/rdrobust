@@ -6,7 +6,7 @@ d          Matias D. Cattaneo, Princeton University, matias.d.cattaneo@gmail.com
 d          Max H. Farrell, University of California, Santa Barbara, mhfarrell@gmail.com
 d          Rocio Titiunik, Princeton University, rocio.titiunik@gmail.com
 d
-d Distribution-Date: 20260515
+d Distribution-Date: 20260527
 d
 f rdbwselect.ado
 f rdplot.ado
@@ -17,18 +17,10 @@ f rdrobust.ado
 f rdrobust.sthlp
 f rdrobustplot.ado
 f rdrobustplot.sthlp
-f rdrobust_bw.mo
-f rdrobust_functions.do
+f lrdrobust.mlib
 f rdrobust_illustration.do
 f rdrobust_illustration_new.do
-f rdrobust_kweight.mo
 f rdrobust_senate.dta
-f rdrobust_res.mo
-f rdrobust_vce.mo
-f rdrobust_vce_qq_cluster.mo
-f rdrobust_collapse.mo
-f rdrobust_median.mo
-f rdrobust_groupid.mo
 d -----------------------
 d BACK COMPATIBILITY:
 d -----------------------

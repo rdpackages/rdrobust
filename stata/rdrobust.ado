@@ -9,10 +9,11 @@ program define rdrobust, eclass
 	version 16.0
 	syntax anything [if] [in] [, c(real 0) fuzzy(string) deriv(real 0) p(string) q(real 0) h(string) b(string) rho(real 0) covs(string) covs_drop(string) kernel(string) weights(string) bwselect(string) vce(string) level(real 95) all scalepar(real 1) scaleregul(real 1) nochecks nowarnings masspoints(string) bwcheck(real 0) bwrestrict(string) stdvars(string) detail vleverage]
 	marksample touse
+	capture mata: mata describe rdrobust_bw()
+	if _rc quietly mata: mata mlib index
 
 	* Snapshot Mata externals so we can drop only the variables WE create,
-	* leaving the user's Mata workspace and the loaded rdrobust_*.mo
-	* library functions untouched.
+	* leaving the user's Mata workspace and rdrobust Mata functions untouched.
 	mata: _mtx = direxternal("*"); st_local("_mata_before", rows(_mtx) ? invtokens(_mtx') : "")
 	mata: mata drop _mtx
 

@@ -654,3 +654,11 @@ real matrix rdrobust_collapse(real matrix x, real colvector id)
 }	
 mata mosave rdrobust_collapse(), replace 
 end
+
+********************************************************************************
+* Build the distribution Mata library.  The individual .mo files above are kept
+* useful for development, but rdrobust.pkg ships lrdrobust.mlib.
+********************************************************************************
+mata: mata mlib create lrdrobust, replace
+mata: mata mlib add lrdrobust rdrobust_res() rdrobust_kweight() rdrobust_bw() rdrobust_vce() rdrobust_vce_qq_cluster() rdrobust_groupid() rdrobust_median() rdrobust_collapse()
+mata: mata mlib index
