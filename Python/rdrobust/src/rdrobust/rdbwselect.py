@@ -15,7 +15,7 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
                bwselect = "mserd", vce = "nn", cluster = None, nnmatch = 3,
                scaleregul = 1, sharpbw = False, all = None, subset = None,
                masspoints = "adjust", bwcheck = None, bwrestrict = True,
-               stdvars = False, prchk = True, data = None):
+               stdvars = True, prchk = True, data = None):
         
     
     '''
@@ -154,7 +154,7 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
     if TRUE, computed bandwidths are restricted to lie within the range of x; default is bwrestrict = TRUE.
     
     stdvars	
-    if TRUE, x and y are standardized before computing the bandwidths; default is stdvars = FALSE.
+    if TRUE, x and y are standardized before computing the bandwidths. Standardization avoids numerical instability in bandwidth selection when the running variable has very large or very small magnitude; default is stdvars = TRUE.
     
     prchk
     internal check function.
@@ -593,8 +593,8 @@ def _rdbwselect_compute(
     if bwcheck is not None:
         bwcheck_l = min(bwcheck, M_l)
         bwcheck_r = min(bwcheck, M_r)
-        bw_min_l = np.abs(X_uniq_l-c)[bwcheck_l-1] + 1e-8
-        bw_min_r = np.abs(X_uniq_r-c)[bwcheck_r-1] + 1e-8
+        bw_min_l = np.abs(X_uniq_l-c)[bwcheck_l-1]
+        bw_min_r = np.abs(X_uniq_r-c)[bwcheck_r-1]
         c_bw = max(c_bw, bw_min_l, bw_min_r)
 
     # Per-side V-fit caches: rdrobust_bw's V-fit depends only on (o, nu)

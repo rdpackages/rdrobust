@@ -14,7 +14,10 @@ A detailed introduction to this command is given in Calonico, Cattaneo and Titiu
 For more details, and related Stata and R packages useful for analysis of RD designs, visit \url{https://rdpackages.github.io/}
 
 }
-\usage{rdrobust(y, x, c = NULL,  fuzzy = NULL, 
+\details{
+Print-control flags \code{detail} and \code{all} moved from \code{rdrobust()} to the S3 \code{summary} method (\code{\link{summary.rdrobust}}) in version 4.0.0. The default \code{summary()} print is now the compact one-row layout (point estimate plus robust bias-corrected inference). To request the three-row table (Conventional, Bias-corrected, Robust), call \code{summary(rdrobust(y, x), all = TRUE)}; for the two-row variant (Conventional + Robust), pass \code{detail = TRUE}. Estimation output is unaffected by these flags.
+}
+\usage{rdrobust(y, x, c = NULL,  fuzzy = NULL,
           deriv = NULL, p = NULL, q = NULL, 
           h = NULL, b = NULL, rho = NULL, 
           covs = NULL,  covs_drop = TRUE, ginv.tol = 1e-20,
@@ -23,7 +26,7 @@ For more details, and related Stata and R packages useful for analysis of RD des
           nnmatch = 3, level = 95, scalepar = 1, scaleregul = 1, 
           sharpbw = FALSE, subset = NULL,
           masspoints = "adjust", bwcheck = NULL,
-          bwrestrict = TRUE, stdvars = FALSE, data = NULL)}
+          bwrestrict = TRUE, stdvars = TRUE, data = NULL)}
 \arguments{
   \item{y}{is the dependent variable.}
   \item{x}{is the running variable (a.k.a. score or forcing variable).}
@@ -114,7 +117,7 @@ The CR2/CR3 leverage correction applies to both the conventional and the robust 
     
     \item{bwrestrict}{if \code{TRUE}, computed bandwidths are restricted to lie within the range of \code{x}; default is \code{bwrestrict = TRUE}.}
       
-    \item{stdvars}{if \code{TRUE}, \code{x} and \code{y} are standardized before computing the bandwidths; default is \code{stdvars = FALSE}.}
+    \item{stdvars}{if \code{TRUE}, \code{x} and \code{y} are standardized before computing the bandwidths. Standardization avoids numerical instability in bandwidth selection when the running variable has very large or very small magnitude (e.g. age in days, vote shares as decimals, or running variables with extreme scale); default is \code{stdvars = TRUE}.}
   \item{data}{an optional data frame. When supplied, \code{y}, \code{x}, \code{covs}, \code{cluster}, \code{fuzzy}, \code{weights}, and \code{subset} may be given as bare variable names referring to columns of \code{data}.}
       
 }
@@ -185,6 +188,10 @@ Rocio Titiunik, Princeton University, Princeton, NJ.  \email{rocio.titiunik@gmai
 x <- runif(1000,-1,1)
 y <- 5 + 3*x + 2*(x>=0) + rnorm(1000)
 rdrobust(y,x)
+
+# Full Conventional / Bias-corrected / Robust table (print-control flag
+# `all` moved from rdrobust() to summary() in 4.0.0).
+summary(rdrobust(y, x), all = TRUE)
 
 # Using a data frame with covariates via the `data =` argument
 df <- data.frame(y = y, x = x, z1 = rnorm(1000), z2 = rnorm(1000))

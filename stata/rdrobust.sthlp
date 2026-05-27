@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 11.0.0  2026-05-15}{...}
+{* *!version 11.1.0  2026-05-22}{...}
 {viewerjumpto "Syntax" "rdrobust##syntax"}{...}
 {viewerjumpto "Description" "rdrobust##description"}{...}
 {viewerjumpto "Options" "rdrobust##options"}{...}
@@ -36,6 +36,7 @@
 {cmd:bwcheck(}{it:#}{cmd:)}
 {cmd:bwrestrict(}{it:bwropt}{cmd:)}
 {cmd:stdvars(}{it:stdopt}{cmd:)}
+{cmd:precision(}{it:precopt}{cmd:)}
 {cmd:vce(}{it:vcetype [vceopt1 vceopt2]}{cmd:)}
 {cmd:level(}{it:#}{cmd:)}
 {cmd:detail} 
@@ -150,7 +151,9 @@ Options are:{p_end}
   
 {p 4 8}{cmd:bwrestrict(}{it:bwropt}{cmd:)} if set {opt on}, computed bandwidths are restricted to lie within the range of {it:runvar}. Default is {opt on}.{p_end}
 
-{p 4 8}{cmd:stdvars(}{it:stdopt}{cmd:)} if set {opt on}, {it:depvar} and {it:runvar} are standardized before computing the bandwidths. Default is {opt off}.{p_end}
+{p 4 8}{cmd:stdvars(}{it:stdopt}{cmd:)} if set {opt on}, {it:depvar} and {it:runvar} are standardized before computing the bandwidths. Standardization avoids numerical instability in bandwidth selection when {it:runvar} has very large or very small magnitude. Default is {opt on}.{p_end}
+
+{p 4 8}{cmd:precision(}{it:precopt}{cmd:)} controls the storage precision of internal temporary variables (cluster-id, mass-point counts). Options are {cmd:double} (default) and {cmd:single}; {cmd:single} maps to Stata's {cmd:float} storage type. Default is {cmd:precision(double)}.{p_end}
 
 {dlgtab:Variance-Covariance Estimation}
 
@@ -273,11 +276,13 @@ Default is {cmd:level(95)}.{p_end}
 {synopt:{cmd:e(bwselect)}}bandwidth selection choice{p_end}
 {synopt:{cmd:e(kernel)}}kernel choice{p_end}
 {synopt:{cmd:e(ci_rb)}}formatted robust bias-corrected CI string (e.g. {cmd:[3.989 ; 11.021]}); see {cmd:e(ci_l_rb)} / {cmd:e(ci_r_rb)} for numeric endpoints or {cmd:e(ci)} for the full matrix{p_end}
+{synopt:{cmd:e(precision)}}storage precision selected via {cmd:precision()}: {cmd:double} (default) or {cmd:single}{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:e(b)}}1x3 coefficient vector with column names {cmd:Conventional} (tau_cl), {cmd:Bias-corrected} (tau_bc), and {cmd:Robust} (tau_bc){p_end}
 {synopt:{cmd:e(V)}}3x3 block-diagonal variance-covariance matrix for {cmd:e(b)}: {cmd:V[Conventional,Conventional]} = {cmd:V[Bias-corrected,Bias-corrected]} = se_tau_cl^2 and {cmd:V[Robust,Robust]} = se_tau_rb^2. The Bias-corrected pairing of tau_bc with the conventional SE is not a recommended inferential object (CCT 2014); use {cmd:_b[Robust]} and {cmd:_se[Robust]} for the RBC inference.{p_end}
 {synopt:{cmd:e(ci)}}3x2 confidence-interval matrix; rows {cmd:Conventional} / {cmd:Bias-corrected} / {cmd:Robust}, columns {cmd:ll} / {cmd:ul}{p_end}
+{synopt:{cmd:e(bws)}}2x2 bandwidth matrix; rows {cmd:h} / {cmd:b}, columns {cmd:left} / {cmd:right}. Mirrors {cmd:fit$bws} (R) and {cmd:fit.bws} (Python).{p_end}
 {synopt:{cmd:e(beta_Y_p_r)}}conventional p-order local-polynomial estimates to the right of the cutoff for the outcome variable{p_end}
 {synopt:{cmd:e(beta_Y_p_l)}}conventional p-order local-polynomial estimates to the left of the cutoff for the outcome variable{p_end}
 {synopt:{cmd:e(beta_T_p_r)}}conventional p-order local-polynomial estimates to the right of the cutoff for the first stage (fuzzy RD){p_end}

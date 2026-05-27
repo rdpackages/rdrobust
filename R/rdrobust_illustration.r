@@ -37,11 +37,11 @@ rdplot(y=vote, x=margin, binselect="qsmv",
        y.label="Vote Share in Election at time t+2",
        x.label="Vote Share in Election at time t")
 
-### rdrobust 
+### rdrobust
 summary(rdrobust(y=vote, x=margin))
 
-### rdrobust summary
-summary(rdrobust(y=vote, x=margin))
+### rdrobust with all estimates (print-control flag `all` moved from rdrobust() to summary() in 4.0.0)
+summary(rdrobust(y=vote, x=margin), all=TRUE)
 
 ## rdrobust backward compatibility
 summary(rdrobust(y=vote, x=margin, h=16.79369, b=27.43745))

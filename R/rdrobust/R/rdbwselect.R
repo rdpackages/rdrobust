@@ -4,7 +4,7 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
                       vce = "nn", cluster = NULL,
                       nnmatch = 3,  scaleregul = 1, sharpbw = FALSE,
                       all = NULL, subset = NULL, masspoints = "adjust",
-                      bwcheck = NULL, bwrestrict = TRUE, stdvars = FALSE,
+                      bwcheck = NULL, bwrestrict = TRUE, stdvars = TRUE,
                       data = NULL){
 
   if (!is.null(data)) {
@@ -371,8 +371,8 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
     if (!is.null(bwcheck)) {
       bwcheck_l = min(bwcheck, M_l)
 			bwcheck_r = min(bwcheck, M_r)
-      bw_min_l = abs(X_uniq_l-c)[bwcheck_l] + 1e-8
-      bw_min_r = abs(X_uniq_r-c)[bwcheck_r] + 1e-8
+      bw_min_l = abs(X_uniq_l-c)[bwcheck_l]
+      bw_min_r = abs(X_uniq_r-c)[bwcheck_r]
       c_bw = max(c_bw, bw_min_l, bw_min_r)
       bw.adj <- 1
     }

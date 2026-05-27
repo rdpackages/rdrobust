@@ -21,7 +21,7 @@ For more details, and related Stata and R packages useful for analysis of RD des
               scaleregul = 1, sharpbw = FALSE, 
               all = NULL, subset = NULL, 
               masspoints = "adjust", bwcheck = NULL,
-              bwrestrict = TRUE, stdvars = FALSE, data = NULL)}
+              bwrestrict = TRUE, stdvars = TRUE, data = NULL)}
 \arguments{
   \item{y}{is the dependent variable.}
   \item{x}{is the running variable (a.k.a. score or forcing variable).}
@@ -105,7 +105,7 @@ The CR2/CR3 leverage correction applies to both the conventional and the robust 
     \item{bwcheck}{if a positive integer is provided, the preliminary bandwidth used in the calculations is enlarged so that at least \code{bwcheck} unique observations are used.}
       \item{bwrestrict}{if \code{TRUE}, computed bandwidths are restricted to lie within the range of \code{x}; default is \code{bwrestrict = TRUE}.}
       
-      \item{stdvars}{if \code{TRUE}, \code{x} and \code{y} are standardized before computing the bandwidths; default is \code{stdvars = FALSE}.}
+      \item{stdvars}{if \code{TRUE}, \code{x} and \code{y} are standardized before computing the bandwidths. Standardization avoids numerical instability in bandwidth selection when the running variable has very large or very small magnitude; default is \code{stdvars = TRUE}.}
   \item{data}{an optional data frame. When supplied, \code{y}, \code{x}, \code{covs}, \code{cluster}, \code{fuzzy}, \code{weights}, and \code{subset} may be given as bare variable names referring to columns of \code{data}.}
 }
 \value{

@@ -2,7 +2,7 @@
 * RDROBUST STATA PACKAGE -- rdrobust_functions
 * Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell, Rocio Titiunik
 ********************************************************************************
-*!version 11.0.0  2026-05-15
+*!version 11.1.0  2026-05-22
 
 version 16.0
 
@@ -22,11 +22,16 @@ if (vce=="nn") {
 		while (lpos+rpos < min((matches,n-1))) {
 			if (pos-lpos-1 <= 0) rpos = rpos + dups[pos+rpos+1]
 			else if (pos+rpos+1>n) lpos = lpos + dups[pos-lpos-1]
-			else if ((X[pos]-X[pos-lpos-1]) > (X[pos+rpos+1]-X[pos])) rpos = rpos + dups[pos+rpos+1]
-			else if ((X[pos]-X[pos-lpos-1]) < (X[pos+rpos+1]-X[pos])) lpos = lpos + dups[pos-lpos-1]
 			else {
-				rpos = rpos + dups[pos+rpos+1]
-				lpos = lpos + dups[pos-lpos-1]
+				dleft  = X[pos] - X[pos-lpos-1]
+				dright = X[pos+rpos+1] - X[pos]
+				nn_tol = max((dleft, dright)) * sqrt(epsilon(1))
+				if      (dleft - dright >  nn_tol) rpos = rpos + dups[pos+rpos+1]
+				else if (dright - dleft >  nn_tol) lpos = lpos + dups[pos-lpos-1]
+				else {
+					rpos = rpos + dups[pos+rpos+1]
+					lpos = lpos + dups[pos-lpos-1]
+				}
 			}
 		}
 		ind_J = (pos-lpos)::(pos+rpos)

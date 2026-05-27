@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 11.0.0  2026-05-15}{...}
+{* *!version 11.1.0  2026-05-22}{...}
 {viewerjumpto "Syntax" "rdrobustplot##syntax"}{...}
 {viewerjumpto "Description" "rdrobustplot##description"}{...}
 {viewerjumpto "Options" "rdrobustplot##options"}{...}

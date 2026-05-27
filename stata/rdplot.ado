@@ -1,13 +1,13 @@
 ********************************************************************************
 * RDROBUST STATA PACKAGE -- rdplot
-* Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell, Rocio Titiunik
+* Authors: Sebastian Calonico, Matias D. Cattaneo, Max Farrell, Rocio Tititunik
 ********************************************************************************
-*!rdrobust Stata package v11.0.0  2026-05-15
+*!rdrobust Stata package v11.1.0  2026-05-22
 
 capture program drop rdplot
 program define rdplot, eclass
 	version 16.0
-	syntax anything [if] [, c(real 0) p(integer 4) nbins(string) covs(string) covs_eval(string) covs_drop(string)  binselect(string) scale(string) kernel(string) weights(string) h(string) support(string) masspoints(string) genvars hide ci(real 0) shade graph_options(string asis) nochecks  *]
+	syntax anything [if] [, c(real 0) p(integer 4) nbins(string) covs(string) covs_eval(string) covs_drop(string)  binselect(string) scale(string) kernel(string) weights(string) h(string) support(string) masspoints(string) genvars hide ci(real 0) shade graph_options(string asis) nochecks PRECision(string)  *]
 
 	marksample touse
 	capture mata: mata describe rdrobust_kweight()
@@ -92,12 +92,25 @@ program define rdplot, eclass
 	nobreak {
 	cwf `_work_frame'
 	capture noisily {
+
+	******************** Set PRECision *********************
+	if ("`precision'"=="") local precision = "double"
+	else {
+		local precision = lower("`precision'")
+		if ("`precision'"!="double" & "`precision'"!="single") {
+			di as err `"precision(): incorrectly specified: options(single, double)"'
+			exit 198
+		}
+	}
+	local storage_type = "double"
+	if ("`precision'"=="single") local storage_type = "float"
+
 	sort `x', stable
 
 	*************************************************************
 	**** DROP MISSINGS ******************************************
 	*************************************************************
-	if ("`covs'"~="") {
+	if ("`covs'"!="") {
 		qui ds `covs'
 		local covs_list = r(varlist)
 		local ncovs: word count `covs_list'
@@ -116,7 +129,7 @@ program define rdplot, eclass
 	**** CHECK colinearity ******************************************
 	local covs_drop_coll = 0	
 	if ("`covs_drop'"=="") local covs_drop = "pinv"	
-	if ("`covs'"~="") {	
+	if ("`covs'"!="") {	
 		
 	if ("`covs_drop'"=="invsym")  local covs_drop_coll = 1
 	if ("`covs_drop'"=="pinv")    local covs_drop_coll = 2
@@ -307,7 +320,7 @@ program define rdplot, eclass
 		wh_l = rdrobust_kweight(x_l, c, h_l+1e-8, "`kernel'")
 		wh_r = rdrobust_kweight(x_r, c, h_r+1e-8, "`kernel'")
 		
-		if ("`weights'"~="") {
+		if ("`weights'"!="") {
 			fw = st_data(.,("`weights'"), 0)
 			fw_l = fw[ind_l];	fw_r = fw[ind_r]
 			wh_l = fw_l:*wh_l;	wh_r = fw_r:*wh_r
@@ -787,6 +800,7 @@ if  ("`covs_eval'"=="mean" & "`covs'"!="") {
 	ereturn local cmdline    "rdplot `0'"
 	ereturn local title      "RD plot"
 	ereturn local cmd        "rdplot"
+	ereturn local precision  "`precision'"
 
 	****** polynomial equation for plots ******************
 	mat coef_l = e(coef_l)
@@ -892,7 +906,7 @@ if  ("`covs_eval'"=="mean" & "`covs'"!="") {
 ** PART 2: genvars=TRUE
 ****************************
 if ("`genvars'"!="") {
-	qui for any id N min_bin max_bin mean_bin mean_x mean_y se_y ci_l ci_r hat_y: qui gen rdplot_X = .
+	qui for any id N min_bin max_bin mean_bin mean_x mean_y se_y ci_l ci_r hat_y: qui gen `storage_type' rdplot_X = .
 }
 
 	mata {		
@@ -915,8 +929,10 @@ if ("`genvars'"!="") {
 }
 
 * Drop transient matrices/scalars used as Mata-to-Stata transport buffers
-* so they don't leak into the caller's namespace.
-cap matrix drop coef_l coef_r
+* so they don't leak into the caller's namespace. NOTE: keep coef_l / coef_r
+* alive -- e(eq_l) / e(eq_r) are formula strings that reference them by
+* name, and dropping the matrices breaks `twoway function `e(eq_l)`'
+* (see rdplot_illustration.do).
 cap matrix drop J_es_hat_dw J_qs_hat_dw J_es_chk_dw J_qs_chk_dw
 cap matrix drop J_es_hat_mv J_qs_hat_mv J_es_chk_mv J_qs_chk_mv
 cap scalar drop M_l M_r nbins_l nbins_r

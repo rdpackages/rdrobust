@@ -151,17 +151,23 @@ rdrobust_res = function(X, y, T, Z, m, hii, vce, matches, dups, dupsid, d, crv3=
   res = matrix(NA,n,1+dT+dZ)
 
   if (vce=="nn") {
+    nn_tol_eps = sqrt(.Machine$double.eps)
     for (pos in 1:n) {
       rpos = dups[pos] - dupsid[pos]
       lpos = dupsid[pos] - 1
       while (lpos+rpos < min(c(matches,n-1))) {
         if (pos-lpos-1 <= 0) rpos = rpos + dups[pos+rpos+1]
         else if (pos+rpos+1>n) lpos = lpos + dups[pos-lpos-1]
-        else if ((X[pos]-X[pos-lpos-1]) > (X[pos+rpos+1]-X[pos])) rpos = rpos + dups[pos+rpos+1]
-        else if ((X[pos]-X[pos-lpos-1]) < (X[pos+rpos+1]-X[pos])) lpos = lpos + dups[pos-lpos-1]
         else {
-          rpos = rpos + dups[pos+rpos+1]
-          lpos = lpos + dups[pos-lpos-1]
+          dleft  = X[pos] - X[pos-lpos-1]
+          dright = X[pos+rpos+1] - X[pos]
+          nn_tol = max(dleft, dright) * nn_tol_eps
+          if      (dleft - dright >  nn_tol) rpos = rpos + dups[pos+rpos+1]
+          else if (dright - dleft >  nn_tol) lpos = lpos + dups[pos-lpos-1]
+          else {
+            rpos = rpos + dups[pos+rpos+1]
+            lpos = lpos + dups[pos-lpos-1]
+          }
         }
       }
       ind_J = max(c(0,(pos-lpos))):min(c(n,(pos+rpos)))

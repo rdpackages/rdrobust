@@ -2,12 +2,12 @@
 * RDROBUST STATA PACKAGE -- rdbwselect
 * Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell, Rocio Titiunik
 ********************************************************************************
-*!rdrobust Stata package v11.0.0  2026-05-15
+*!rdrobust Stata package v11.1.0  2026-05-22
 
 capture program drop rdbwselect
 program define rdbwselect, eclass
 	version 16.0
-	syntax anything [if] [in] [, c(real 0) fuzzy(string) deriv(real 0) p(string) q(real 0) covs(string) covs_drop(string) kernel(string) weights(string) bwselect(string) vce(string) scaleregul(real 1) all nochecks masspoints(string) bwcheck(real 0) bwrestrict(string) stdvars(string)]
+	syntax anything [if] [in] [, c(real 0) fuzzy(string) deriv(real 0) p(string) q(real 0) covs(string) covs_drop(string) kernel(string) weights(string) bwselect(string) vce(string) scaleregul(real 1) all nochecks masspoints(string) bwcheck(real 0) bwrestrict(string) stdvars(string) PRECision(string)]
 
 	marksample touse
 	capture mata: mata describe rdrobust_bw()
@@ -32,6 +32,19 @@ program define rdbwselect, eclass
 	tokenize "`anything'"
 	local y `1'
 	local x `2'
+
+	******************** Set PRECision *********************
+	if ("`precision'"=="") local precision = "double"
+	else {
+		local precision = lower("`precision'")
+		if ("`precision'"!="double" & "`precision'"!="single") {
+			di as err `"precision(): incorrectly specified: options(single, double)"'
+			exit 198
+		}
+	}
+	local storage_type = "double"
+	if ("`precision'"=="single") local storage_type = "float"
+
 	local kernel   = lower("`kernel'")
 	local bwselect = lower("`bwselect'")
 	
@@ -138,7 +151,7 @@ program define rdbwselect, eclass
 	************************************************************
 
 	**** DROP MISSINGS ******************************************
-	if ("`covs'"~="") {
+	if ("`covs'"!="") {
 		qui ds `covs', alpha
 		local covs_list = r(varlist)
 		local ncovs: word count `covs_list'
@@ -164,7 +177,7 @@ program define rdbwselect, eclass
 		cap confirm numeric variable `clustvar'
 		if (_rc) {
 			tempvar _clustvar_num
-			qui egen `_clustvar_num' = group(`clustvar')
+			qui egen `storage_type' `_clustvar_num' = group(`clustvar')
 			local clustvar_num "`_clustvar_num'"
 		}
 	}
@@ -174,7 +187,7 @@ program define rdbwselect, eclass
 	**** CHECK colinearity ******************************************
 	local covs_drop_coll = 0	
 	if ("`covs_drop'"=="") local covs_drop = "pinv"	
-	if ("`covs'"~="") {	
+	if ("`covs'"!="") {	
 		
 	if ("`covs_drop'"=="invsym")  local covs_drop_coll = 1
 	if ("`covs_drop'"=="pinv")    local covs_drop_coll = 2
@@ -208,7 +221,7 @@ program define rdbwselect, eclass
 		
 	**** DEFAULTS ***************************************
 	if ("`masspoints'"=="") local masspoints = "adjust"
-	if ("`stdvars'"=="")    local stdvars    = "off"	
+	if ("`stdvars'"=="")    local stdvars    = "on"
 	if ("`bwrestrict'"=="") local bwrestrict = "on"	
 	*****************************************************************
 	
@@ -236,23 +249,23 @@ program define rdbwselect, eclass
 			 exit 2001
 			}
 			
-			if ("`kernel'"~="uni" & "`kernel'"~="uniform" & "`kernel'"~="tri" & "`kernel'"~="triangular" & "`kernel'"~="epa" & "`kernel'"~="epanechnikov" & "`kernel'"~="" ){
-			 di as error "{err}{cmd:kernel()} incorrectly specified"  
+			if (!inlist("`kernel'","uni","uniform","tri","triangular","epa","epanechnikov","")){
+			 di as error "{err}{cmd:kernel()} incorrectly specified"
 			 exit 7
 			}
 
-			if ("`bwselect'"=="CCT" | "`bwselect'"=="IK" | "`bwselect'"=="CV" |"`bwselect'"=="cct" | "`bwselect'"=="ik" | "`bwselect'"=="cv"){
-				di as error "{err}{cmd:bwselect()} options IK, CCT and CV have been depricated. Please see help for new options"
-				exit 7
-			}
-					
-			if  ("`bwselect'"!="mserd" & "`bwselect'"!="msetwo" & "`bwselect'"!="msesum" & "`bwselect'"!="msecomb1" & "`bwselect'"!="msecomb2"  & "`bwselect'"!="cerrd" & "`bwselect'"!="certwo" & "`bwselect'"!="cersum" & "`bwselect'"!="cercomb1" & "`bwselect'"!="cercomb2" & "`bwselect'"~=""){
-				di as error  "{err}{cmd:bwselect()} incorrectly specified"  
+			if (inlist("`bwselect'","CCT","IK","CV","cct","ik","cv")){
+				di as error "{err}{cmd:bwselect()} options IK, CCT and CV have been deprecated. Please see help for new options"
 				exit 7
 			}
 
-			if ("`vce_select'"~="nn" & "`vce_select'"~="" & "`vce_select'"~="cluster" & "`vce_select'"~="nncluster" & "`vce_select'"~="hc1" & "`vce_select'"~="hc2" & "`vce_select'"~="hc3" & "`vce_select'"~="hc0"){ 
-			 di as error  "{err}{cmd:vce()} incorrectly specified"  
+			if (!inlist("`bwselect'","mserd","msetwo","msesum","msecomb1","msecomb2") & !inlist("`bwselect'","cerrd","certwo","cersum","cercomb1","cercomb2") & "`bwselect'"!=""){
+				di as error  "{err}{cmd:bwselect()} incorrectly specified"
+				exit 7
+			}
+
+			if (!inlist("`vce_select'","nn","","cluster","nncluster") & !inlist("`vce_select'","cr1","cr2","cr3") & !inlist("`vce_select'","hc0","hc1","hc2","hc3")){
+			 di as error  "{err}{cmd:vce()} incorrectly specified"
 			 exit 7
 			}
 
@@ -325,8 +338,8 @@ program define rdbwselect, eclass
 		sort `x', stable
 		if ("`vce_select'"=="nn") {
 			tempvar dups dupsid
-			by `x': gen dups = _N
-			by `x': gen dupsid = _n
+			by `x': gen `storage_type' dups = _N
+			by `x': gen `storage_type' dupsid = _n
 		}
 	}	
 	
@@ -378,13 +391,13 @@ program define rdbwselect, eclass
 		dupsid_l  = select(dupsid,ind_l);  dupsid_r  = select(dupsid,ind_r)
 	}
 	
-	if ("`covs'"~="") {
+	if ("`covs'"!="") {
 		Z   = st_data(.,tokens("`covs_list'"), 0)
 		dZ  = cols(Z)
 		Z_l = select(Z,ind_l);	Z_r = select(Z,ind_r)
 	}
 	
-	if ("`fuzzy'"~="") {
+	if ("`fuzzy'"!="") {
 		T   = st_data(.,("`fuzzyvar'"), 0)
 		T_l = select(T,ind_l);	T_r = select(T,ind_r)
 		// Reject fully degenerate first stage (no variation, no jump).
@@ -412,7 +425,7 @@ program define rdbwselect, eclass
 	}
 	
 	fw_l = fw_r = 0
-	if ("`weights'"~="") {
+	if ("`weights'"!="") {
 		fw = st_data(.,("`weights'"), 0)
 		fw_l = select(fw,ind_l);	fw_r = select(fw,ind_r)
 	}
@@ -454,8 +467,8 @@ program define rdbwselect, eclass
 	if (bwcheck > 0) {
 		bwcheck_l = min((bwcheck, M_l))
 		bwcheck_r = min((bwcheck, M_r))
-		bw_min_l = abs(X_uniq_l:-c)[bwcheck_l] + 1e-8
-		bw_min_r = abs(X_uniq_r:-c)[bwcheck_r] + 1e-8
+		bw_min_l = abs(X_uniq_l:-c)[bwcheck_l]
+		bw_min_r = abs(X_uniq_r:-c)[bwcheck_r]
 		c_bw = max((c_bw, bw_min_l, bw_min_r))
 	}	
 		
@@ -466,11 +479,11 @@ program define rdbwselect, eclass
 	vcache_r = asarray_create("string")
 
 	*** Step 1: d_bw
-	C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw_l, h_B=range_l+1e-8, 0, "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
-	C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw_r, h_B=range_r+1e-8, 0, "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+	C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw_l, h_B=range_l, 0, "`vce_select'", nnmatch, "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+	C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw_r, h_B=range_r, 0, "`vce_select'", nnmatch, "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
 	
 	if (C_d_l[1]==. | C_d_l[2]==. | C_d_l[3]==. |C_d_r[1]==. | C_d_r[2]==. | C_d_r[3]==.) printf("{err}Invertibility problem in the computation of preliminary bandwidth. Try checking for mass points with option {cmd:masspoints(check)}.\n")  
-	if (C_d_l[1]==0 | C_d_l[2]==0 | C_d_r[1]==0 | C_d_r[2]==0)                            printf("{err}Not enough variability to compute the preliminary bandwidth. Try checking for mass points with option {cmd:masspoints(check)}.\n")  
+	if (C_d_l[1]==0 | C_d_l[2]==0 | C_d_r[1]==0 | C_d_r[2]==0)                            printf("{err}Not enough variability to compute the preliminary bandwidth. Consider using option {cmd:stdvars(on)} (now the default) to standardize the running variable; or check for mass points with {cmd:masspoints(check)}.\n")
 			
 	*** TWO
 	if  ("`bwselect'"=="msetwo" |  "`bwselect'"=="certwo" | "`bwselect'"=="msecomb2" | "`bwselect'"=="cercomb2"  | "`all'"!="")  {		
@@ -540,8 +553,8 @@ program define rdbwselect, eclass
 	mat_h   = J(1, 2, .)
 	mat_b   = J(1, 2, .)
 	
-	if (C_b_l[1]==0 | C_b_l[2]==0 | C_b_r[1]==0 | C_b_r[2]==0 |C_b_l[1]==. | C_b_l[2]==. | C_b_l[3]==. | C_b_r[1]==. | C_b_r[2]==. | C_b_r[3]==.) printf("{err}Not enough variability to compute the bias bandwidth (b). Try checking for mass points with option {cmd:masspoints(check)}. \n")  
-	if (C_h_l[1]==0 | C_h_l[2]==0 | C_h_r[1]==0 | C_h_r[2]==0 |C_h_l[1]==. | C_h_l[2]==. | C_h_l[3]==. | C_h_r[1]==. | C_h_r[2]==. | C_h_r[3]==.) printf("{err}Not enough variability to compute the loc. poly. bandwidth (h). Try checking for mass points with option {cmd:masspoints(check)}.\n") 
+	if (C_b_l[1]==0 | C_b_l[2]==0 | C_b_r[1]==0 | C_b_r[2]==0 |C_b_l[1]==. | C_b_l[2]==. | C_b_l[3]==. | C_b_r[1]==. | C_b_r[2]==. | C_b_r[3]==.) printf("{err}Not enough variability to compute the bias bandwidth (b). Consider using option {cmd:stdvars(on)} (now the default) to standardize the running variable; or check for mass points with {cmd:masspoints(check)}.\n")
+	if (C_h_l[1]==0 | C_h_l[2]==0 | C_h_r[1]==0 | C_h_r[2]==0 |C_h_l[1]==. | C_h_l[2]==. | C_h_l[3]==. | C_h_r[1]==. | C_h_r[2]==. | C_h_r[3]==.) printf("{err}Not enough variability to compute the loc. poly. bandwidth (h). Consider using option {cmd:stdvars(on)} (now the default) to standardize the running variable; or check for mass points with {cmd:masspoints(check)}.\n")
 			
 	st_numscalar("N", N)
 	st_numscalar("N_l", N_l)
@@ -756,8 +769,8 @@ program define rdbwselect, eclass
 
 	if ("`cluster'"!="")     di "Std. Err. adjusted for clusters in " "`clustvar'"
 	if ("`scaleregul'"!="1") di "Scale regularization: " `scaleregul'
-	if ("`sharpbw'"~="")   	 di in red "WARNING: bandwidths automatically computed for sharp RD estimation."
-	if ("`perf_comp'"~="")   di in red "WARNING: bandwidths automatically computed for sharp RD estimation because perfect compliance was detected on at least one side of the threshold."
+	if ("`sharpbw'"!="")   	 di in red "WARNING: bandwidths automatically computed for sharp RD estimation."
+	if ("`perf_comp'"!="")   di in red "WARNING: bandwidths automatically computed for sharp RD estimation because perfect compliance was detected on at least one side of the threshold."
 
 	}
 	local _rc = _rc
@@ -798,6 +811,7 @@ program define rdbwselect, eclass
 	ereturn local title   "`_rd_title'"
 	ereturn local cmdline "rdbwselect `0'"
 	ereturn local cmd     "rdbwselect"
+	ereturn local precision "`precision'"
 
 	ereturn matrix mat_h = mat_h
 	ereturn matrix mat_b = mat_b

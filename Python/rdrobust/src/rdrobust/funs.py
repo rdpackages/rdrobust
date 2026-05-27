@@ -36,6 +36,7 @@ def _nn_residuals_jit(X, y, T, Z, dups, dupsid, matches, dT, dZ, n):
     arrays of zeros when not used (caller guards with dT / dZ).
     """
     res = np.zeros((n, 1 + dT + dZ))
+    nn_tol_eps = np.sqrt(np.finfo(np.float64).eps)
     for pos in range(n):
         rpos = dups[pos] - dupsid[pos]
         lpos = dupsid[pos] - 1
@@ -45,13 +46,17 @@ def _nn_residuals_jit(X, y, T, Z, dups, dupsid, matches, dT, dZ, n):
                 rpos += dups[pos + rpos + 1]
             elif pos + rpos + 1 >= n:
                 lpos += dups[pos - lpos - 1]
-            elif (X[pos] - X[pos - lpos - 1]) > (X[pos + rpos + 1] - X[pos]):
-                rpos += dups[pos + rpos + 1]
-            elif (X[pos] - X[pos - lpos - 1]) < (X[pos + rpos + 1] - X[pos]):
-                lpos += dups[pos - lpos - 1]
             else:
-                rpos += dups[pos + rpos + 1]
-                lpos += dups[pos - lpos - 1]
+                dleft = X[pos] - X[pos - lpos - 1]
+                dright = X[pos + rpos + 1] - X[pos]
+                nn_tol = (dleft if dleft > dright else dright) * nn_tol_eps
+                if dleft - dright > nn_tol:
+                    rpos += dups[pos + rpos + 1]
+                elif dright - dleft > nn_tol:
+                    lpos += dups[pos - lpos - 1]
+                else:
+                    rpos += dups[pos + rpos + 1]
+                    lpos += dups[pos - lpos - 1]
         lo = pos - lpos
         hi = pos + rpos + 1
         Ji = (hi - lo) - 1

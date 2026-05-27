@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 11.0.0  2026-05-15}{...}
+{* *!version 11.1.0  2026-05-22}{...}
 {viewerjumpto "Syntax" "rdbwselect##syntax"}{...}
 {viewerjumpto "Description" "rdbwselect##description"}{...}
 {viewerjumpto "Options" "rdbwselect##options"}{...}
@@ -33,6 +33,7 @@
 {cmd:bwcheck(}{it:bwcheck}{cmd:)}
 {cmd:bwrestrict(}{it:bwropt}{cmd:)}
 {cmd:stdvars(}{it:stdopt}{cmd:)}
+{cmd:precision(}{it:precopt}{cmd:)}
 {cmd:vce(}{it:vcetype [vceopt1 vceopt2]}{cmd:)}
 ]{p_end}
 
@@ -133,7 +134,9 @@ Options are:{p_end}
 
 {p 4 8}{cmd:bwrestrict(}{it:bwropt}{cmd:)} if set {opt on}, computed bandwidths are restricted to lie within the range of {it:runvar}. Default is {opt on}.{p_end}
 
-{p 4 8}{cmd:stdvars(}{it:stdopt}{cmd:)} if set {opt on}, {it:depvar} and {it:runvar} are standardized before computing the bandwidths. Default is {opt off}.{p_end}
+{p 4 8}{cmd:stdvars(}{it:stdopt}{cmd:)} if set {opt on}, {it:depvar} and {it:runvar} are standardized before computing the bandwidths. Standardization avoids numerical instability in bandwidth selection when {it:runvar} has very large or very small magnitude. Default is {opt on}.{p_end}
+
+{p 4 8}{cmd:precision(}{it:precopt}{cmd:)} controls the storage precision of internal temporary variables (cluster-id, mass-point counts). Options are {cmd:double} (default) and {cmd:single}; {cmd:single} maps to Stata's {cmd:float} storage type. Default is {cmd:precision(double)}.{p_end}
 
 {dlgtab:Variance-Covariance Estimation}
 
@@ -223,9 +226,11 @@ Options are:{p_end}
 {synopt:{cmd:e(runningvar)}}name of running variable{p_end}
 {synopt:{cmd:e(clustvar)}}name of cluster variable{p_end}
 {synopt:{cmd:e(covs)}}names of additional covariates{p_end}
-{synopt:{cmd:e(vce_select)}}vcetype specified in vce(){p_end}
+{synopt:{cmd:e(vce_select)}}vcetype specified in vce() (raw option name, e.g. "nn", "hc3", "cr3"){p_end}
+{synopt:{cmd:e(vce_type)}}display label for variance-covariance estimator (e.g. "NN", "HC3", "CR3"){p_end}
 {synopt:{cmd:e(bwselect)}}bandwidth selection choice{p_end}
 {synopt:{cmd:e(kernel)}}kernel choice{p_end}
+{synopt:{cmd:e(precision)}}storage precision selected via {cmd:precision()}: {cmd:double} (default) or {cmd:single}{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:e(mat_h)}}1x2 matrix of bandwidths for the RD treatment effect estimator (left, right){p_end}

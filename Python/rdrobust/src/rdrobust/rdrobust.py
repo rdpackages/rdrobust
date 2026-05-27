@@ -20,7 +20,7 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
              vce = "nn", cluster = None, nnmatch = 3, level = 95,
              scalepar = 1, scaleregul = 1, sharpbw = False,
              all = None, subset = None, masspoints = "adjust",
-             bwcheck = None, bwrestrict = True, stdvars = False,
+             bwcheck = None, bwrestrict = True, stdvars = True,
              data = None):
     
     '''
@@ -175,7 +175,7 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
     if TRUE, computed bandwidths are restricted to lie within the range of x; default is bwrestrict = TRUE.
     
     stdvars
-    if TRUE, x and y are standardized before computing the bandwidths; default is stdvars = FALSE.
+    if TRUE, x and y are standardized before computing the bandwidths. Standardization avoids numerical instability in bandwidth selection when the running variable has very large or very small magnitude; default is stdvars = TRUE.
 
     data
     optional pandas DataFrame. When supplied, `y`, `x`, `covs`, `cluster`,
@@ -644,6 +644,16 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
         elif vce_bw == "cr2": vce_bw = "crv2"
         elif vce_bw == "cr3": vce_bw = "crv3"
 
+        # X_uniq_l/r must be standardized when stdvars=True so the bwcheck floor
+        # inside _rdbwselect_compute matches the standardized c/X/range. Without
+        # this, bw_min binds in raw scale and h blows up at extreme |scale|.
+        if stdvars and X_uniq_l is not None:
+            X_uniq_l_bw = X_uniq_l / x_sd_bw
+            X_uniq_r_bw = X_uniq_r / x_sd_bw
+        else:
+            X_uniq_l_bw = X_uniq_l
+            X_uniq_r_bw = X_uniq_r
+
         bws_df, _ = _rdbwselect_compute(
             Y_l=Y_l_bw, Y_r=Y_r_bw, X_l=X_l_bw, X_r=X_r_bw,
             T_l=T_l_bw, T_r=T_r_bw, Z_l=Z_l_bw, Z_r=Z_r_bw,
@@ -652,7 +662,7 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
             dupsid_l=dupsid_l_bw, dupsid_r=dupsid_r_bw,
             N_l=N_l, N_r=N_r, N=N, M_l=M_l, M_r=M_r,
             M=(M_l + M_r) if masspoints in ("check", "adjust") else N,
-            X_uniq_l=X_uniq_l, X_uniq_r=X_uniq_r,
+            X_uniq_l=X_uniq_l_bw, X_uniq_r=X_uniq_r_bw,
             x_min=x_min_bw, x_max=x_max_bw,
             range_l=range_l_bw, range_r=range_r_bw, x_sd=x_sd_bw,
             c=c_bw_arg, p=p, q=q, deriv=deriv, kernel=kernel,

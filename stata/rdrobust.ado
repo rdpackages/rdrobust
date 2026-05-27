@@ -2,12 +2,12 @@
 * RDROBUST STATA PACKAGE -- rdrobust
 * Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell, Rocio Titiunik
 ********************************************************************************
-*!rdrobust Stata package v11.0.0  2026-05-15
+*!rdrobust Stata package v11.1.0  2026-05-22
 
 capture program drop rdrobust
 program define rdrobust, eclass
 	version 16.0
-	syntax anything [if] [in] [, c(real 0) fuzzy(string) deriv(real 0) p(string) q(real 0) h(string) b(string) rho(real 0) covs(string) covs_drop(string) kernel(string) weights(string) bwselect(string) vce(string) level(real 95) all scalepar(real 1) scaleregul(real 1) nochecks nowarnings masspoints(string) bwcheck(real 0) bwrestrict(string) stdvars(string) detail vleverage]
+	syntax anything [if] [in] [, c(real 0) fuzzy(string) deriv(real 0) p(string) q(real 0) h(string) b(string) rho(real 0) covs(string) covs_drop(string) kernel(string) weights(string) bwselect(string) vce(string) level(real 95) all scalepar(real 1) scaleregul(real 1) nochecks nowarnings masspoints(string) bwcheck(real 0) bwrestrict(string) stdvars(string) detail vleverage PRECision(string)]
 	marksample touse
 	capture mata: mata describe rdrobust_bw()
 	if _rc quietly mata: mata mlib index
@@ -31,6 +31,19 @@ program define rdrobust, eclass
 	tokenize "`anything'"
 	local y `1'
 	local x `2'
+
+	******************** Set PRECision *********************
+	if ("`precision'"=="") local precision = "double"
+	else {
+		local precision = lower("`precision'")
+		if ("`precision'"!="double" & "`precision'"!="single") {
+			di as err `"precision(): incorrectly specified: options(single, double)"'
+			exit 198
+		}
+	}
+	local storage_type = "double"
+	if ("`precision'"=="single") local storage_type = "float"
+
 	local kernel   = lower("`kernel'")
 	local bwselect = lower("`bwselect'")
 	
@@ -148,11 +161,10 @@ program define rdrobust, eclass
 		exit 125
 	}
 	
-	*** Manual bandwidth 
-	if ("`h'"!="") {	
+	*** Manual bandwidth
+	if ("`h'"!="") {
 		local bwselect = "Manual"
-		*if ("`b_l'"=="" & "`b_r'"=="" & "`h_l'"!="" & "`h_r'"!="") {
-		if ("`b'"=="") {	
+		if ("`b'"=="") {
 			local b_r = `h_r'
 			local b_l = `h_l'
 		}		
@@ -187,7 +199,7 @@ program define rdrobust, eclass
 	}
 	
 	**** DROP MISSINGS **********************************************
-	if ("`covs'"~="") {
+	if ("`covs'"!="") {
 		qui ds `covs', alpha
 		local covs_list = r(varlist)
 		local ncovs: word count `covs_list'
@@ -213,7 +225,7 @@ program define rdrobust, eclass
 		cap confirm numeric variable `clustvar'
 		if (_rc) {
 			tempvar _clustvar_num
-			qui egen `_clustvar_num' = group(`clustvar')
+			qui egen `storage_type' `_clustvar_num' = group(`clustvar')
 			local clustvar_num "`_clustvar_num'"
 		}
 	}
@@ -221,7 +233,7 @@ program define rdrobust, eclass
 	**** CHECK colinearity ******************************************
 	local covs_drop_coll = 0	
 	if ("`covs_drop'"=="") local covs_drop = "pinv"	
-	if ("`covs'"~="") {	
+	if ("`covs'"!="") {	
 		
 	if ("`covs_drop'"=="invsym")  local covs_drop_coll = 1
 	if ("`covs_drop'"=="pinv")    local covs_drop_coll = 2
@@ -254,7 +266,7 @@ program define rdrobust, eclass
 				
 	**** DEFAULTS ***************************************
 	if ("`masspoints'"=="") local masspoints = "adjust"
-	if ("`stdvars'"=="")    local stdvars    = "off"	
+	if ("`stdvars'"=="")    local stdvars    = "on"
 	if ("`bwrestrict'"=="") local bwrestrict = "on"	
 	*****************************************************************
 	
@@ -299,23 +311,23 @@ program define rdrobust, eclass
 			local b_r = `bw_range'	
 			}
 			
-			if ("`kernel'"~="uni" & "`kernel'"~="uniform" & "`kernel'"~="tri" & "`kernel'"~="triangular" & "`kernel'"~="epa" & "`kernel'"~="epanechnikov" & "`kernel'"~="" ){
-			 di as error  "{err}{cmd:kernel()} incorrectly specified"  
+			if (!inlist("`kernel'","uni","uniform","tri","triangular","epa","epanechnikov","")){
+			 di as error  "{err}{cmd:kernel()} incorrectly specified"
 			 exit 7
 			}
 
-			if ("`bwselect'"=="CCT" | "`bwselect'"=="IK" | "`bwselect'"=="CV" |"`bwselect'"=="cct" | "`bwselect'"=="ik" | "`bwselect'"=="cv"){
-				di as error  "{err}{cmd:bwselect()} options IK, CCT and CV have been depricated. Please see help for new options"
-				exit 7
-			}
-	
-			if  ("`bwselect'"!="mserd" & "`bwselect'"!="msetwo" & "`bwselect'"!="msesum" & "`bwselect'"!="msecomb1" & "`bwselect'"!="msecomb2"  & "`bwselect'"!="cerrd" & "`bwselect'"!="certwo" & "`bwselect'"!="cersum" & "`bwselect'"!="cercomb1" & "`bwselect'"!="cercomb2" & "`bwselect'"~="Manual"){
-				di as error  "{err}{cmd:bwselect()} incorrectly specified"  
+			if (inlist("`bwselect'","CCT","IK","CV","cct","ik","cv")){
+				di as error  "{err}{cmd:bwselect()} options IK, CCT and CV have been deprecated. Please see help for new options"
 				exit 7
 			}
 
-			if ("`vce_select'"~="nn" & "`vce_select'"~="" & "`vce_select'"~="cluster" & "`vce_select'"~="hc1" & "`vce_select'"~="hc2" & "`vce_select'"~="hc3" & "`vce_select'"~="hc0"){
-			 di as error  "{err}{cmd:vce()} incorrectly specified"  
+			if (!inlist("`bwselect'","mserd","msetwo","msesum","msecomb1","msecomb2") & !inlist("`bwselect'","cerrd","certwo","cersum","cercomb1","cercomb2") & "`bwselect'"!="Manual"){
+				di as error  "{err}{cmd:bwselect()} incorrectly specified"
+				exit 7
+			}
+
+			if (!inlist("`vce_select'","nn","","cluster","nncluster") & !inlist("`vce_select'","cr1","cr2","cr3") & !inlist("`vce_select'","hc0","hc1","hc2","hc3")){
+			 di as error  "{err}{cmd:vce()} incorrectly specified"
 			 exit 7
 			}
 
@@ -383,8 +395,8 @@ program define rdrobust, eclass
 		sort `x', stable
 		if ("`vce_select'"=="nn") {
 			tempvar dups dupsid
-			by `x': gen dups = _N
-			by `x': gen dupsid = _n
+			by `x': gen `storage_type' dups = _N
+			by `x': gen `storage_type' dupsid = _n
 		}
 	}
 
@@ -415,12 +427,12 @@ program define rdrobust, eclass
 		
 		N   = length(X);	N_l = length(X_l);	N_r = length(X_r)
 				
-		if ("`covs'"~="") {
+		if ("`covs'"!="") {
 			Z   = st_data(.,tokens("`covs_list'"), 0); dZ  = cols(Z)
 			Z_l = Z[ind_l,];	Z_r = Z[ind_r,]
 		}
 	
-		if ("`fuzzy'"~="") {
+		if ("`fuzzy'"!="") {
 			T = st_data(.,("`fuzzyvar'"), 0);	T_l = T[ind_l];	T_r = T[ind_r]; dT = 1
 			// Reject fully degenerate first stage (no variation, no jump).
 			// One-sided non-compliance falls through to the perf_comp branch.
@@ -445,7 +457,7 @@ program define rdrobust, eclass
 			st_numscalar("g_l",  g_l);     st_numscalar("g_r",   g_r)
 		}	
 	
-		if ("`weights'"~="") {
+		if ("`weights'"!="") {
 			fw = st_data(.,("`weights'"), 0)
 			fw_l = fw[ind_l];	fw_r = fw[ind_r]
 		}
@@ -520,8 +532,8 @@ masspoints_found = 0
 		if (bwcheck > 0) {
 			bwcheck_l = min((bwcheck, M_l))
 			bwcheck_r = min((bwcheck, M_r))
-			bw_min_l = abs(X_uniq_l:-c)[bwcheck_l] + 1e-8
-			bw_min_r = abs(X_uniq_r:-c)[bwcheck_r] + 1e-8
+			bw_min_l = abs(X_uniq_l:-c)[bwcheck_l]
+			bw_min_r = abs(X_uniq_r:-c)[bwcheck_r]
 			c_bw = max((c_bw, bw_min_l, bw_min_r))
 		}		
 		
@@ -531,9 +543,9 @@ masspoints_found = 0
 		vcache_r = asarray_create("string")
 
 		*** Step 1: d_bw
-		C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q'+1, nu=`q'+1, o_B=`q'+2, h_V=c_bw, h_B=range_l+1e-8, 0, "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
-		C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q'+1, nu=`q'+1, o_B=`q'+2, h_V=c_bw, h_B=range_r+1e-8, 0, "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
-		if (C_d_l[1]==0 | C_d_l[2]==0 | C_d_r[1]==0 | C_d_r[2]==0 |C_d_l[1]==. | C_d_l[2]==. | C_d_l[3]==. |C_d_r[1]==. | C_d_r[2]==. | C_d_r[3]==.) printf("{err}Not enough variability to compute the preliminary bandwidth. Try checking for mass points with option {cmd:masspoints(check)}.\n")  
+		C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q'+1, nu=`q'+1, o_B=`q'+2, h_V=c_bw, h_B=range_l, 0, "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+		C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q'+1, nu=`q'+1, o_B=`q'+2, h_V=c_bw, h_B=range_r, 0, "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+		if (C_d_l[1]==0 | C_d_l[2]==0 | C_d_r[1]==0 | C_d_r[2]==0 |C_d_l[1]==. | C_d_l[2]==. | C_d_l[3]==. |C_d_r[1]==. | C_d_r[2]==. | C_d_r[3]==.) printf("{err}Not enough variability to compute the preliminary bandwidth. Consider using option {cmd:stdvars(on)} (now the default) to standardize the running variable before bandwidth selection; or check for mass points with {cmd:masspoints(check)}.\n")
 	
 		*** BW-TWO
 		if  ("`bwselect'"=="msetwo" |  "`bwselect'"=="certwo" | "`bwselect'"=="msecomb2" | "`bwselect'"=="cercomb2" )  {		
@@ -609,8 +621,8 @@ masspoints_found = 0
 		
 
 
-		if (C_b_l[1]==0 | C_b_l[2]==0 | C_b_r[1]==0 | C_b_r[2]==0 |C_b_l[1]==. | C_b_l[2]==. | C_b_l[3]==. | C_b_r[1]==. | C_b_r[2]==. | C_b_r[3]==.) printf("{err}Not enough variability to compute the bias bandwidth (b). Try checking for mass points with option {cmd:masspoints(check)}. \n")  
-		if (C_h_l[1]==0 | C_h_l[2]==0 | C_h_r[1]==0 | C_h_r[2]==0 |C_h_l[1]==. | C_h_l[2]==. | C_h_l[3]==. | C_h_r[1]==. | C_h_r[2]==. | C_h_r[3]==.) printf("{err}Not enough variability to compute the loc. poly. bandwidth (h). Try checking for mass points with option {cmd:masspoints(check)}.\n") 
+		if (C_b_l[1]==0 | C_b_l[2]==0 | C_b_r[1]==0 | C_b_r[2]==0 |C_b_l[1]==. | C_b_l[2]==. | C_b_l[3]==. | C_b_r[1]==. | C_b_r[2]==. | C_b_r[3]==.) printf("{err}Not enough variability to compute the bias bandwidth (b). Consider using option {cmd:stdvars(on)} (now the default) to standardize the running variable; or check for mass points with {cmd:masspoints(check)}.\n")
+		if (C_h_l[1]==0 | C_h_l[2]==0 | C_h_r[1]==0 | C_h_r[2]==0 |C_h_l[1]==. | C_h_l[2]==. | C_h_l[3]==. | C_h_r[1]==. | C_h_r[2]==. | C_h_r[3]==.) printf("{err}Not enough variability to compute the loc. poly. bandwidth (h). Consider using option {cmd:stdvars(on)} (now the default) to standardize the running variable; or check for mass points with {cmd:masspoints(check)}.\n")
 	
 		cer_h = mN^(-(`p'/((3+`p')*(3+2*`p'))))
 		if ("`cluster'"!="") cer_h = (g_l+g_r)^(-(`p'/((3+`p')*(3+2*`p'))))
@@ -678,7 +690,7 @@ masspoints_found = 0
 		w_h_l = rdrobust_kweight(X_l,`c',h_l,"`kernel'");	w_h_r = rdrobust_kweight(X_r,`c',h_r,"`kernel'")
 		w_b_l = rdrobust_kweight(X_l,`c',b_l,"`kernel'");	w_b_r = rdrobust_kweight(X_r,`c',b_r,"`kernel'")
 		
-		if ("`weights'"~="") {
+		if ("`weights'"!="") {
 			w_h_l = fw_l:*w_h_l;	w_h_r = fw_r:*w_h_r
 			w_b_l = fw_l:*w_b_l;	w_b_r = fw_r:*w_b_r			
 		}
@@ -737,20 +749,20 @@ masspoints_found = 0
 		Q_q_r = ((R_p_r:*W_h_r)' - h_r^(`p'+1)*(L_r*e_p1')*((invG_q_r*R_q_r')':*W_b_r)')'
 		D_l = eY_l; D_r = eY_r		
 		
-		if ("`fuzzy'"~="") {
+		if ("`fuzzy'"!="") {
 			T    = st_data(.,("`fuzzyvar'"), 0);	dT = 1
 			T_l  = select(T,X:<`c');  eT_l  = T_l[ind_l]
 			T_r  = select(T,X:>=`c'); eT_r  = T_r[ind_r]
 			D_l  = D_l,eT_l; D_r = D_r,eT_r
 		}
 		
-		if ("`covs'"~="") {
+		if ("`covs'"!="") {
 			eZ_l = Z_l[ind_l,]; eZ_r = Z_r[ind_r,]
 			D_l  = D_l,eZ_l; D_r = D_r,eZ_r
 			U_p_l = quadcross(R_p_l:*W_h_l,D_l); U_p_r = quadcross(R_p_r:*W_h_r,D_r)
 		}
 		
-		if ("`cluster'"~="") {
+		if ("`cluster'"!="") {
 			eC_l  = C_l[ind_l];	     eC_r  = C_r[ind_r]
 			indC_l = order(eC_l,1);  indC_r = order(eC_r,1) 
 			g_l = rows(panelsetup(eC_l[indC_l],1));	g_r = rows(panelsetup(eC_r[indC_r],1))
@@ -1076,7 +1088,7 @@ masspoints_found = 0
 	if ("`cluster'"!="")                               disp in smcl in gr "{ralign 18:Number of clusters}" _col(19) " {c |} " _col(21) as result %9.0f scalar(g_l)           _col(34) %9.0f  scalar(g_r)                         
 	disp ""
 			
-	if ("`fuzzy'"~="") {		
+	if ("`fuzzy'"!="") {		
 		disp in yellow "First-stage estimates. Outcome: `fuzzyvar'. Running variable: `x'."
 		disp in smcl in gr "{hline 19}{c TT}{hline 60}"
 		
@@ -1152,8 +1164,8 @@ masspoints_found = 0
 		if (scalar(b_l)>=`range_l' | scalar(b_r)>=`range_r') disp in red "WARNING: bandwidth {it:b} greater than the range of the data."
 		if (scalar(N_h_l)<20 | scalar(N_h_r)<20)             disp in red "WARNING: bandwidth {it:h} too low."
 		if (scalar(N_b_l)<20 | scalar(N_b_r)<20)             disp in red "WARNING: bandwidth {it:b} too low."
-		if ("`sharpbw'"~="")                                 disp in red "WARNING: bandwidths automatically computed for sharp RD estimation."
-		if ("`perf_comp'"~="")                               disp in red "WARNING: bandwidths automatically computed for sharp RD estimation because perfect compliance was detected on at least one side of the threshold."
+		if ("`sharpbw'"!="")                                 disp in red "WARNING: bandwidths automatically computed for sharp RD estimation."
+		if ("`perf_comp'"!="")                               disp in red "WARNING: bandwidths automatically computed for sharp RD estimation because perfect compliance was detected on at least one side of the threshold."
 	}
 	
 	local ci_l_rb = round(scalar(tau_bc - quant*se_tau_rb),0.001)
@@ -1206,7 +1218,14 @@ masspoints_found = 0
 	ereturn scalar h_r = scalar(h_r)
 	ereturn scalar b_l = scalar(b_l)
 	ereturn scalar b_r = scalar(b_r)
-	
+
+	* 2x2 bws matrix -- rows {h, b}, cols {left, right}. Mirrors R fit$bws / Py fit.bws.
+	tempname _bws_mat
+	matrix `_bws_mat' = ( scalar(h_l), scalar(h_r) \ scalar(b_l), scalar(b_r) )
+	matrix rownames `_bws_mat' = h b
+	matrix colnames `_bws_mat' = left right
+	ereturn matrix bws = `_bws_mat'
+
 	ereturn scalar tau_cl   = scalar(tau_cl)
 	ereturn scalar tau_cl_l = scalar(tau_Y_cl_l)
 	ereturn scalar tau_cl_r = scalar(tau_Y_cl_r)
@@ -1282,6 +1301,7 @@ masspoints_found = 0
 	ereturn local title    "`_rd_title'"
 	ereturn local cmdline  "rdrobust `0'"
 	ereturn local cmd      "rdrobust"
+	ereturn local precision "`precision'"
 
 	* Drop transient matrices/scalars used as Mata-to-Stata transport buffers
 	* so they don't leak into the caller's namespace.
@@ -1302,5 +1322,10 @@ masspoints_found = 0
 	mata: mata drop _mtx
 	local _mata_new : list _mata_after - _mata_before
 	if `"`_mata_new'"' != "" mata mata drop `_mata_new'
+
+	* Normalize _rc on success: the `cap scalar drop tau_T_*` above leaks
+	* _rc=111 on sharp RD (those scalars only exist for fuzzy designs),
+	* and subsequent mata: statements do not update _rc on success.
+	capture local _rc_ok = 0
 
 end

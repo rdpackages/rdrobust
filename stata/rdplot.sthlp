@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 11.0.0  2026-05-15}{...}
+{* *!version 11.1.0  2026-05-22}{...}
 {viewerjumpto "Syntax" "rdplot##syntax"}{...}
 {viewerjumpto "Description" "rdplot##description"}{...}
 {viewerjumpto "Options" "rdplot##options"}{...}
@@ -30,6 +30,7 @@
 {cmd:covs_eval(}{it:covars_eval}{cmd:)}
 {cmd:covs_drop(}{it:covsdropoption}{cmd:)}
 {cmd:masspoints(}{it:masspointsoption}{cmd:)}
+{cmd:precision(}{it:precopt}{cmd:)}
 {cmd:ci(}{it:cilevel}{cmd:)}
 {it:shade}
 {cmd:graph_options(}{it:gphopts}{cmd:)}
@@ -98,6 +99,8 @@ Options are:{p_end}
 {p 8 12}{opt check}  looks for and reports the number of unique observations at each side of the cutoff.   {p_end}
 {p 8 12}{opt adjust}  sets {cmd:binselect(}{it:binmethod}{cmd:)} as polynomial regression when mass points are present. {p_end}
 {p 8 12} Default option is {cmd:masspoints(adjust)}.{p_end}
+
+{p 4 8}{cmd:precision(}{it:precopt}{cmd:)} controls the storage precision of internal temporary variables (the {cmd:rdplot_*} output variables when {cmd:genvars} is requested). Options are {cmd:double} (default) and {cmd:single}; {cmd:single} maps to Stata's {cmd:float} storage type. Default is {cmd:precision(double)}.{p_end}
 
 {dlgtab:Polynomial Fit}
 
@@ -183,14 +186,15 @@ Default is {cmd:kernel(uniform)} (i.e., equal/no weighting to all observations o
 {synopt:{cmd:e(depvar)}}name of dependent (outcome) variable{p_end}
 {synopt:{cmd:e(runningvar)}}name of running variable{p_end}
 {synopt:{cmd:e(binselect)}}method used to compute the optimal number of bins{p_end}
+{synopt:{cmd:e(eq_l)}}polynomial equation (left of cutoff) as a string, suitable for overlaying the fit via {cmd:twoway function}{p_end}
+{synopt:{cmd:e(eq_r)}}polynomial equation (right of cutoff) as a string, suitable for overlaying the fit via {cmd:twoway function}{p_end}
+{synopt:{cmd:e(precision)}}storage precision selected via {cmd:precision()}: {cmd:double} (default) or {cmd:single}{p_end}
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:e(coef_l)}}coefficients of the {it:p}-th order polynomial estimated to the left of the cutoff{p_end}
 {synopt:{cmd:e(coef_r)}}coefficients of the {it:p}-th order polynomial estimated to the right of the cutoff{p_end}
 {synopt:{cmd:e(coef_covs)}}coefficients of the additional covariates, only returned when {cmd:covs()} are used{p_end}
-{synopt:{cmd:e(eq_l)}}polynomial equation (left of cutoff) as a string, suitable for overlaying the fit via {cmd:twoway function}{p_end}
-{synopt:{cmd:e(eq_r)}}polynomial equation (right of cutoff) as a string, suitable for overlaying the fit via {cmd:twoway function}{p_end}
 
 
 {marker references}{...}
