@@ -2,7 +2,7 @@
 * RDROBUST STATA PACKAGE -- rdrobust
 * Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell, Rocio Titiunik
 ********************************************************************************
-*!rdrobust Stata package v11.1.0  2026-05-22
+*! version 11.1.0 22may2026
 
 capture program drop rdrobust
 program define rdrobust, eclass
