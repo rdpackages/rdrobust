@@ -20,10 +20,72 @@ try:
     _NB_AVAILABLE = True
 except ImportError:
     _NB_AVAILABLE = False
+
     def njit(*args, **kwargs):
         if len(args) == 1 and callable(args[0]):
             return args[0]
         return lambda f: f
+
+
+# ------------------------------------------------------------------ options --
+#
+# Shared normalization and whitelists for the string-valued options, mirroring
+# rdrobust_norm_opt() / rdrobust_valid in the R package's functions.R.
+#
+# Every entry point must normalize BEFORE any branch reads the option.
+# Normalizing late is not cosmetic: rdplot() used to derive its kernel label
+# before lowercasing, so kernel="TRI" estimated with the triangular kernel but
+# reported "Uniform".
+
+RD_VALID = {
+    "kernel":     ['uni', 'uniform', 'tri', 'triangular', 'epa', 'epanechnikov', ''],
+    "bwselect":   ['mserd', 'msetwo', 'msesum', 'msecomb1', 'msecomb2',
+                   'cerrd', 'certwo', 'cersum', 'cercomb1', 'cercomb2', ''],
+    "vce":        ['nn', 'hc0', 'hc1', 'hc2', 'hc3', 'cr1', 'cr2', 'cr3', ''],
+    "masspoints": ['check', 'adjust', 'off', ''],
+    "binselect":  ['es', 'espr', 'esmv', 'esmvpr',
+                   'qs', 'qspr', 'qsmv', 'qsmvpr', ''],
+}
+
+
+def norm_opt(value):
+    """Trim and lowercase a string option; pass non-strings through unchanged.
+
+    None and False are sentinels used by masspoints, so they must survive.
+    """
+    if isinstance(value, str):
+        return value.strip().lower()
+    return value
+
+
+def bw_guard(bws, what="bandwidth"):
+    """Raise an informative error on a degenerate bandwidth cascade.
+
+    When the running variable has too little variation (typically a handful of
+    mass points) the V/B pilot quantities collapse and the selected bandwidth
+    comes out NaN or non-positive. Stata has printed a diagnostic for this
+    since forever (rdbwselect.ado:486,556,557); R and Python had no
+    counterpart, so rdbwselect() returned h = NaN silently and rdrobust() then
+    died with an unrelated-looking error deep in the fit.
+    """
+    arr = np.asarray(bws, dtype=float)
+    if np.all(np.isfinite(arr)) and np.all(arr > 0):
+        return True
+    raise Exception(
+        f"Not enough variability in the running variable to compute the {what}. "
+        "Check for mass points with masspoints='check'; if the running variable "
+        "is discrete, an RD design may not be identified at this sample size."
+    )
+
+
+def check_opt(value, what):
+    """Raise if `value` is outside the whitelist for `what`."""
+    if isinstance(value, str) and value in RD_VALID[what]:
+        return value
+    allowed = ", ".join(v for v in RD_VALID[what] if v)
+    raise Exception(
+        f"{what} incorrectly specified (received '{value}'); allowed: {allowed}."
+    )
 
 
 @njit(cache=True)

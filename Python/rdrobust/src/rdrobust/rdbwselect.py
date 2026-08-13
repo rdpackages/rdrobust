@@ -237,10 +237,34 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
     subset    = loc['subset']
     covs = resolve_covs(covs, data)
 
-    if prchk:
-        x = np.array(x).reshape(-1,1)
-        y = np.array(y).reshape(-1,1)
+    # Normalize the string options UNCONDITIONALLY. These used to live inside
+    # the `prchk` block below, so prchk=False skipped the lowercasing as well as
+    # the validation and left every downstream branch comparing against
+    # un-normalized values.
+    kernel     = norm_opt(kernel)
+    bwselect   = norm_opt(bwselect)
+    vce        = norm_opt(vce)
+    masspoints = norm_opt(masspoints)
 
+    # Argument DEFAULTS must also be applied unconditionally. They used to sit
+    # inside the `prchk` block, so prchk=False left c/p/q/deriv/all as None and
+    # the function crashed on the first arithmetic that touched them -- i.e. the
+    # documented prchk=False path could not be used at all without passing every
+    # one of these explicitly. Only the validation stays gated.
+    if all is None: all = False
+    if c is None: c = 0
+    if p is None and deriv is not None: p = deriv + 1
+    if p is None: p = 1
+    if q is None: q = p + 1
+    if deriv is None: deriv = 0
+    if masspoints is None: masspoints = False
+
+    # Input coercion is likewise unconditional: gating it meant prchk=False
+    # passed a pandas Series straight through to code that calls .reshape().
+    x = np.array(x).reshape(-1,1)
+    y = np.array(y).reshape(-1,1)
+
+    if prchk:
         # Validate auxiliary-vector lengths against length(x) BEFORE subset filter.
         n_orig = len(x)
         if len(y) != n_orig:
@@ -410,6 +434,7 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
     x_iq = x_q75 - x_q25
     BWp = min(np.std(x, ddof =1),x_iq/1.349)
     x_sd = y_sd = 1
+    c_orig = c          # keep the user-scale cutoff for the returns below
     if stdvars:
         y_sd = np.std(y,ddof = 1)
         x_sd = np.std(x,ddof = 1)
@@ -557,12 +582,21 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
     # Effective sample sizes for selected bandwidth
     h_sel_l = bws.iloc[0, 0]
     h_sel_r = bws.iloc[0, 1]
-    w_h_l = rdrobust_kweight(X_l, c, h_sel_l, kernel)
-    w_h_r = rdrobust_kweight(X_r, c, h_sel_r, kernel)
+    # Degenerate-cascade guard (see funs.py). Must run before the effective-N
+    # computation, which would otherwise count against a NaN window.
+    bw_guard(bws.iloc[0].values)
+
+    # X_l/X_r and c are on the STANDARDIZED scale here, while bws was restored
+    # to the original scale above. Comparing the two directly made every
+    # observation fall inside the window, so this reported the full sample
+    # instead of the effective one. Convert back before counting.
+    w_h_l = rdrobust_kweight(x_sd*X_l, c_orig, h_sel_l, kernel)
+    w_h_r = rdrobust_kweight(x_sd*X_r, c_orig, h_sel_r, kernel)
     N_h_l = int(np.sum(w_h_l > 0))
     N_h_r = int(np.sum(w_h_r > 0))
 
-    return rdbwselect_output(bws, bwselect, kernel_type, p, q, c,
+    # c_orig, not c: the returned cutoff must be on the user's scale.
+    return rdbwselect_output(bws, bwselect, kernel_type, p, q, c_orig,
                             [N_l,N_r], [N_h_l,N_h_r], [M_l,M_r], vce_type, masspoints)
 
 

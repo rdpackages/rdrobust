@@ -339,6 +339,20 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     
    
     
+    # Normalize the string options before anything branches on them. The kernel
+    # label is derived immediately below and the mass-point block rewrites
+    # binselect, so both must already be in canonical form: lowercasing later
+    # (as this function used to) made kernel="TRI" estimate triangular but
+    # report "Uniform".
+    kernel     = norm_opt(kernel)
+    binselect  = norm_opt(binselect)
+    masspoints = norm_opt(masspoints)
+
+    # binselect must be validated here, not left to fail downstream: an unknown
+    # value used to reach the bin-count logic and die with an unbound
+    # J_star_orig, even when nbins was supplied.
+    check_opt(binselect, "binselect")
+
     kernel_type = "Uniform"
     if kernel=="epanechnikov" or kernel=="epa": kernel_type = "Epanechnikov"
     if kernel=="triangular" or kernel=="tri": kernel_type = "Triangular"
@@ -383,10 +397,8 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     if c<=x_min or c>=x_max:
         raise Exception("c should be set within the range of x")
     
-    kernel   = kernel.lower()
-    kernel_list = ['uni','uniform','tri','triangular','epa','epanechnikov','']
-    if kernel not in kernel_list:   
-        raise Exception("kernel incorrectly specified")
+    # (kernel was normalized above, before the kernel label was derived.)
+    check_opt(kernel, "kernel")
         
     if not np.isscalar(p) or p not in range(21):
         raise Exception('Polynomial order p incorrectly specified.')

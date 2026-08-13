@@ -362,6 +362,10 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
                 and bwcheck == round(bwcheck)):
             raise Exception("bwcheck must be a single positive integer")
 
+    # masspoints was previously validated without being lowercased, so a
+    # capitalized-but-valid value was rejected while kernel/bwselect/vce
+    # accepted any case. Normalize first, then validate.
+    masspoints = norm_opt(masspoints)
     if (masspoints is not None and masspoints is not False
             and masspoints not in ("check", "adjust", "off", "")):
         raise Exception("masspoints must be one of 'check', 'adjust', 'off', or False")
@@ -526,7 +530,9 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
             
     if N<20:
         print("Not enough observations to perform bandwidth calculations. Estimates computed using entire sample")
-        h = b = np.max(range_l,range_r)
+        # np.max(range_l, range_r) passed range_r as the AXIS argument, so this
+        # raised TypeError every time the fallback fired. Use the builtin max.
+        h = b = max(range_l, range_r)
         bwselect = "Manual"
   
     if kernel=="epanechnikov" or kernel=="epa":
@@ -673,6 +679,9 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
             g_l=g_l_bw, g_r=g_r_bw, cluster_present=(cluster is not None),
             all=False,
         )
+        # Degenerate-cascade guard (see funs.py): without it a NaN bandwidth
+        # reached the estimation and surfaced as an unrelated-looking error.
+        bw_guard(bws_df.iloc[0].values)
         h_l, h_r, b_l, b_r = bws_df.iloc[0].values
         if rho is not None:
             b_l = h_l / rho
@@ -875,12 +884,18 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
         s_Y = (np.hstack([1,-gamma_p[:,0]])).reshape(-1,1)
         
         if fuzzy is None:
-            tau_cl = np.matmul(scalepar*s_Y.T,beta_p[deriv,:]).item()
-            tau_bc = np.matmul(scalepar*s_Y.T,beta_bc[deriv,:]).item()
-            tau_Y_cl_l = np.matmul(scalepar*s_Y.T,beta_p_l[deriv,:]).item()
-            tau_Y_cl_r = np.matmul(scalepar*s_Y.T,beta_p_r[deriv,:]).item()
-            tau_Y_bc_l = np.matmul(scalepar*s_Y.T,beta_bc_l[deriv,:]).item()
-            tau_Y_bc_r = np.matmul(scalepar*s_Y.T,beta_bc_r[deriv,:]).item()
+            # factorial(deriv) converts the local-polynomial coefficient into
+            # the derivative estimate. It was missing here (and only here --
+            # the no-covariate and fuzzy branches have always had it) while V
+            # carries factorial(deriv)**2, so for deriv >= 2 tau was 1/deriv!
+            # of the correct value and z, p and the CIs were all wrong.
+            fac = math.factorial(deriv)
+            tau_cl = np.matmul(scalepar*fac*s_Y.T,beta_p[deriv,:]).item()
+            tau_bc = np.matmul(scalepar*fac*s_Y.T,beta_bc[deriv,:]).item()
+            tau_Y_cl_l = np.matmul(scalepar*fac*s_Y.T,beta_p_l[deriv,:]).item()
+            tau_Y_cl_r = np.matmul(scalepar*fac*s_Y.T,beta_p_r[deriv,:]).item()
+            tau_Y_bc_l = np.matmul(scalepar*fac*s_Y.T,beta_bc_l[deriv,:]).item()
+            tau_Y_bc_r = np.matmul(scalepar*fac*s_Y.T,beta_bc_r[deriv,:]).item()
             bias_l = tau_Y_cl_l - tau_Y_bc_l
             bias_r = tau_Y_cl_r - tau_Y_bc_r
         else:
@@ -1051,12 +1066,17 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
         n_clust_l = len(np.unique(eC_l.reshape(-1)))
         n_clust_r = len(np.unique(eC_r.reshape(-1)))
         n_clust = len(np.unique(np.concatenate([eC_l.reshape(-1), eC_r.reshape(-1)])))
-    if fuzzy is None:
-        if deriv==0: rdmodel = covs_label + "Sharp RD estimates using local polynomial regression."
-        elif deriv==1: rdmodel = covs_label + "Sharp Kink RD estimates using local polynomial regression."
+    # The deriv >= 2 branch was dropped in the port from R, so rdmodel stayed
+    # unbound and every deriv >= 2 call raised UnboundLocalError *after* doing
+    # all the work. Mirrors rdrobust.R:834-852.
+    design = "Sharp" if fuzzy is None else "Fuzzy"
+    if deriv==0:
+        rdmodel = covs_label + design + " RD estimates using local polynomial regression."
+    elif deriv==1:
+        rdmodel = covs_label + design + " Kink RD estimates using local polynomial regression."
     else:
-        if deriv==0: rdmodel = covs_label + "Fuzzy RD estimates using local polynomial regression."
-        elif deriv==1: rdmodel = covs_label + "Fuzzy Kink RD estimates using local polynomial regression."
+        rdmodel = (covs_label + design + " RD estimates using local polynomial "
+                   "regression. Derivative of order " + str(deriv) + ".")
     if cluster is not None:
         rdmodel += " Std. errors are clustered (" + str(n_clust) + " clusters)."
 
