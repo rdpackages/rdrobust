@@ -1,3 +1,60 @@
+# ---------------------------------------------------------------- options ---
+#
+# Shared normalization and whitelists for the string-valued options.
+#
+# Every entry point (rdrobust, rdbwselect, rdplot) must normalize BEFORE any
+# branch reads the option. Normalizing late is not cosmetic: a capitalized but
+# otherwise valid value silently takes a different code path, e.g. vce = "NN"
+# used to skip the mass-point pre-sort and shift h and the standard errors by
+# about 4% with no warning.
+#
+# Keeping the whitelists in one place also stops rdrobust() and rdbwselect()
+# from drifting apart on what they accept.
+
+rdrobust_norm_opt <- function(value) {
+  # Non-character values (NULL, FALSE, ...) are sentinels; pass them through.
+  if (is.character(value) && length(value) == 1L) tolower(trimws(value)) else value
+}
+
+rdrobust_valid <- list(
+  kernel     = c("uni", "uniform", "tri", "triangular", "epa", "epanechnikov", ""),
+  bwselect   = c("mserd", "msetwo", "msesum", "msecomb1", "msecomb2",
+                 "cerrd", "certwo", "cersum", "cercomb1", "cercomb2", ""),
+  vce        = c("nn", "hc0", "hc1", "hc2", "hc3", "cr1", "cr2", "cr3", ""),
+  masspoints = c("check", "adjust", "off"),
+  binselect  = c("es", "espr", "esmv", "esmvpr",
+                 "qs", "qspr", "qsmv", "qsmvpr", "")
+)
+
+# Guard against a degenerate bandwidth cascade.
+#
+# When the running variable has too little variation (typically a handful of
+# mass points), the V and B pilot quantities collapse and the selected
+# bandwidth comes out NaN or non-positive. Stata has printed a diagnostic for
+# this since forever (rdbwselect.ado:486,556,557; rdrobust.ado:548,624,625);
+# R and Python had no counterpart, so rdbwselect() returned h = NaN silently
+# and rdrobust() then died with "missing value where TRUE/FALSE needed".
+#
+# Checking the final bandwidths in one place covers every selector branch.
+rdrobust_bw_guard <- function(bws, what = "bandwidth") {
+  if (all(is.finite(bws)) && all(bws > 0)) return(invisible(TRUE))
+  stop("Not enough variability in the running variable to compute the ", what,
+       ". Check for mass points with masspoints='check'; if the running ",
+       "variable is discrete, an RD design may not be identified at this ",
+       "sample size.", call. = FALSE)
+}
+
+# Returns a warning string when `value` is outside the whitelist, else NULL.
+rdrobust_check_opt <- function(value, what) {
+  if (is.character(value) && length(value) == 1L &&
+      value %in% rdrobust_valid[[what]]) {
+    return(NULL)
+  }
+  sprintf("%s incorrectly specified (received '%s'); allowed: %s.",
+          what, paste(as.character(value), collapse = ", "),
+          paste(setdiff(rdrobust_valid[[what]], ""), collapse = ", "))
+}
+
 # Normalize the `covs` argument into a numeric vector/matrix.
 #
 # Accepted forms:

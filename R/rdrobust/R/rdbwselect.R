@@ -102,7 +102,15 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
   if (!is.null(weights)) weights = as.matrix(weights[na.ok])
   
   if (is.null(masspoints)) masspoints=FALSE
-  
+
+  # Normalize the string options before anything branches on them, using the
+  # same helper as rdrobust(). rdbwselect() previously never lowercased at all,
+  # so kernel = "TRI" was rejected here while rdrobust() accepted it.
+  kernel     <- rdrobust_norm_opt(kernel)
+  bwselect   <- rdrobust_norm_opt(bwselect)
+  vce        <- rdrobust_norm_opt(vce)
+  masspoints <- rdrobust_norm_opt(masspoints)
+
   if (vce=="nn" | masspoints=="check" | masspoints=="adjust") {
     order_x = order(x)
     x = x[order_x,,drop=FALSE]
@@ -184,28 +192,25 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
   
     exit=0
     #################  ERRORS
-    if (kernel!="uni" & kernel!="uniform" & kernel!="tri" & kernel!="triangular" & kernel!="epa" & kernel!="epanechnikov" & kernel!="" ){
-      warning("kernel incorrectly specified")
-      exit = 1
-    }
-    
-    valid_bwselect <- c("mserd","msetwo","msesum","msecomb1","msecomb2",
-                        "cerrd","certwo","cersum","cercomb1","cercomb2","")
-    valid_vce      <- c("nn","hc0","hc1","hc2","hc3","cr1","cr2","cr3","")
+    # Whitelists are shared with rdrobust() (see functions.R) so the two
+    # front-ends cannot drift apart on what they accept.
+    msg <- rdrobust_check_opt(kernel, "kernel")
+    if (!is.null(msg)) { warning(msg); exit = 1 }
 
-    if (!bwselect %in% valid_bwselect) {
-      if (bwselect %in% c("cct","ik","cv","CCT","IK","CV")) {
+    if (!bwselect %in% rdrobust_valid$bwselect) {
+      if (bwselect %in% c("cct","ik","cv")) {
         warning("bwselect options IK, CCT and CV have been deprecated. Please see help for new options")
       } else {
-        warning("bwselect incorrectly specified")
+        warning(rdrobust_check_opt(bwselect, "bwselect"))
       }
       exit = 1
     }
 
-    if (!vce %in% valid_vce) {
-      warning("vce incorrectly specified")
-      exit = 1
-    }
+    msg <- rdrobust_check_opt(vce, "vce")
+    if (!is.null(msg)) { warning(msg); exit = 1 }
+
+    msg <- if (isFALSE(masspoints)) NULL else rdrobust_check_opt(masspoints, "masspoints")
+    if (!is.null(msg)) { warning(msg); exit = 1 }
 
     if (c<=x_min | c>=x_max){
       warning("c should be set within the range of x")
@@ -553,14 +558,23 @@ if (isFALSE(all)){
 
 
 
+### Degenerate-cascade guard (see functions.R). Must run before the effective-N
+### computation, which would otherwise be counting against a NaN window.
+rdrobust_bw_guard(bws)
+
 ### Eff N
-w_h_l <- rdrobust_kweight(X_l,c,bws[1,1],kernel)
-w_h_r <- rdrobust_kweight(X_r,c,bws[1,2],kernel)
+# X_l/X_r and c are on the STANDARDIZED scale here, while bws was restored to
+# the original scale above (x_sd*...). Comparing the two directly made every
+# observation fall inside the window, so this reported the full sample instead
+# of the effective one. Convert back before counting.
+w_h_l <- rdrobust_kweight(x_sd*X_l,c_orig,bws[1,1],kernel)
+w_h_r <- rdrobust_kweight(x_sd*X_r,c_orig,bws[1,2],kernel)
 N_h_l <- sum(w_h_l> 0)
 N_h_r <- sum(w_h_r> 0)
 
+  # c_orig, not c: the returned cutoff must be on the user's scale.
   out = list(bws=bws,
-             bwselect=bwselect, kernel=kernel_type, p=p, q=q, c=c,
+             bwselect=bwselect, kernel=kernel_type, p=p, q=q, c=c_orig,
              N=c(N_l,N_r), N_h=c(N_h_l,N_h_r), M=c(M_l,M_r), vce=vce_type, masspoints=masspoints)
   out$call <- match.call()
   class(out) <- "rdbwselect"

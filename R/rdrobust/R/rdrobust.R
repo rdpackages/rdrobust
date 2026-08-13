@@ -90,6 +90,13 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
 
   if (!is.null(weights)){
     if (!is.null(subset)) weights <- weights[subset]
+    # Negative weights used to be swept into the NA mask and dropped with no
+    # message at all (N fell 1297 -> 1247 in the audit). A negative weight is
+    # a user error, not missing data.
+    if (any(weights[complete.cases(weights)] < 0))
+      stop("`weights` must be non-negative; ",
+           sum(weights[complete.cases(weights)] < 0),
+           " negative value(s) found.", call. = FALSE)
     na.ok <- na.ok & complete.cases(weights) & weights>=0
   } 
   
@@ -106,6 +113,15 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   if (!is.null(weights)) weights = as.matrix(weights[na.ok])
   
   if (is.null(masspoints)) masspoints <- FALSE
+
+  # Normalize the string options BEFORE anything branches on them. The
+  # pre-sort decision immediately below reads vce and masspoints, so
+  # normalizing later (as this function used to) let vce = "NN" silently skip
+  # the sort and shift h and the standard errors.
+  kernel     <- rdrobust_norm_opt(kernel)
+  bwselect   <- rdrobust_norm_opt(bwselect)
+  vce        <- rdrobust_norm_opt(vce)
+  masspoints <- rdrobust_norm_opt(masspoints)
 
   if (vce=="nn" | masspoints=="check" |masspoints=="adjust") {
     order_x <- order(x)
@@ -138,11 +154,25 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
       warning("Multicollinearity issue detected in covs. Redundant covariates dropped.")  
     }
   }
+
+  # With covs_drop = FALSE the rank-deficient design reached the Cholesky and
+  # surfaced as a raw LAPACK message ("the leading minor of order 2 is not
+  # positive"), which names neither the cause nor the remedy. Detect it here.
+  if (!is.null(covs) && !isTRUE(covs_drop)) {
+    .cv <- as.matrix(covs)
+    .ok <- complete.cases(.cv)
+    if (sum(.ok) > 0L && qr(.cv[.ok, , drop = FALSE])$rank < ncol(.cv)) {
+      stop("`covs` is rank deficient (", ncol(.cv), " columns, rank ",
+           qr(.cv[.ok, , drop = FALSE])$rank,
+           "): the covariates are collinear. Use covs_drop = TRUE to drop the ",
+           "redundant columns automatically, or remove them yourself.",
+           call. = FALSE)
+    }
+  }
   
-  kernel   <- tolower(kernel)
-  bwselect <- tolower(bwselect)
-  vce      <- tolower(vce)
-  
+  # (kernel / bwselect / vce / masspoints were normalized above, before the
+  # pre-sort decision.)
+
   x_sd = y_sd = 1
   if (is.null(h) & isTRUE(stdvars)) {
     y_sd = sd(y)
@@ -236,6 +266,13 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
     exit = 1
   }
 
+  if (length(nnmatch) != 1L || !is.finite(nnmatch) || nnmatch <= 0 ||
+      nnmatch != round(nnmatch)) {
+    warning(sprintf("nnmatch must be a single positive integer (received '%s').",
+                    toString(nnmatch)))
+    exit = 1
+  }
+
   if (!vce %in% valid_vce) {
     warning(sprintf("vce incorrectly specified (received '%s'); allowed: nn, hc0, hc1, hc2, hc3, cr1, cr2, cr3.", vce))
     exit = 1
@@ -302,7 +339,11 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   
   if (N<20){
 			warning("Not enough observations to perform bandwidth calculations. Estimates computed using entire sample")
-      h = b = max(range_l,range_r)
+      # range_l/range_r are computed from the STANDARDIZED x (see above), while
+      # h is consumed on the original scale after the restore below. Without
+      # x_sd this returned a standardized bandwidth: a crash in the NN loop
+      # when sd(x) > 1, or a silently misreported h when sd(x) < 1.
+      h = b = x_sd*max(range_l,range_r)
 			bwselect = "Manual"
 		}
   
@@ -496,6 +537,12 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
     if (bwselect=="cercomb1")               bws[1,] = c(h_cercomb1,   h_cercomb1,   b_cercomb1,   b_cercomb1)
     if (bwselect=="cercomb2")               bws[1,] = c(h_cercomb2_l, h_cercomb2_r, b_cercomb2_l, b_cercomb2_r)
 
+    # Degenerate-cascade guard (see functions.R). rdrobust inlines its own
+    # bandwidth block, so it needs the same check as rdbwselect: without it a
+    # NaN bandwidth reached the estimation and surfaced as the uninformative
+    # "missing value where TRUE/FALSE needed".
+    rdrobust_bw_guard(bws[1, , drop = FALSE])
+
     h_l = bws[1,1]; h_r = bws[1,2]
     b_l = bws[1,3]; b_r = bws[1,4]
     if (!is.null(rho)) {
@@ -520,10 +567,16 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
       }  
     }
 
-  if (isTRUE(stdvars)) { 
+  if (isTRUE(stdvars)) {
     c = c*x_sd
   	X_l = X_l*x_sd;	X_r = X_r*x_sd
   	Y_l = Y_l*y_sd;	Y_r = Y_r*y_sd
+  	# x and y must be restored too: the fuzzy re-split below (perfect
+  	# compliance / sharpbw) subsets `fuzzy` with `x < c`, and c has just been
+  	# put back on the original scale. Leaving x standardized made that
+  	# comparison mix scales and crash (or silently mis-split) whenever c != 0.
+  	x = x*x_sd
+  	y = y*y_sd
   }
   
   ### end BW selection
@@ -532,6 +585,16 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   ### Estimation
   w_h_l <- rdrobust_kweight(X_l,c,h_l,kernel);	w_h_r <- rdrobust_kweight(X_r,c,h_r,kernel)
   w_b_l <- rdrobust_kweight(X_l,c,b_l,kernel);	w_b_r <- rdrobust_kweight(X_r,c,b_r,kernel)
+
+  # A bandwidth that leaves one side of the cutoff empty used to surface as
+  # "missing value where TRUE/FALSE needed" from deep inside the fit. Say what
+  # actually happened instead.
+  if (sum(w_h_l > 0) == 0 || sum(w_h_r > 0) == 0) {
+    stop(sprintf(paste0("No observations within the bandwidth on the %s of the cutoff ",
+                        "(h = %g / %g). Increase h, or check that c is inside the support of x."),
+                 if (sum(w_h_l > 0) == 0) "left" else "right", h_l, h_r),
+         call. = FALSE)
+  }
   
   if (!is.null(weights)) {
     w_h_l <- fw_l*w_h_l;	w_h_r <- fw_r*w_h_r
@@ -672,18 +735,27 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
     s_Y = c(1 ,  -gamma_p[,1])
     
     if (is.null(fuzzy)) {
-        tau_cl = scalepar*t(s_Y)%*%beta_p[(deriv+1),]
-        tau_bc = scalepar*t(s_Y)%*%beta_bc[(deriv+1),]
-        
-        tau_Y_cl_l = scalepar*t(s_Y)%*%beta_p_l[(deriv+1),]
-        tau_Y_cl_r = scalepar*t(s_Y)%*%beta_p_r[(deriv+1),]
-        tau_Y_bc_l = scalepar*t(s_Y)%*%beta_bc_l[(deriv+1),]
-        tau_Y_bc_r = scalepar*t(s_Y)%*%beta_bc_r[(deriv+1),]
+        # factorial(deriv) converts the local-polynomial coefficient into the
+        # derivative estimate. It was missing here (and only here -- the
+        # no-covariate and fuzzy branches have always had it) while V carries
+        # factorial(deriv)^2, so for deriv >= 2 tau was 1/deriv! of the correct
+        # value and z, p and the CIs were all wrong.
+        fac = factorial(deriv)
+        tau_cl = scalepar*fac*t(s_Y)%*%beta_p[(deriv+1),]
+        tau_bc = scalepar*fac*t(s_Y)%*%beta_bc[(deriv+1),]
+
+        tau_Y_cl_l = scalepar*fac*t(s_Y)%*%beta_p_l[(deriv+1),]
+        tau_Y_cl_r = scalepar*fac*t(s_Y)%*%beta_p_r[(deriv+1),]
+        tau_Y_bc_l = scalepar*fac*t(s_Y)%*%beta_bc_l[(deriv+1),]
+        tau_Y_bc_r = scalepar*fac*t(s_Y)%*%beta_bc_r[(deriv+1),]
         bias_l = tau_Y_cl_l-tau_Y_bc_l
         bias_r = tau_Y_cl_r-tau_Y_bc_r 
         
-        beta_Y_p_l = scalepar*tcrossprod(s_Y,beta_p_l)
-        beta_Y_p_r = scalepar*tcrossprod(s_Y,beta_p_r)
+        # Same omission as tau above: every other branch (no-covs at :640,
+        # fuzzy+covs at :720, and all three Stata branches) carries
+        # factorial(deriv) here.
+        beta_Y_p_l = scalepar*fac*tcrossprod(s_Y,beta_p_l)
+        beta_Y_p_r = scalepar*fac*tcrossprod(s_Y,beta_p_r)
 
     } else {
       s_T  = c(1,    -gamma_p[,2])
@@ -1201,9 +1273,17 @@ coef.rdrobust <- function(object, ...) {
 }
 
 vcov.rdrobust <- function(object, ...) {
+  # NOTE: diagonal only. The rows are the Conventional, Bias-Corrected and
+  # Robust estimators of the SAME parameter, so the off-diagonal entries are
+  # genuine covariances -- but the quantities needed to form them (the design
+  # matrices behind tau_cl and tau_bc) are not retained on the fitted object,
+  # so they cannot be recovered here. They are returned as zero, which is a
+  # placeholder, NOT an estimate of independence. Do not use this matrix to
+  # test across rows; use `object$se` for per-row inference.
   se <- as.vector(object$se)
   V  <- diag(se^2, nrow = length(se), ncol = length(se))
   dimnames(V) <- list(rownames(object$se), rownames(object$se))
+  attr(V, "offdiag") <- "not estimated (placeholder zeros)"
   V
 }
 
