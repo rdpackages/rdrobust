@@ -47,11 +47,23 @@ program define rdbwselect, eclass
 
 	local kernel   = lower("`kernel'")
 	local bwselect = lower("`bwselect'")
+
+	* Normalize the remaining string options here, before anything branches on
+	* them (same treatment as rdrobust.ado). Empty values stay empty so the
+	* DEFAULTS block below still fires.
+	local masspoints = lower("`masspoints'")
+	local stdvars    = lower("`stdvars'")
+	local bwrestrict = lower("`bwrestrict'")
+	local covs_drop  = lower("`covs_drop'")
 	
 	******************** Set VCE ***************************
 	local nnmatch = 3
 	local cr_method = ""
 	tokenize `vce'
+	* Normalize the vce TYPE (first token) only -- later tokens are a cluster
+	* variable name and an nnmatch count, and variable names are case sensitive.
+	local _w : word count `vce'
+	if `_w' >= 1 local 1 = lower(`"`1'"')
 	local w : word count `vce'
 	if `w' == 1 {
 		local vce_select `"`1'"'
@@ -222,7 +234,26 @@ program define rdbwselect, eclass
 	**** DEFAULTS ***************************************
 	if ("`masspoints'"=="") local masspoints = "adjust"
 	if ("`stdvars'"=="")    local stdvars    = "on"
-	if ("`bwrestrict'"=="") local bwrestrict = "on"	
+	if ("`bwrestrict'"=="") local bwrestrict = "on"
+
+	* Validate the on/off-style options; an unrecognized value used to fall
+	* through to the "not on" branch and be silently treated as off.
+	if !inlist("`masspoints'","adjust","check","off") {
+		di as error "{err}{cmd:masspoints()} incorrectly specified (received '`masspoints''); allowed: adjust, check, off."
+		exit 198
+	}
+	if !inlist("`stdvars'","on","off") {
+		di as error "{err}{cmd:stdvars()} incorrectly specified (received '`stdvars''); allowed: on, off."
+		exit 198
+	}
+	if !inlist("`bwrestrict'","on","off") {
+		di as error "{err}{cmd:bwrestrict()} incorrectly specified (received '`bwrestrict''); allowed: on, off."
+		exit 198
+	}
+	if !inlist("`covs_drop'","off","invsym","pinv") {
+		di as error "{err}{cmd:covs_drop()} incorrectly specified (received '`covs_drop''); allowed: off, invsym, pinv."
+		exit 198
+	}	
 	*****************************************************************
 	
 			qui su `x', d
@@ -338,8 +369,12 @@ program define rdbwselect, eclass
 		sort `x', stable
 		if ("`vce_select'"=="nn") {
 			tempvar dups dupsid
-			by `x': gen `storage_type' dups = _N
-			by `x': gen `storage_type' dupsid = _n
+			* Use the TEMPVAR macros, not the literal names: `gen dups = _N`
+			* created a permanent variable called `dups`, so a user variable of
+			* that name broke every default vce(nn) run (and the rc=110 was
+			* masked into a misleading rc=3499 by the capture-noisily+mata path).
+			by `x': gen `storage_type' `dups' = _N
+			by `x': gen `storage_type' `dupsid' = _n
 		}
 	}	
 	
@@ -386,7 +421,7 @@ program define rdbwselect, eclass
 	dZ=Z_l=Z_r=T_l=T_r=Cind_l=Cind_r=g_l=g_r=dups_l=dups_r=dupsid_l=dupsid_r=0
 
 	if ("`vce_select'"=="nn") {
-		dups      = st_data(.,("dups"), 0); dupsid    = st_data(.,("dupsid"), 0)
+		dups      = st_data(.,("`dups'"), 0); dupsid    = st_data(.,("`dupsid'"), 0)
 		dups_l    = select(dups,ind_l);    dups_r    = select(dups,ind_r)
 		dupsid_l  = select(dupsid,ind_l);  dupsid_r  = select(dupsid,ind_r)
 	}
@@ -712,7 +747,9 @@ program define rdbwselect, eclass
 	}
 	disp ""
 
-	disp in smcl in gr "{ralign 18: Cutoff c = `c_orig'}"  _col(19) " {c |} " _col(21) in gr "Left of " in yellow "c"  _col(33) in gr "Right of " in yellow "c" _col(55) in gr "Number of obs = "  in yellow %10.0f scalar(N)
+	* `c_orig' was never defined, so the header printed a BLANK cutoff on every
+	* run. rdrobust displays the option macro `c' directly; do the same.
+	disp in smcl in gr "{ralign 18: Cutoff c = `c'}"  _col(19) " {c |} " _col(21) in gr "Left of " in yellow "c"  _col(33) in gr "Right of " in yellow "c" _col(55) in gr "Number of obs = "  in yellow %10.0f scalar(N)
 	disp in smcl in gr "{hline 19}{c +}{hline 22}"                                                                                                              _col(55) in gr "Kernel        = "  in yellow "{ralign 10:`kernel_type'}" 
 	disp in smcl in gr "{ralign 18:Number of obs}"         _col(19) " {c |} " _col(21) as result %9.0f scalar(N_l)      _col(34) %9.0f  scalar(N_r)                         _col(55) in gr "VCE method    = "  in yellow "{ralign 10:`vce_type'}" 
 	disp in smcl in gr "{ralign 18:Min of `x'}"            _col(19) " {c |} " _col(21) as result %9.3f scalar(x_l_min)  _col(34) %9.3f  scalar(x_r_min)  

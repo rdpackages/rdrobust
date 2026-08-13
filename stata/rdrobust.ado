@@ -46,12 +46,27 @@ program define rdrobust, eclass
 
 	local kernel   = lower("`kernel'")
 	local bwselect = lower("`bwselect'")
-	
+
+	* Normalize the remaining string options here, before anything branches on
+	* them. These used to be compared case-sensitively against lowercase
+	* literals, so stdvars(ON) silently behaved as stdvars(off) -- a 43-fold
+	* difference in the selected bandwidth on scaled data, with no warning.
+	* Empty values are left empty so the DEFAULTS block below still fires.
+	local masspoints = lower("`masspoints'")
+	local stdvars    = lower("`stdvars'")
+	local bwrestrict = lower("`bwrestrict'")
+	local covs_drop  = lower("`covs_drop'")
+
 	******************** Set VCE ***************************
 	local nnmatch = 3
 	local cr_method = ""
 	tokenize `vce'
 	local w : word count `vce'
+	* Normalize the vce TYPE (first token) only. The remaining tokens are a
+	* cluster variable name and an nnmatch count, and Stata variable names are
+	* case sensitive, so they must not be lowercased. Without this, vce(NN)
+	* failed with rc=7 while kernel() and bwselect() accepted any case.
+	if `w' >= 1 local 1 = lower(`"`1'"')
 	if `w' == 1 {
 		local vce_select `"`1'"'
 	}
@@ -161,6 +176,12 @@ program define rdrobust, eclass
 		exit 125
 	}
 	
+	* Transport buffers for the coefficient / variance matrices. These used to
+	* be created as GLOBAL matrices literally named `b' and `V', which silently
+	* destroyed any user matrices of those names (they were dropped again at the
+	* end, so the originals were gone for good).
+	tempname bmat Vmat
+
 	*** Manual bandwidth
 	if ("`h'"!="") {
 		local bwselect = "Manual"
@@ -169,11 +190,23 @@ program define rdrobust, eclass
 			local b_l = `h_l'
 		}		
 		
-		scalar rho= round(`rho', .0001)
-		if (rho>0)  {
-			local b_l = `h_l'/`rho'
-			local b_r = `h_r'/`rho'
-		}		
+		* Was `scalar rho = ...`, a GLOBAL scalar that clobbered any user scalar
+		* named rho and was never dropped. A local suffices -- it is used only
+		* in the two lines below.
+		local rho_use = round(`rho', .0001)
+		if (`rho_use' > 0)  {
+			* rho() silently overrode an explicit b(). Say so.
+			if ("`b'" != "") {
+				di as text "Note: both b() and rho() were specified; rho() takes precedence and b() is ignored (b = h/rho)."
+			}
+			local b_l = `h_l'/`rho_use'
+			local b_r = `h_r'/`rho_use'
+		}
+		else if (`rho' > 0) {
+			* A positive rho below 5e-5 rounds to 0 and was silently discarded.
+			di as error "{err}{cmd:rho()} = `rho' is too small: it rounds to 0 at the 1e-4 precision used here and would be ignored."
+			exit 125
+		}
 	}	
 	
 	*** Default bandwidth 
@@ -267,7 +300,27 @@ program define rdrobust, eclass
 	**** DEFAULTS ***************************************
 	if ("`masspoints'"=="") local masspoints = "adjust"
 	if ("`stdvars'"=="")    local stdvars    = "on"
-	if ("`bwrestrict'"=="") local bwrestrict = "on"	
+	if ("`bwrestrict'"=="") local bwrestrict = "on"
+
+	* Validate the on/off-style options against their whitelists. Previously an
+	* unrecognized value fell through to the "not on" branch and was silently
+	* treated as off, which quietly defeated the scale-robustness default.
+	if !inlist("`masspoints'","adjust","check","off") {
+		di as error "{err}{cmd:masspoints()} incorrectly specified (received '`masspoints''); allowed: adjust, check, off."
+		exit 198
+	}
+	if !inlist("`stdvars'","on","off") {
+		di as error "{err}{cmd:stdvars()} incorrectly specified (received '`stdvars''); allowed: on, off."
+		exit 198
+	}
+	if !inlist("`bwrestrict'","on","off") {
+		di as error "{err}{cmd:bwrestrict()} incorrectly specified (received '`bwrestrict''); allowed: on, off."
+		exit 198
+	}
+	if !inlist("`covs_drop'","off","invsym","pinv") {
+		di as error "{err}{cmd:covs_drop()} incorrectly specified (received '`covs_drop''); allowed: off, invsym, pinv."
+		exit 198
+	}
 	*****************************************************************
 	
 	* Only compute what we need. `su x, d` also computes skewness/kurtosis/etc.
@@ -395,8 +448,12 @@ program define rdrobust, eclass
 		sort `x', stable
 		if ("`vce_select'"=="nn") {
 			tempvar dups dupsid
-			by `x': gen `storage_type' dups = _N
-			by `x': gen `storage_type' dupsid = _n
+			* Use the TEMPVAR macros, not the literal names: `gen dups = _N`
+			* created a permanent variable called `dups`, so a user variable of
+			* that name broke every default vce(nn) run (and the rc=110 was
+			* masked into a misleading rc=3499 by the capture-noisily+mata path).
+			by `x': gen `storage_type' `dups' = _N
+			by `x': gen `storage_type' `dupsid' = _n
 		}
 	}
 
@@ -426,6 +483,14 @@ program define rdrobust, eclass
 		dZ=dT=dC=Z_l=Z_r=T_l=T_r=C_l=C_r=fw_l=fw_r=g_l=g_r=dups_l=dups_r=dupsid_l=dupsid_r=g_l=g_r=eT_l=eT_r=eZ_l=eZ_r=indC_l=indC_r=eC_l=eC_r=0
 		
 		N   = length(X);	N_l = length(X_l);	N_r = length(X_r)
+
+		// Unique-value counts per side, computed HERE because this block is
+		// common to the manual-h and auto-bandwidth paths. They used to be set
+		// only inside the auto-bandwidth branch, so h() + masspoints(check)
+		// crashed rc=111 at the display -- or, after an earlier run in the same
+		// session, silently displayed STALE counts from that run.
+		st_numscalar("M_l", length(uniqrows(X_l)))
+		st_numscalar("M_r", length(uniqrows(X_r)))
 				
 		if ("`covs'"!="") {
 			Z   = st_data(.,tokens("`covs_list'"), 0); dZ  = cols(Z)
@@ -463,7 +528,7 @@ program define rdrobust, eclass
 		}
 		
 		if ("`vce_select'"=="nn") {
-			dups      = st_data(.,("dups"), 0); dupsid    = st_data(.,("dupsid"), 0)
+			dups      = st_data(.,("`dups'"), 0); dupsid    = st_data(.,("`dupsid'"), 0)
 			dups_l    = dups[ind_l];    dups_r    = dups[ind_r]
 			dupsid_l  = dupsid[ind_l];  dupsid_r  = dupsid[ind_r]
 		}
@@ -740,7 +805,10 @@ masspoints_found = 0
 		
 		if (rank(invG_p_l)==. | rank(invG_p_r)==. | rank(invG_q_l)==. | rank(invG_q_r)==. ){
 		display("{err}Invertibility problem: check variability of running variable around cutoff. Try checking for mass points with option {cmd:masspoints(check)}.")
-			exit(1)
+			* rc=1 is Stata's --Break--, so under `qui` the user saw ONLY
+			* "--Break--" with no hint of the real cause. 506 is the standard
+			* "matrix not positive definite" code.
+			exit(506)
 		}
 		
 		e_p1 = J((`q'+1),1,0); e_p1[`p'+2]=1
@@ -839,12 +907,17 @@ masspoints_found = 0
 			
 			*** Sharp RD ********************
 			if (dT==0) {
-				tau_cl = `scalepar'*s_Y'*beta_p[(`deriv'+1),]'
-				tau_bc = `scalepar'*s_Y'*beta_bc[(`deriv'+1),]'				
-				tau_Y_cl_l = `scalepar'*s_Y'*beta_p_l[(`deriv'+1),]'
-				tau_Y_cl_r = `scalepar'*s_Y'*beta_p_r[(`deriv'+1),]'
-				tau_Y_bc_l = `scalepar'*s_Y'*beta_bc_l[(`deriv'+1),]'
-				tau_Y_bc_r = `scalepar'*s_Y'*beta_bc_r[(`deriv'+1),]'				
+				* factorial(deriv) converts the local-polynomial coefficient
+				* into the derivative estimate. It was missing on these tau
+				* lines while beta_Y_p_l/r below and V both carry it, so for
+				* deriv >= 2 tau was 1/deriv! of the correct value and the
+				* returns were internally inconsistent.
+				tau_cl = `scalepar'*factorial(`deriv')*s_Y'*beta_p[(`deriv'+1),]'
+				tau_bc = `scalepar'*factorial(`deriv')*s_Y'*beta_bc[(`deriv'+1),]'				
+				tau_Y_cl_l = `scalepar'*factorial(`deriv')*s_Y'*beta_p_l[(`deriv'+1),]'
+				tau_Y_cl_r = `scalepar'*factorial(`deriv')*s_Y'*beta_p_r[(`deriv'+1),]'
+				tau_Y_bc_l = `scalepar'*factorial(`deriv')*s_Y'*beta_bc_l[(`deriv'+1),]'
+				tau_Y_bc_r = `scalepar'*factorial(`deriv')*s_Y'*beta_bc_r[(`deriv'+1),]'				
 				bias_l = tau_Y_cl_l-tau_Y_bc_l
 				bias_r = tau_Y_cl_r-tau_Y_bc_r 		
 				
@@ -1019,8 +1092,8 @@ masspoints_found = 0
 		*                                                          displayed table)
 		*   Robust:         point = tau_bc,  SE = sqrt(V_tau_rb)  (CCT-recommended RBC)
 		* e(V) is block-diagonal (each row is its own estimand).
-		st_matrix("b", (tau_cl, tau_bc, tau_bc))
-		st_matrix("V", (V_tau_cl, 0, 0 \ 0, V_tau_cl, 0 \ 0, 0, V_tau_rb))
+		st_matrix("`bmat'", (tau_cl, tau_bc, tau_bc))
+		st_matrix("`Vmat'", (V_tau_cl, 0, 0 \ 0, V_tau_cl, 0 \ 0, 0, V_tau_rb))
 		st_matrix("V_Y_cl_r", V_Y_cl_r); st_matrix("V_Y_cl_l", V_Y_cl_l)
 		st_matrix("V_Y_bc_r", V_Y_bc_r); st_matrix("V_Y_bc_l", V_Y_bc_l)
 		st_numscalar("masspoints_found", masspoints_found)
@@ -1171,9 +1244,9 @@ masspoints_found = 0
 	local ci_l_rb = round(scalar(tau_bc - quant*se_tau_rb),0.001)
 	local ci_r_rb = round(scalar(tau_bc + quant*se_tau_rb),0.001)
 
-	matrix colnames b = Conventional Bias-corrected Robust
-	matrix rownames V = Conventional Bias-corrected Robust
-	matrix colnames V = Conventional Bias-corrected Robust
+	matrix colnames `bmat' = Conventional Bias-corrected Robust
+	matrix rownames `Vmat' = Conventional Bias-corrected Robust
+	matrix colnames `Vmat' = Conventional Bias-corrected Robust
 
 	}
 	local _rc = _rc
@@ -1200,7 +1273,7 @@ masspoints_found = 0
 
 	ereturn clear
 
-	ereturn post b V, esample(`touse')
+	ereturn post `bmat' `Vmat', esample(`touse')
 	
 	ereturn scalar N = `N'
 	ereturn scalar N_l = scalar(N_l)
@@ -1305,12 +1378,12 @@ masspoints_found = 0
 
 	* Drop transient matrices/scalars used as Mata-to-Stata transport buffers
 	* so they don't leak into the caller's namespace.
-	cap matrix drop b V
 	cap scalar drop h_l h_r b_l b_r quant
 	cap scalar drop N_h_l N_h_r N_b_l N_b_r
 	cap scalar drop tau_cl tau_bc se_tau_cl se_tau_rb
 	cap scalar drop tau_Y_cl_l tau_Y_cl_r tau_Y_bc_l tau_Y_bc_r
 	cap scalar drop bias_l bias_r g_l g_r masspoints_found
+	cap scalar drop M_l M_r
 	cap scalar drop tau_T_cl tau_T_bc se_tau_T_cl se_tau_T_rb
 	cap scalar drop tau_T_cl_l tau_T_cl_r tau_T_bc_l tau_T_bc_r
 
