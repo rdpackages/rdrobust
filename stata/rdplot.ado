@@ -910,6 +910,20 @@ if  ("`covs_eval'"=="mean" & "`covs'"!="") {
 ** PART 2: genvars=TRUE
 ****************************
 if ("`genvars'"!="") {
+	* The missing-value drops happened inside the work frame, which has since
+	* been dropped, so `touse' here is still the raw [if]/[in] sample. Two
+	* consequences, both fixed by narrowing it to the analytic sample with the
+	* same `drop_cond' the work frame used:
+	*   (a) genvars attached bin statistics to observations that never entered
+	*       the estimation (missing y, missing covs, non-positive weights);
+	*   (b) it CRASHED rc=3301 whenever such an observation had a valid x that
+	*       fell in a bin holding no retained observation -- select() returned
+	*       0 rows and the 1x10 assignment below failed. Verified on 3000 obs
+	*       with y missing in 1/150 and x in 151/260: 418 bins but only 417
+	*       non-empty, and row 50 (missing y, x=.304) mapped to the empty
+	*       bin 63.
+	qui replace `touse' = 0 if `drop_cond'
+
 	* ST-10: a second genvars run died with a bare rc=110 ("already defined").
 	* Name the collision instead. Deliberately NOT a blanket
 	* `capture drop rdplot_*': that would delete user variables that merely
@@ -937,11 +951,18 @@ if ("`genvars'"!="") {
 					bin_i = 2; while(ZZ[i,1] >= bins[bin_i] & bin_i < length(bins)) bin_i++
 					rdplot_i = bin_i - `J_star_l' - 2
 					if (rdplot_i >= 0) rdplot_i = rdplot_i + 1
-					ZZ[i,2..11] = select(rdplot, rdplot[.,1]:==rdplot_i)
+					// A bin can legitimately hold no observation (mass points,
+					// an extended support(), a very large J). select() then
+					// returns 0 rows and this assignment used to abort the
+					// whole command; leave the bin columns missing instead.
+					_sel = select(rdplot, rdplot[.,1]:==rdplot_i)
+					if (rows(_sel) == 1) {
+					ZZ[i,2..11] = _sel
 					ZZ[i,12] = 0; for (j=0; j<=p; j++) {
-					if (ZZ[i,2] <0) ZZ[i,12] = ZZ[i,12] + ((ZZ[i,1]-c)^j)*gamma_p1_l[j+1] 
+					if (ZZ[i,2] <0) ZZ[i,12] = ZZ[i,12] + ((ZZ[i,1]-c)^j)*gamma_p1_l[j+1]
 					else            ZZ[i,12] = ZZ[i,12] + ((ZZ[i,1]-c)^j)*gamma_p1_r[j+1]
-					}		
+					}
+					}
 				}
 			}
 		}
