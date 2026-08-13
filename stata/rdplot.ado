@@ -7,7 +7,11 @@
 capture program drop rdplot
 program define rdplot, eclass
 	version 16.0
-	syntax anything [if] [, c(real 0) p(integer 4) nbins(string) covs(string) covs_eval(string) covs_drop(string)  binselect(string) scale(string) kernel(string) weights(string) h(string) support(string) masspoints(string) genvars hide ci(real 0) shade graph_options(string asis) nochecks PRECision(string)  *]
+	* ST-10: the trailing `*' used to collect any unrecognised option into
+	* `options', which this ado never reads -- so a typo'd option was accepted
+	* and silently ignored, while rdrobust and rdbwselect correctly rc=198 on
+	* the same mistake. Twoway options have their own graph_options() slot.
+	syntax anything [if] [, c(real 0) p(integer 4) nbins(string) covs(string) covs_eval(string) covs_drop(string)  binselect(string) scale(string) kernel(string) weights(string) h(string) support(string) masspoints(string) genvars hide ci(real 0) shade graph_options(string asis) nochecks PRECision(string)]
 
 	marksample touse
 	capture mata: mata describe rdrobust_kweight()
@@ -906,6 +910,21 @@ if  ("`covs_eval'"=="mean" & "`covs'"!="") {
 ** PART 2: genvars=TRUE
 ****************************
 if ("`genvars'"!="") {
+	* ST-10: a second genvars run died with a bare rc=110 ("already defined").
+	* Name the collision instead. Deliberately NOT a blanket
+	* `capture drop rdplot_*': that would delete user variables that merely
+	* share the prefix (the defect fixed in nprobust lprobust.ado ST-12).
+	local _rdp_exist ""
+	foreach _v in id N min_bin max_bin mean_bin mean_x mean_y se_y ci_l ci_r hat_y {
+		capture confirm variable rdplot_`_v'
+		if (_rc == 0) local _rdp_exist "`_rdp_exist' rdplot_`_v'"
+	}
+	cap local _x = 0
+	if ("`_rdp_exist'" != "") {
+		di as err "genvars: the following variables already exist:`_rdp_exist'"
+		di as err "Drop them before rerunning rdplot with genvars, e.g.  drop`_rdp_exist'"
+		exit 110
+	}
 	qui for any id N min_bin max_bin mean_bin mean_x mean_y se_y ci_l ci_r hat_y: qui gen `storage_type' rdplot_X = .
 }
 

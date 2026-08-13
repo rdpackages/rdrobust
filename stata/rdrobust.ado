@@ -1273,6 +1273,14 @@ masspoints_found = 0
 
 	ereturn clear
 
+	* ST-6: `touse' came from `marksample' and so marked the [if]/[in] sample
+	* ONLY. Every missing-value drop happens inside the work frame, so
+	* e(sample) claimed rows that never entered the estimation (verified 1390
+	* marked vs e(N)=1244). `drop_cond' is written over variables that exist
+	* in this frame too, and locals survive the frame switch, so re-apply the
+	* very same condition here. Same fix as rdhte.ado ST-8.
+	qui replace `touse' = 0 if `drop_cond'
+
 	ereturn post `bmat' `Vmat', esample(`touse')
 	
 	ereturn scalar N = `N'

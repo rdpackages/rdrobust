@@ -9,10 +9,17 @@
 capture program drop rdrobustplot
 program define rdrobustplot, rclass
 	version 16.0
+	* ST-9: scale/xlabel/ylabel/xtitle/ytitle were accepted and then never
+	* referenced -- silently dead. They are ordinary twoway options, so they
+	* are now folded into the graph_options() handed to rdplot (see below).
+	* col_dots()/col_lines() are NOT here any more: they are per-plot marker
+	* and line colours, and rdplot builds its own twoway call with no hook for
+	* them, so they could never have worked. Removed rather than left as
+	* silent no-ops -- Stata now reports "option col_dots() not allowed".
 	syntax [, nbins(string) binselect(string) NOCI scale(string) ///
 		title(string asis) xlabel(string) ylabel(string) ///
 		xtitle(string asis) ytitle(string asis) ///
-		col_dots(string) col_lines(string) shade * ]
+		shade * ]
 
 	* -----------------------------------------------------------------------
 	* Validate: require a previous rdrobust call
@@ -78,11 +85,30 @@ program define rdrobustplot, rclass
 	local shade_flag = cond("`shade'"!="", "shade", "")
 	local covs_flag  = cond("`covs'"!="",  "covs(`covs')", "")
 
-	rdplot `y' `x' , c(`c') h(`h_l' `h_r') p(`p') ///
+	* ST-9: build the twoway option list so the previously-dead cosmetic
+	* options actually reach the graph.
+	local gopts `"title(`"`title'"') subtitle(`"`subtitle'"')"'
+	if (`"`xtitle'"' != "") local gopts `"`gopts' xtitle(`"`xtitle'"')"'
+	if (`"`ytitle'"' != "") local gopts `"`gopts' ytitle(`"`ytitle'"')"'
+	if ("`xlabel'"  != "")  local gopts `"`gopts' xlabel(`xlabel')"'
+	if ("`ylabel'"  != "")  local gopts `"`gopts' ylabel(`ylabel')"'
+	if ("`scale'"   != "")  local gopts `"`gopts' scale(`scale')"'
+
+	* ST-9: rdplot is eclass, so it CLEARS e() -- after one rdrobustplot the
+	* e(cmd)=="rdrobust" guard at the top of this program failed and a SECOND
+	* call died rc=301. Park the rdrobust estimates across the delegation and
+	* put them back, so rdrobustplot is repeatable and leaves e() as it found
+	* it.
+	tempname _rdrp_est
+	_estimates hold `_rdrp_est', nullok
+	capture noisily rdplot `y' `x' , c(`c') h(`h_l' `h_r') p(`p') ///
 		nbins(`nbins') binselect(`binselect') kernel(`kernel') ///
 		`covs_flag' `ci_flag' `shade_flag' ///
-		graph_options(title(`"`title'"') subtitle(`"`subtitle'"')) ///
+		graph_options(`gopts') ///
 		`options'
+	local _rdp_rc = _rc
+	_estimates unhold `_rdrp_est'
+	if (`_rdp_rc') exit `_rdp_rc'
 
 	* -----------------------------------------------------------------------
 	* Return the annotation bits so downstream scripts can reuse
