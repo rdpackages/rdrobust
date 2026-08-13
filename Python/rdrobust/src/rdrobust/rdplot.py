@@ -699,8 +699,22 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     
     bin_x_l = np.searchsorted(jumps_l, x_l,side='right') - J_star_l - 1
     bin_x_l[bin_x_l==0] =-1   # to mimick R behaviour of FindInterval function in R
-    bin_x_r = np.searchsorted(jumps_r, x_r,side='left')
-    bin_x_r[bin_x_r==J_star_r] = J_star_r-1  # to mimick R behaviour of FindInterval function in R
+    # PY-5. R uses findInterval(x_r, jumps_r, rightmost.closed=TRUE), whose
+    # bins are LEFT-closed / right-open: jumps[i] <= x < jumps[i+1], numbered
+    # 1..J_star_r, with the very last bin closed on the right so the maximum
+    # lands in bin J_star_r.
+    #
+    # searchsorted(side='left') is the opposite convention -- (jumps[i-1],
+    # jumps[i]] -- so an interior point sitting exactly on a bin edge was put
+    # in the bin below R's. It also numbers 0..J_star_r, i.e. J_star_r+1
+    # distinct values, where bin 0 holds only the minimum; the old clamp then
+    # folded J_star_r into J_star_r-1, MERGING the outermost two bins and
+    # yielding one bin fewer than requested (16 instead of 17).
+    #
+    # side='right' reproduces findInterval exactly, including its 1-based
+    # numbering; only the rightmost.closed adjustment is still needed.
+    bin_x_r = np.searchsorted(jumps_r, x_r, side='right')
+    bin_x_r[bin_x_r==J_star_r+1] = J_star_r  # rightmost.closed=TRUE
 
     aux_l  = pd.DataFrame({'bin_x_l':bin_x_l, 'y_l':y_l, 'x_l':x_l})
     rdplot_l  = aux_l.groupby('bin_x_l').agg({'y_l': 'mean', 'x_l':'mean'}).reset_index()
