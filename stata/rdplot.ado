@@ -232,7 +232,7 @@ program define rdplot, eclass
 		}
 
 		if ("`masspoints'" != "" & ///
-		    !inlist("`masspoints'", "check", "adjust", "off", "false")) {
+		    !inlist("`masspoints'", "check", "adjust", "off")) {
 			di as error "{err}{cmd:masspoints()} must be one of check, adjust, off"
 			exit 125
 		}

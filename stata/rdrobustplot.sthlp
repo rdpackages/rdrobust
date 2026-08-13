@@ -3,6 +3,7 @@
 {viewerjumpto "Syntax" "rdrobustplot##syntax"}{...}
 {viewerjumpto "Description" "rdrobustplot##description"}{...}
 {viewerjumpto "Options" "rdrobustplot##options"}{...}
+{viewerjumpto "Stored results" "rdrobustplot##results"}{...}
 {viewerjumpto "Examples" "rdrobustplot##examples"}{...}
 
 {title:Title}
@@ -22,9 +23,9 @@
 {cmd:title(}{it:string}{cmd:)}
 {cmd:xtitle(}{it:string}{cmd:)}
 {cmd:ytitle(}{it:string}{cmd:)}
-{cmd:col_dots(}{it:color}{cmd:)}
-{cmd:col_lines(}{it:color}{cmd:)}
-{it:graph_options}
+{cmd:xlabel(}{it:rule}{cmd:)}
+{cmd:ylabel(}{it:rule}{cmd:)}
+{it:rdplot_options}
 ]{p_end}
 
 {marker description}{...}
@@ -54,14 +55,43 @@ bias-corrected confidence interval.{p_end}
 {p 4 8}{cmd:shade} draws the pointwise confidence bands as a shaded ribbon
 instead of error bars.{p_end}
 
-{p 4 8}{cmd:title()}, {cmd:xtitle()}, {cmd:ytitle()} custom text for the plot
-elements (defaults follow {cmd:rdrobust}'s outcome / running variable).{p_end}
+{p 4 8}{cmd:title()}, {cmd:xtitle()}, {cmd:ytitle()}, {cmd:xlabel()},
+{cmd:ylabel()}, {cmd:scale()} are forwarded to the underlying graph. The
+default title follows {cmd:rdrobust}'s outcome and running variable.{p_end}
 
-{p 4 8}{cmd:col_dots()}, {cmd:col_lines()} colors for the binned means and the
-polynomial fit line.{p_end}
+{p 4 8}Any other option is passed straight to {help rdplot:rdplot} and must
+therefore be a valid {cmd:rdplot} option (for example {cmd:masspoints()} or
+{cmd:covs_drop()}); an unrecognised option is rejected rather than silently
+ignored.{p_end}
 
-{p 4 8}Any other option is passed through to {cmd:rdplot}'s
-{cmd:graph_options()}.{p_end}
+{p 4 8}{it:Note:} {cmd:col_dots()} and {cmd:col_lines()} were accepted by
+earlier versions but never had any effect -- the binned means and the fit line
+are drawn inside {cmd:rdplot}, which exposes no hook for per-plot colours.
+They are no longer accepted, so the mistake is reported instead of being
+silently ignored.{p_end}
+
+{marker results}{...}
+{title:Stored results}
+
+{p 4 8}{cmd:rdrobustplot} is {cmd:r}-class and stores the annotation shown in
+the subtitle, so a script can reuse the same numbers:{p_end}
+
+{synoptset 20 tabbed}{...}
+{p2col 5 20 24 2: Scalars}{p_end}
+{synopt:{cmd:r(tau)}}RD point estimate, {cmd:e(tau_cl)} of the preceding {cmd:rdrobust}{p_end}
+{synopt:{cmd:r(se_rb)}}robust bias-corrected standard error{p_end}
+{synopt:{cmd:r(ci_l)}}lower robust bias-corrected confidence limit{p_end}
+{synopt:{cmd:r(ci_r)}}upper robust bias-corrected confidence limit{p_end}
+{synopt:{cmd:r(pvalue)}}two-sided p-value implied by {cmd:r(tau)} and {cmd:r(se_rb)}{p_end}
+
+{p2col 5 20 24 2: Macros}{p_end}
+{synopt:{cmd:r(subtitle)}}the annotation string drawn above the plot{p_end}
+
+{p 4 8}The {cmd:e()} results of the preceding {cmd:rdrobust} call are left
+intact, so {cmd:rdrobustplot} may be called repeatedly (and followed by other
+post-estimation commands). Earlier versions delegated to the {cmd:e}-class
+{cmd:rdplot}, which cleared {cmd:e()} and made a second {cmd:rdrobustplot}
+call fail with r(301).{p_end}
 
 {marker examples}{...}
 {title:Examples}

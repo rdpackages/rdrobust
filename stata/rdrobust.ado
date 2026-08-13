@@ -423,7 +423,7 @@ program define rdrobust, eclass
 			 exit 125
 			}
 			if ("`masspoints'" != "" & ///
-			    !inlist("`masspoints'", "check", "adjust", "off", "false")) {
+			    !inlist("`masspoints'", "check", "adjust", "off")) {
 			 di as error  "{err}{cmd:masspoints()} must be one of check, adjust, off"
 			 exit 125
 			}
