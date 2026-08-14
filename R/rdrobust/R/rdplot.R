@@ -563,8 +563,8 @@ rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = 
 	bin_med_l = median(bin_length_l)
 	bin_med_r = median(bin_length_r)
 	
-	rdplot_min_bin = c(rdplot_min_bin_l[rev(-rdplot_bin_l)], rdplot_min_bin_r[rdplot_bin_r])
-	rdplot_max_bin = c(rdplot_max_bin_l[rev(-rdplot_bin_l)], rdplot_max_bin_r[rdplot_bin_r])
+	rdplot_min_bin = c(rdplot_min_bin_l[(rdplot_bin_l+J_star_l+1)], rdplot_min_bin_r[rdplot_bin_r])
+	rdplot_max_bin = c(rdplot_max_bin_l[(rdplot_bin_l+J_star_l+1)], rdplot_max_bin_r[rdplot_bin_r])
 	bin_length     = c(bin_length_l, bin_length_r)
 	bin_avg        = c(bin_avg_l, bin_avg_r)
 	bin_med        = c(bin_med_l, bin_med_r)

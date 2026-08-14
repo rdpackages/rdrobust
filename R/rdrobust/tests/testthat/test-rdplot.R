@@ -82,3 +82,26 @@ test_that("rdplot respects subset=", {
   expect_equal(a$vars_bins$rdplot_mean_y, b$vars_bins$rdplot_mean_y,
                tolerance = 1e-10)
 })
+
+test_that("bin edges stay attached to their own bin when a side has holes", {
+  ## The left support has a gap in [-0.55, -0.25], so several evenly-spaced
+  ## left bins come out empty while the right side is fully occupied. Empty
+  ## bins are dropped from vars_bins, and the surviving rows must keep the
+  ## edges of the bins they were actually computed from.
+  set.seed(20260813)
+  x <- c(runif(200, -1, -0.55), runif(200, -0.25, 0), runif(400, 0, 1))
+  y <- 3 + 2 * x + 4 * (x >= 0) + rnorm(length(x), sd = 0.3)
+
+  pl <- rdplot(y = y, x = x, nbins = c(12, 12), binselect = "es", hide = TRUE)
+  vb <- pl$vars_bins
+
+  ## The gap must actually have emptied some left bins, or the test is vacuous.
+  expect_lt(sum(vb$rdplot_mean_x < 0), pl$J[1])
+
+  ## Each bin's mean falls inside that bin, and the reported edges bracket the
+  ## midpoint that rdplot computed independently.
+  expect_true(all(vb$rdplot_mean_x >= vb$rdplot_min_bin))
+  expect_true(all(vb$rdplot_mean_x <= vb$rdplot_max_bin))
+  expect_equal((vb$rdplot_min_bin + vb$rdplot_max_bin) / 2,
+               vb$rdplot_mean_bin, tolerance = 1e-12)
+})

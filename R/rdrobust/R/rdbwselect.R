@@ -144,6 +144,14 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
   range_l = abs(c-x_min);  range_r = abs(c-x_max)
   N = N_l + N_r
 
+  ## The `c` range check further down (the exit=1 block) is reached too late:
+  ## with c outside the support one side is empty, and the masspoints block
+  ## just below computes mass_l/mass_r as 1-M/N with N=0, so the function dies
+  ## on `if (mass_l >= 0.2 | ...)` with "missing value where TRUE/FALSE
+  ## needed" before the informative check ever runs. Fail here instead.
+  if (c <= x_min | c >= x_max)
+    stop("c should be set within the range of x", call. = FALSE)
+
   M_l = N_l;  M_r = N_r
 
   # X_uniq_l/r and M_l/M_r are needed by both the masspoints inspection
