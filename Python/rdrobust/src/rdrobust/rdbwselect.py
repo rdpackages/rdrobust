@@ -446,6 +446,15 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
     ###############################################
     X_l = x[x<c]
     X_r = x[x>=c]
+    # PY-11. rdbwselect never checked that the cutoff lies inside the support
+    # of x, though rdrobust does. With c outside it, one side is empty and the
+    # reductions below died as "zero-size array to reduction operation
+    # minimum", naming neither c nor x. (R has the same gap: its own check at
+    # rdbwselect.R:215 sits AFTER the masspoints block, which computes
+    # mass_r from an empty side and fails first with "missing value where
+    # TRUE/FALSE needed".)
+    if c <= np.min(x) or c >= np.max(x):
+        raise Exception("c should be set within the range of x")
     x_l_min = np.min(X_l)
     x_r_max = np.max(X_r)
     range_l = np.abs(c-x_l_min)

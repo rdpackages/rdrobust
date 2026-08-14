@@ -362,6 +362,20 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
                 and bwcheck == round(bwcheck)):
             raise Exception("bwcheck must be a single positive integer")
 
+    # PY-11. h and b were never validated. A negative or NaN bandwidth reached
+    # the Cholesky factorization as a degenerate design and surfaced as
+    # "LinAlgError: Internal potrf return info = [1]"; a length-3 h skipped the
+    # scalar and length-2 branches alike and surfaced as "UnboundLocalError:
+    # cannot access local variable 'h_l'". R rejects both here
+    # (rdrobust.R:312-323).
+    for _bw, _nm in ((h, "h"), (b, "b")):
+        if _bw is None:
+            continue
+        _arr = np.asarray(_bw, dtype=float).reshape(-1)
+        if _arr.size > 2 or not np.all(np.isfinite(_arr)) or np.any(_arr <= 0):
+            raise Exception(
+                f"{_nm} must be a positive scalar or a length-2 positive vector")
+
     # masspoints was previously validated without being lowercased, so a
     # capitalized-but-valid value was rejected while kernel/bwselect/vce
     # accepted any case. Normalize first, then validate.
@@ -441,6 +455,16 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
         weights = np.array(weights).reshape(-1,1)
         if subset is not None:
             weights = weights[subset]
+        # PY-11. Negative weights used to be swept into the NA mask below and
+        # dropped silently. With all the mass on one side that emptied a whole
+        # side of the cutoff, and the user got "c should be set within the
+        # range of x" -- an error about the cutoff, for a weights mistake.
+        # R errors here instead (rdrobust.R:93-99).
+        _wfin = weights[complete_cases(weights)]
+        if np.any(_wfin < 0):
+            raise Exception(
+                "`weights` must be non-negative; "
+                f"{int(np.sum(_wfin < 0))} negative value(s) found.")
         na_ok = na_ok & complete_cases(weights) & (weights>=0).reshape(-1,)
     
     x = x[na_ok]
@@ -450,7 +474,13 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
     if fuzzy is not None: fuzzy   = fuzzy[na_ok]
     if cluster is not None: cluster = cluster[na_ok]
     if weights is not None: weights = weights[na_ok]
-  
+
+    # PY-11. All-zero weights give a design matrix of zeros, which used to
+    # reach the Cholesky factorization and surface as a LinAlgError
+    # (rdrobust.R:325-328 warns and stops instead).
+    if weights is not None and np.nansum(weights) <= 0:
+        raise Exception("weights must include at least one positive value")
+
     if masspoints is None: masspoints = False
 
     if vce == "nn" or masspoints == "check" or masspoints == "adjust" : 

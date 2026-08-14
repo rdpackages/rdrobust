@@ -830,8 +830,8 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     rdplot_max_bin_l = jumps_l[1:(J_star_l + 1)]
     rdplot_min_bin_r = jumps_r[0:J_star_r]
     rdplot_max_bin_r = jumps_r[1:(J_star_r + 1)]
-    rdplot_min_bin = np.concatenate((rdplot_min_bin_l[np.flip(-rdplot_bin_l)-1], rdplot_min_bin_r[rdplot_bin_r-1]))
-    rdplot_max_bin = np.concatenate((rdplot_max_bin_l[np.flip(-rdplot_bin_l)-1], rdplot_max_bin_r[rdplot_bin_r-1]))
+    rdplot_min_bin = np.concatenate((rdplot_min_bin_l[rdplot_bin_l+J_star_l], rdplot_min_bin_r[rdplot_bin_r-1]))
+    rdplot_max_bin = np.concatenate((rdplot_max_bin_l[rdplot_bin_l+J_star_l], rdplot_max_bin_r[rdplot_bin_r-1]))
 
     bin_length = rdplot_max_bin-rdplot_min_bin
     bin_avg_l = mean(bin_length[:J_star_l])
