@@ -16,10 +16,22 @@ program define rdrobustplot, rclass
 	* and line colours, and rdplot builds its own twoway call with no hook for
 	* them, so they could never have worked. Removed rather than left as
 	* silent no-ops -- Stata now reports "option col_dots() not allowed".
+	* Two passthrough routes, kept separate on purpose:
+	*  - rdplot ANALYSIS options (masspoints() etc.) are declared by name
+	*    below and forwarded to rdplot as such;
+	*  - the trailing `*' collects everything else (legend(), xline(), ...),
+	*    which is treated as twoway options and folded into graph_options().
+	* The wildcard used to be forwarded to rdplot as top-level options,
+	* which rdplot silently swallowed before ST-10 removed its own wildcard
+	* and rejects with rc=198 after -- so there was never a working route
+	* for twoway options until now. graph_options() is declared explicitly
+	* so a caller using rdplot's spelling merges instead of nesting.
 	syntax [, nbins(string) binselect(string) NOCI scale(string) ///
 		title(string asis) xlabel(string) ylabel(string) ///
 		xtitle(string asis) ytitle(string asis) ///
-		shade * ]
+		masspoints(string) covs_drop(string) covs_eval(string) ///
+		support(string) genvars nochecks PRECision(string) ///
+		graph_options(string asis) shade * ]
 
 	* -----------------------------------------------------------------------
 	* Validate: require a previous rdrobust call
@@ -93,6 +105,13 @@ program define rdrobustplot, rclass
 	if ("`xlabel'"  != "")  local gopts `"`gopts' xlabel(`xlabel')"'
 	if ("`ylabel'"  != "")  local gopts `"`gopts' ylabel(`ylabel')"'
 	if ("`scale'"   != "")  local gopts `"`gopts' scale(`scale')"'
+	* Route explicit graph_options() and any wildcard-collected twoway
+	* options into the same slot. rdplot appends graph_options() AFTER its
+	* own twoway settings, so later-wins lets e.g. legend(off) override the
+	* default legend. A typo'd rdplot option lands here too and errors from
+	* -twoway- ("option ... not allowed") rather than from rdplot.
+	if (`"`graph_options'"' != "") local gopts `"`gopts' `graph_options'"'
+	if (`"`options'"'       != "") local gopts `"`gopts' `options'"'
 
 	* ST-9: rdplot is eclass, so it CLEARS e() -- after one rdrobustplot the
 	* e(cmd)=="rdrobust" guard at the top of this program failed and a SECOND
@@ -101,11 +120,17 @@ program define rdrobustplot, rclass
 	* it.
 	tempname _rdrp_est
 	_estimates hold `_rdrp_est', nullok
+	* Analysis options forwarded to rdplot by name (empty ones are inert).
+	local rdp_pass ""
+	if ("`masspoints'" != "") local rdp_pass "`rdp_pass' masspoints(`masspoints')"
+	if ("`covs_drop'"  != "") local rdp_pass "`rdp_pass' covs_drop(`covs_drop')"
+	if ("`covs_eval'"  != "") local rdp_pass "`rdp_pass' covs_eval(`covs_eval')"
+	if ("`support'"    != "") local rdp_pass "`rdp_pass' support(`support')"
+	if ("`precision'"  != "") local rdp_pass "`rdp_pass' precision(`precision')"
 	capture noisily rdplot `y' `x' , c(`c') h(`h_l' `h_r') p(`p') ///
 		nbins(`nbins') binselect(`binselect') kernel(`kernel') ///
-		`covs_flag' `ci_flag' `shade_flag' ///
-		graph_options(`gopts') ///
-		`options'
+		`covs_flag' `ci_flag' `shade_flag' `genvars' `nochecks' `rdp_pass' ///
+		graph_options(`gopts')
 	local _rdp_rc = _rc
 	_estimates unhold `_rdrp_est'
 	if (`_rdp_rc') exit `_rdp_rc'

@@ -59,10 +59,15 @@ instead of error bars.{p_end}
 {cmd:ylabel()}, {cmd:scale()} are forwarded to the underlying graph. The
 default title follows {cmd:rdrobust}'s outcome and running variable.{p_end}
 
-{p 4 8}Any other option is passed straight to {help rdplot:rdplot} and must
-therefore be a valid {cmd:rdplot} option (for example {cmd:masspoints()} or
-{cmd:covs_drop()}); an unrecognised option is rejected rather than silently
-ignored.{p_end}
+{p 4 8}{cmd:masspoints()}, {cmd:covs_drop()}, {cmd:covs_eval()},
+{cmd:support()}, {cmd:genvars}, {cmd:nochecks} and {cmd:precision()} are
+forwarded to {help rdplot:rdplot} as analysis options.{p_end}
+
+{p 4 8}{cmd:graph_options(}{it:twoway options}{cmd:)}, and any option not
+listed above, are appended to the underlying {help twoway} call after the
+defaults, so e.g. {cmd:legend(off)} or {cmd:xline(0.5)} take effect
+(later-wins). A misspelled option therefore errors from the graph command
+("option ... not allowed") rather than silently disappearing.{p_end}
 
 {p 4 8}{it:Note:} {cmd:col_dots()} and {cmd:col_lines()} were accepted by
 earlier versions but never had any effect -- the binned means and the fit line
