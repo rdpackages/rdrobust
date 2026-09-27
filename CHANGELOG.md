@@ -1,7 +1,14 @@
 # Changelog
 
-## Unreleased
+## September 27, 2026 update
 
+Python `2.1.0` is published on PyPI. The corresponding R fixes are available
+in GitHub version `4.1.0`; CRAN submission is pending. Stata fixes are available
+from GitHub.
+
+- Python `2.1.0` also includes the earlier changes enabling standardization by
+  default during automatic bandwidth selection and improving scale stability
+  for nearest-neighbor ties and mass-point bandwidth floors.
 - Respect supplied estimation and bias bandwidths for samples with fewer than
   20 observations, and honor `rho` consistently in R, Python, and Stata.
 - Align automatic small-sample bandwidths across implementations using the
