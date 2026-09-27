@@ -366,6 +366,22 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
             and masspoints not in ("check", "adjust", "off", "")):
         raise Exception("masspoints must be one of 'check', 'adjust', 'off', or False")
 
+    def _normalize_bandwidth(value, name):
+        if value is None:
+            return None
+        arr = np.asarray(value)
+        if (arr.ndim > 1 or arr.size not in (1, 2)
+                or not (np.issubdtype(arr.dtype, np.integer)
+                        or np.issubdtype(arr.dtype, np.floating))):
+            raise ValueError(f"{name} must contain one or two positive finite numbers")
+        arr = arr.astype(float).reshape(-1)
+        if not np.all(np.isfinite(arr)) or np.any(arr <= 0):
+            raise ValueError(f"{name} must contain one or two positive finite numbers")
+        return float(arr[0]) if arr.size == 1 else arr
+
+    h = _normalize_bandwidth(h, "h")
+    b = _normalize_bandwidth(b, "b")
+
     #=========================================================================
     # Tidy the Input and remove NAN
 
@@ -391,14 +407,18 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
         raise Exception(f"'cluster' must have length equal to length(x) (got {len(np.asarray(cluster).reshape(-1))}, expected {n_orig}).")
     if subset is not None:
         _subset_arr = np.asarray(subset)
+        if _subset_arr.ndim != 1:
+            raise ValueError("'subset' must be one-dimensional.")
         if _subset_arr.dtype == bool:
             if len(_subset_arr) != n_orig:
                 raise Exception(f"Boolean 'subset' must have length equal to length(x) (got {len(_subset_arr)}, expected {n_orig}).")
+            subset = _subset_arr
         elif np.issubdtype(_subset_arr.dtype, np.integer) or np.issubdtype(_subset_arr.dtype, np.floating):
             if (not np.all(np.isfinite(_subset_arr)) or np.any(_subset_arr < 0)
                     or np.any(_subset_arr >= n_orig)
                     or not np.all(_subset_arr == _subset_arr.astype(int))):
                 raise Exception(f"Numeric 'subset' must contain integer indices in 0..{n_orig - 1}.")
+            subset = _subset_arr.astype(np.intp)
         else:
             raise Exception("'subset' must be boolean or integer.")
 
@@ -470,8 +490,8 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
     x_max = np.max(x)
     if c<=x_min or c>=x_max:
         raise Exception("c should be set within the range of x")
-    range_l = np.abs(np.max(X_l)-np.min(X_l))
-    range_r = np.abs(np.max(X_r)-np.min(X_r))
+    range_l = np.abs(c-x_min)
+    range_r = np.abs(x_max-c)
     N_l = len(X_l)
     N_r = len(X_r)
     N = N_r + N_l
@@ -524,9 +544,13 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
         else:
             b = h/rho
             
-    if N<20:
-        print("Not enough observations to perform bandwidth calculations. Estimates computed using entire sample")
-        h = b = np.max(range_l,range_r)
+    if N < 20 and h is None:
+        print("Not enough observations to perform bandwidth calculations. Using the maximum distance from the cutoff for h.")
+        h = max(range_l, range_r)
+        if rho is not None:
+            b = h/rho
+        elif b is None:
+            b = h
         bwselect = "Manual"
   
     if kernel=="epanechnikov" or kernel=="epa":
@@ -707,6 +731,13 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
     N_b_l = np.sum(ind_b_l)
     N_h_r = np.sum(ind_h_r)
     N_b_r = np.sum(ind_b_r)
+
+    if (np.unique(X_l[ind_h_l]).size < p + 1
+            or np.unique(X_r[ind_h_r]).size < p + 1
+            or np.unique(X_l[ind_b_l]).size < q + 1
+            or np.unique(X_r[ind_b_r]).size < q + 1):
+        raise ValueError("Not enough distinct running-variable values with positive weight "
+                         "to fit the requested polynomials on each side of the cutoff.")
     
     ind_l = ind_b_l 
     ind_r = ind_b_r
