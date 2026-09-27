@@ -144,7 +144,8 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   vce      <- tolower(vce)
   
   x_sd = y_sd = 1
-  if (is.null(h) & isTRUE(stdvars)) {
+  # Small samples bypass bandwidth selection and use ranges in original units.
+  if (is.null(h) & isTRUE(stdvars) & nrow(x) >= 20) {
     y_sd = sd(y)
     x_sd = sd(x)
     y = y/y_sd
@@ -300,11 +301,12 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   if (!is.null(h) & !is.null(rho) ) b = h/rho
     
   
-  if (N<20){
-			warning("Not enough observations to perform bandwidth calculations. Estimates computed using entire sample")
-      h = b = max(range_l,range_r)
-			bwselect = "Manual"
-		}
+  if (N < 20 & is.null(h)) {
+    warning("Not enough observations to perform bandwidth calculations. Using the maximum distance from the cutoff for h.")
+    h = max(range_l, range_r)
+    if (!is.null(rho)) b = h/rho else if (is.null(b)) b = h
+    bwselect = "Manual"
+  }
   
   if (kernel %in% c("epanechnikov", "epa")) {
     kernel_type = "Epanechnikov"
@@ -542,6 +544,13 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   ind_b_l <- w_b_l> 0;		ind_b_r <- w_b_r> 0
   N_h_l <- sum(ind_h_l); N_b_l <- sum(ind_b_l)
   N_h_r <- sum(ind_h_r); N_b_r <- sum(ind_b_r)
+
+  if (length(unique(X_l[ind_h_l])) < p + 1 ||
+      length(unique(X_r[ind_h_r])) < p + 1 ||
+      length(unique(X_l[ind_b_l])) < q + 1 ||
+      length(unique(X_r[ind_b_r])) < q + 1) {
+    stop("Not enough distinct running-variable values with positive weight to fit the requested polynomials on each side of the cutoff.")
+  }
   
   ind_l = ind_b_l; ind_r = ind_b_r
   if (h_l>b_l) ind_l = ind_h_l   
@@ -570,8 +579,8 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
 
   
   L_l = crossprod(R_p_l*W_h_l,u_l^(p+1)); L_r = crossprod(R_p_r*W_h_r,u_r^(p+1)) 
-  invG_q_l  = qrXXinv((sqrt(W_b_l)*R_q_l));	invG_q_r  = qrXXinv((sqrt(W_b_r)*R_q_r))
-  invG_p_l  = qrXXinv((sqrt(W_h_l)*R_p_l));	invG_p_r  = qrXXinv((sqrt(W_h_r)*R_p_r))
+  invG_q_l  = qrXXinv((sqrt(W_b_l)*R_q_l), allow_singular = FALSE);	invG_q_r  = qrXXinv((sqrt(W_b_r)*R_q_r), allow_singular = FALSE)
+  invG_p_l  = qrXXinv((sqrt(W_h_l)*R_p_l), allow_singular = FALSE);	invG_p_r  = qrXXinv((sqrt(W_h_r)*R_p_r), allow_singular = FALSE)
   e_p1 = matrix(0,(q+1),1); e_p1[p+2]=1
   e_v  = matrix(0,(p+1),1); e_v[deriv+1]=1
   Q_q_l = t(t(R_p_l*W_h_l) - h_l^(p+1)*(L_l%*%t(e_p1))%*%t(t(invG_q_l%*%t(R_q_l))*W_b_l))

@@ -292,23 +292,21 @@ program define rdrobust, eclass
 			 exit 125
 			}
 						
-			if (`N'<20){
-			 di as error  "{err}Not enough observations to perform bandwidth calculations"  
-			 di as error  "{err}Estimates computed using entire sample"  
-			 local bwselect= "Manual"
-			
-			qui su `x' if `x'<`c'
-			local range_l = abs(r(max)-r(min))
-			qui su `x' if `x'>=`c'
-			local range_r = abs(r(max)-r(min))
-			local bw_range = max(`range_l',`range_r')
-			
-			local h   = `bw_range'
-			local b   = `bw_range'
-			local h_l = `bw_range'
-			local h_r = `bw_range'
-			local b_l = `bw_range'
-			local b_r = `bw_range'	
+			if (`N'<20 & "`h'"=="") {
+			 di as error "{err}Not enough observations to perform bandwidth calculations. Using the maximum distance from the cutoff for h."
+			 local bwselect = "Manual"
+			 local bw_range = max(`range_l',`range_r')
+			 local h   = `bw_range'
+			 local h_l = `bw_range'
+			 local h_r = `bw_range'
+			 if (`rho'>0) {
+			   local b_l = `bw_range'/`rho'
+			   local b_r = `bw_range'/`rho'
+			 }
+			 else if ("`b'"=="") {
+			   local b_l = `bw_range'
+			   local b_r = `bw_range'
+			 }
 			}
 			
 			if (!inlist("`kernel'","uni","uniform","tri","triangular","epa","epanechnikov","")){
@@ -699,6 +697,14 @@ masspoints_found = 0
 		ind_b_l = selectindex(w_b_l:> 0);		ind_b_r = selectindex(w_b_r:> 0)
 		N_h_l = length(ind_h_l);	N_b_l = length(ind_b_l)
 		N_h_r = length(ind_h_r);	N_b_r = length(ind_b_r)
+
+		if (rows(uniqrows(sort(X_l[ind_h_l],1))) < `p'+1 |
+		    rows(uniqrows(sort(X_r[ind_h_r],1))) < `p'+1 |
+		    rows(uniqrows(sort(X_l[ind_b_l],1))) < `q'+1 |
+		    rows(uniqrows(sort(X_r[ind_b_r],1))) < `q'+1) {
+			display("{err}Not enough distinct running-variable values with positive weight to fit the requested polynomials on each side of the cutoff.")
+			exit(2001)
+		}
 		
 		if (N_h_l<10 | N_h_r<10 | N_b_l<10 | N_b_r<10){
 		 display("{err}Estimates might be unreliable due to low number of effective observations.")

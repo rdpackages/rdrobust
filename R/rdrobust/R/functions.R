@@ -125,10 +125,16 @@
   out
 }
 
-qrXXinv = function(x, ...) {
+qrXXinv = function(x, ..., allow_singular = TRUE) {
   G <- crossprod(x)
   R <- try(chol(G), silent = TRUE)
-  if (inherits(R, "try-error")) ginv(G) else chol2inv(R)
+  if (inherits(R, "try-error")) {
+    if (!allow_singular) {
+      stop("Polynomial fit is singular or numerically ill-conditioned; check the running-variable support and bandwidths.")
+    }
+    return(ginv(G))
+  }
+  chol2inv(R)
 }
 
 rdrobust_kweight = function(X, c,  h,  kernel){
