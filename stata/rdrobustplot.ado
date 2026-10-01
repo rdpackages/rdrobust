@@ -4,7 +4,7 @@
 * S3 method in the R package and plot_rdrobust() in the Python package.
 * Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell, Rocio Titiunik
 ********************************************************************************
-*! version 11.1.0 22may2026
+*! version 11.1.1 01oct2026
 
 capture program drop rdrobustplot
 program define rdrobustplot, rclass

@@ -1,9 +1,12 @@
 # Changelog
 
-## October 1, 2026 update
+## October 1, 2026 update: R 4.1.1, Python 2.1.1, Stata 11.1.1
 
-Fixes from a three-language audit, added to R `4.1.0` before its CRAN
-submission. Python `2.1.0` on PyPI does not include them yet.
+Fixes from a three-language audit. R `4.1.1` replaces the unreleased GitHub
+`4.1.0` as the next CRAN version; Python `2.1.1` and Stata `11.1.1` carry the
+same fixes.
+
+Changes in results:
 
 - Sharp RD with covariates and `deriv >= 2`: apply the missing
   `factorial(deriv)` to the point estimate (R, Python, Stata). With
@@ -13,14 +16,36 @@ submission. Python `2.1.0` on PyPI does not include them yet.
   sample size and the cutoff on the original scale (R, Python).
 - R: fuzzy designs with `sharpbw = TRUE` and a nonzero cutoff no longer crash.
 - `rdplot()`: bin edges stay with their own bins when a side has empty bins
-  (R, Python); Stata `genvars` describe the estimation sample.
+  (R, Python); Stata `genvars` describe the estimation sample, and Stata's
+  per-bin confidence intervals use `N - 1` degrees of freedom, as R and Python.
+- Bandwidth selection: the `bwcheck` floor and the first pilot bandwidth are
+  padded by a factor `1 + sqrt(eps)`, so the observation that sets them keeps a
+  positive kernel weight (R, Python, Stata). Selected bandwidths move by less
+  than `1e-6` in relative terms.
+- R: the default `ginv.tol` is `1e-15` (was `1e-20`), as in Python and Stata.
+  With a covariate that is nearly collinear on one side of the cutoff, the
+  selected bandwidth no longer depends on row order or numerical noise.
+
+Errors and warnings:
+
+- When the bandwidth-selection pilots are not identified (fewer distinct values
+  of `x` in a pilot window than polynomial coefficients, as with a running
+  variable that takes a few values), all three languages stop with "Not enough
+  variability". Before, R returned a bandwidth from a generalized inverse, NaN
+  or an unrelated error; Python raised a linear-algebra error; and Stata printed
+  a message and continued, usually with the full range as bandwidth.
+- A side of the cutoff with fewer than `q + 1` distinct values of `x`
+  (`p + 1` in `rdbwselect()`) stops with an informative error.
+- With clustered standard errors, a warning when either side has fewer than 10
+  clusters within the bandwidth, and when a standard error is exactly 0.
 - Input validation: `vce`, `kernel` and `bwselect` are case-insensitive in
   `rdbwselect()` as in `rdrobust()`; `nnmatch`, negative weights,
   `binselect`, collinear covariates with `covs_drop = FALSE`, and a cutoff
   outside the range of `x` give informative errors.
 - Stata: `e(sample)` is set, user matrices and tempvars are no longer
   overwritten, and `rdrobustplot` accepts twoway options.
-- R: added a `testthat` suite (111 tests).
+
+Tests: R has a `testthat` suite (116 tests); Python has 37 tests.
 
 ## September 27, 2026 update
 

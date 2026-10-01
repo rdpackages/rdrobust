@@ -1,7 +1,7 @@
 Package: rdrobust
 Type: Package
 Title: Robust Data-Driven Statistical Inference in Regression-Discontinuity Designs
-Version: 4.1.0
+Version: 4.1.1
 Date: 2026-10-01
 Authors@R: c(person(given = c("Sebastian"),
                       family = "Calonico",

@@ -9,7 +9,7 @@
 \tabular{ll}{
 Package: \tab rdrobust\cr
 Type: \tab Package\cr
-Version: \tab 4.1.0\cr
+Version: \tab 4.1.1\cr
 Date: \tab 2026-10-01\cr
 License: \tab GPL-3\cr
 }
