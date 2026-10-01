@@ -1,5 +1,27 @@
 # Changelog
 
+## October 1, 2026 update
+
+Fixes from a three-language audit, added to R `4.1.0` before its CRAN
+submission. Python `2.1.0` on PyPI does not include them yet.
+
+- Sharp RD with covariates and `deriv >= 2`: apply the missing
+  `factorial(deriv)` to the point estimate (R, Python, Stata). With
+  `deriv = 2` the estimate was half its correct value.
+- Python: `deriv >= 2` no longer crashes.
+- `rdbwselect()` with `stdvars = TRUE` (the default) reports the effective
+  sample size and the cutoff on the original scale (R, Python).
+- R: fuzzy designs with `sharpbw = TRUE` and a nonzero cutoff no longer crash.
+- `rdplot()`: bin edges stay with their own bins when a side has empty bins
+  (R, Python); Stata `genvars` describe the estimation sample.
+- Input validation: `vce`, `kernel` and `bwselect` are case-insensitive in
+  `rdbwselect()` as in `rdrobust()`; `nnmatch`, negative weights,
+  `binselect`, collinear covariates with `covs_drop = FALSE`, and a cutoff
+  outside the range of `x` give informative errors.
+- Stata: `e(sample)` is set, user matrices and tempvars are no longer
+  overwritten, and `rdrobustplot` accepts twoway options.
+- R: added a `testthat` suite (111 tests).
+
 ## September 27, 2026 update
 
 Python `2.1.0` is published on PyPI. The corresponding R fixes are available
