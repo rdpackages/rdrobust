@@ -28,15 +28,15 @@ def rd():
 # with h_l never assigned ("UnboundLocalError: cannot access local variable
 # 'h_l'") -- an internal-logic error surfacing as the user's error message.
 
-@pytest.mark.parametrize("bad_h", [-0.5, 0.0, np.nan, np.inf, [0.3, 0.4, 0.5]])
+@pytest.mark.parametrize("bad_h", [-0.5, 0.0, np.nan, np.inf, [0.3, 0.4, 0.5], 2j])
 def test_rdrobust_rejects_bad_h(rd, bad_h):
-    with pytest.raises(Exception, match="h must be a positive scalar"):
+    with pytest.raises(ValueError, match="h must contain one or two positive finite numbers"):
         rdrobust(rd["y"], rd["x"], h=bad_h)
 
 
 @pytest.mark.parametrize("bad_b", [-0.8, 0.0, np.nan, [0.3, 0.4, 0.5]])
 def test_rdrobust_rejects_bad_b(rd, bad_b):
-    with pytest.raises(Exception, match="b must be a positive scalar"):
+    with pytest.raises(ValueError, match="b must contain one or two positive finite numbers"):
         rdrobust(rd["y"], rd["x"], h=0.5, b=bad_b)
 
 

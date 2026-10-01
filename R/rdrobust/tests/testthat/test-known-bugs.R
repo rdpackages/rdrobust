@@ -108,7 +108,6 @@ test_that("R-8: vcov.rdrobust documents its diagonal-only contract", {
   expect_equal(diag(V), unname(as.vector(est$se))^2, tolerance = 1e-12,
                ignore_attr = TRUE)
   expect_true(all(V[upper.tri(V)] == 0))
-  expect_match(attr(V, "offdiag"), "not estimated")
 })
 
 test_that("R-10: nnmatch is validated", {

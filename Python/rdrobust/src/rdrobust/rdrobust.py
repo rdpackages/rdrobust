@@ -362,19 +362,11 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
                 and bwcheck == round(bwcheck)):
             raise Exception("bwcheck must be a single positive integer")
 
-    # PY-11. h and b were never validated. A negative or NaN bandwidth reached
-    # the Cholesky factorization as a degenerate design and surfaced as
-    # "LinAlgError: Internal potrf return info = [1]"; a length-3 h skipped the
-    # scalar and length-2 branches alike and surfaced as "UnboundLocalError:
-    # cannot access local variable 'h_l'". R rejects both here
-    # (rdrobust.R:312-323).
-    for _bw, _nm in ((h, "h"), (b, "b")):
-        if _bw is None:
-            continue
-        _arr = np.asarray(_bw, dtype=float).reshape(-1)
-        if _arr.size > 2 or not np.all(np.isfinite(_arr)) or np.any(_arr <= 0):
-            raise Exception(
-                f"{_nm} must be a positive scalar or a length-2 positive vector")
+    # nnmatch was not validated: 2.5 was accepted, and 0 failed later with an
+    # unrelated-looking bandwidth error. R rejects both up front.
+    if not (np.isscalar(nnmatch) and np.isfinite(nnmatch) and nnmatch >= 1
+            and nnmatch == round(nnmatch)):
+        raise ValueError("nnmatch must be a single positive integer")
 
     # masspoints was previously validated without being lowercased, so a
     # capitalized-but-valid value was rejected while kernel/bwselect/vce
@@ -533,7 +525,7 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
     # Fail early, and say why, when one side cannot support the polynomial fits.
     M0_l = len(np.unique(X_l)); M0_r = len(np.unique(X_r))
     if min(M0_l, M0_r) < q + 1:
-        raise Exception("Not enough distinct running-variable values on the "
+        raise ValueError("Not enough distinct running-variable values on the "
                         + ("left" if M0_l < q + 1 else "right")
                         + f" side of the cutoff ({min(M0_l, M0_r)}) to fit a polynomial of order q = {q}.")
 
@@ -759,17 +751,6 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
     w_b_l = rdrobust_kweight(X_l,c,b_l,kernel)	
     w_b_r = rdrobust_kweight(X_r,c,b_r,kernel)
 
-    # Cluster-robust variances need many clusters; with a handful per side they
-    # are unreliable, and with as few as p+1 they can collapse to exactly zero.
-    if cluster is not None:
-        cl_l = np.asarray(cluster[x<c]).reshape(-1)
-        cl_r = np.asarray(cluster[x>=c]).reshape(-1)
-        gh_l = len(np.unique(cl_l[np.asarray(w_h_l).reshape(-1) > 0]))
-        gh_r = len(np.unique(cl_r[np.asarray(w_h_r).reshape(-1) > 0]))
-        if min(gh_l, gh_r) < 10:
-            warnings.warn(f"Only {gh_l} (left) and {gh_r} (right) clusters within the bandwidth. "
-                          "Cluster-robust standard errors are unreliable with fewer than 10 clusters on a side.")
-
     if weights is not None:
         fw_l = weights[x<c]  
         fw_r = weights[x>=c]
@@ -777,6 +758,23 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
         w_h_r = fw_r*w_h_r
         w_b_l = fw_l*w_b_l
         w_b_r = fw_r*w_b_r			
+
+    # Cluster-robust variances need many clusters; with a handful per side they
+    # are unreliable, and with p+1 or fewer the variance is not identified (the
+    # standard error collapses to zero up to rounding). Counted after the user
+    # weights, so zero-weight observations do not count.
+    if cluster is not None:
+        cl_l = np.asarray(cluster[x<c]).reshape(-1)
+        cl_r = np.asarray(cluster[x>=c]).reshape(-1)
+        gh_l = len(np.unique(cl_l[np.asarray(w_h_l).reshape(-1) > 0]))
+        gh_r = len(np.unique(cl_r[np.asarray(w_h_r).reshape(-1) > 0]))
+        if min(gh_l, gh_r) <= p + 1:
+            warnings.warn(f"Only {gh_l} (left) and {gh_r} (right) clusters within the bandwidth. "
+                          f"With p+1 = {p + 1} or fewer clusters on a side the cluster-robust variance "
+                          "is not identified and the standard error can be zero.")
+        elif min(gh_l, gh_r) < 10:
+            warnings.warn(f"Only {gh_l} (left) and {gh_r} (right) clusters within the bandwidth. "
+                          "Cluster-robust standard errors are unreliable with fewer than 10 clusters on a side.")
       
     ind_h_l = w_h_l> 0
     ind_h_r = w_h_r> 0
@@ -1130,9 +1128,6 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
 
     tau = np.array([tau_cl, tau_bc, tau_bc]).reshape(-1,1)
     se  = np.array([se_tau_cl,se_tau_cl,se_tau_rb]).reshape(-1,1)
-    if cluster is not None and np.any(se == 0):
-        warnings.warn("A cluster-robust standard error is exactly 0: there are too few clusters "
-                      "within the bandwidth to estimate the variance.")
     z   =  tau/se
     pv  = 2*sct.norm.cdf(-np.abs(z))
     ci = np.column_stack((tau - quant*se,tau + quant*se))

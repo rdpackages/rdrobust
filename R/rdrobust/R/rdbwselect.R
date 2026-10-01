@@ -91,6 +91,11 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
   
   if (!is.null(weights)){
     if (!is.null(subset)) weights <- weights[subset]
+    # As in rdrobust(): a negative weight is an error, not silently dropped.
+    if (any(weights[complete.cases(weights)] < 0))
+      stop("`weights` must be non-negative; ",
+           sum(weights[complete.cases(weights)] < 0),
+           " negative value(s) found.", call. = FALSE)
     na.ok <- na.ok & complete.cases(weights) & weights>=0
   } 
   
@@ -144,12 +149,6 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
   range_l = abs(c-x_min);  range_r = abs(c-x_max)
   N = N_l + N_r
 
-  # Fail early, and say why, when one side cannot support the polynomial fits.
-  M0_l = length(unique(X_l)); M0_r = length(unique(X_r))
-  if (min(M0_l, M0_r) < p + 1) {
-    stop(sprintf("Not enough distinct running-variable values on the %s side of the cutoff (%d) to fit a polynomial of order p = %d.",
-                 if (M0_l < p + 1) "left" else "right", min(M0_l, M0_r), p), call. = FALSE)
-  }
 
   ## The `c` range check further down (the exit=1 block) is reached too late:
   ## with c outside the support one side is empty, and the masspoints block
@@ -158,6 +157,13 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
   ## needed" before the informative check ever runs. Fail here instead.
   if (c <= x_min | c >= x_max)
     stop("c should be set within the range of x", call. = FALSE)
+
+  # Fail early, and say why, when one side cannot support the polynomial fits.
+  M0_l = length(unique(X_l)); M0_r = length(unique(X_r))
+  if (min(M0_l, M0_r) < p + 1) {
+    stop(sprintf("Not enough distinct running-variable values on the %s side of the cutoff (%d) to fit a polynomial of order p = %d.",
+                 if (M0_l < p + 1) "left" else "right", min(M0_l, M0_r), p), call. = FALSE)
+  }
 
   M_l = N_l;  M_r = N_r
 
@@ -224,9 +230,6 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
     msg <- rdrobust_check_opt(vce, "vce")
     if (!is.null(msg)) { warning(msg); exit = 1 }
 
-    msg <- if (isFALSE(masspoints)) NULL else rdrobust_check_opt(masspoints, "masspoints")
-    if (!is.null(msg)) { warning(msg); exit = 1 }
-
     if (c<=x_min | c>=x_max){
       warning("c should be set within the range of x")
       exit = 1
@@ -247,7 +250,7 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
       exit = 1
     }
     
-    p_round = round(p)/p;    q_round = round(q)/q;    d_round = round(deriv+1)/(deriv+1);    m_round = round(nnmatch)/nnmatch
+    p_round = round(p)/p;    q_round = round(q)/q;    d_round = round(deriv+1)/(deriv+1);    m_round = if (isTRUE(nnmatch > 0)) round(nnmatch)/nnmatch else 1  # nnmatch<=0 already flagged above; 0/0 crashed
         
     if ((p_round!=1 &p>0) | (q_round!=1&q>0) | d_round!=1 | m_round!=1 ){
       warning("p,q,deriv and matches should be integer numbers")

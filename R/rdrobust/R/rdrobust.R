@@ -190,13 +190,6 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   range_l = abs(c-x_min);  range_r = abs(c-x_max)
   N_l = length(X_l);   N_r = length(X_r)
   N = N_r + N_l
-
-  # Fail early, and say why, when one side cannot support the polynomial fits.
-  M0_l = length(unique(X_l)); M0_r = length(unique(X_r))
-  if (min(M0_l, M0_r) < q + 1) {
-    stop(sprintf("Not enough distinct running-variable values on the %s side of the cutoff (%d) to fit a polynomial of order q = %d.",
-                 if (M0_l < q + 1) "left" else "right", min(M0_l, M0_r), q), call. = FALSE)
-  }
   quant = -qnorm(abs((1-(level/100))/2))
   
   dT = 0
@@ -337,6 +330,13 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   }
 
   if (exit>0) stop("rdrobust: invalid input (see warnings above).")
+
+  # Fail early, and say why, when one side cannot support the polynomial fits.
+  M0_l = length(unique(X_l)); M0_r = length(unique(X_r))
+  if (min(M0_l, M0_r) < q + 1) {
+    stop(sprintf("Not enough distinct running-variable values on the %s side of the cutoff (%d) to fit a polynomial of order q = %d.",
+                 if (M0_l < q + 1) "left" else "right", min(M0_l, M0_r), q), call. = FALSE)
+  }
   if (!is.null(h)) bwselect = "Manual"
   if (!is.null(h) & is.null(rho) & is.null(b)) {
     rho = 1
@@ -601,20 +601,27 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
          call. = FALSE)
   }
   
+  if (!is.null(weights)) {
+    w_h_l <- fw_l*w_h_l;	w_h_r <- fw_r*w_h_r
+    w_b_l <- fw_l*w_b_l;	w_b_r <- fw_r*w_b_r			
+  }
+
   # Cluster-robust variances need many clusters; with a handful per side they
-  # are unreliable, and with as few as p+1 they can collapse to exactly zero.
+  # are unreliable, and with p+1 or fewer the variance is not identified (the
+  # standard error collapses to zero up to rounding). Counted after the user
+  # weights, so zero-weight observations do not count.
   if (!is.null(cluster)) {
     gh_l = length(unique(C_l[w_h_l > 0])); gh_r = length(unique(C_r[w_h_r > 0]))
-    if (min(gh_l, gh_r) < 10) {
+    if (min(gh_l, gh_r) <= p + 1) {
+      warning(sprintf(paste0("Only %d (left) and %d (right) clusters within the bandwidth. ",
+                             "With p+1 = %d or fewer clusters on a side the cluster-robust variance is not identified ",
+                             "and the standard error can be zero."),
+                      gh_l, gh_r, p + 1), call. = FALSE)
+    } else if (min(gh_l, gh_r) < 10) {
       warning(sprintf(paste0("Only %d (left) and %d (right) clusters within the bandwidth. ",
                              "Cluster-robust standard errors are unreliable with fewer than 10 clusters on a side."),
                       gh_l, gh_r), call. = FALSE)
     }
-  }
-
-  if (!is.null(weights)) {
-    w_h_l <- fw_l*w_h_l;	w_h_r <- fw_r*w_h_r
-    w_b_l <- fw_l*w_b_l;	w_b_r <- fw_r*w_b_r			
   }
 
   ind_h_l <- w_h_l> 0;		ind_h_r <- w_h_r> 0
@@ -948,9 +955,6 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
 
   tau = c(tau_cl, tau_bc, tau_bc)
   se  = c(se_tau_cl,se_tau_cl,se_tau_rb)
-  if (!is.null(cluster) && isTRUE(any(se == 0, na.rm = TRUE))) {
-    warning("A cluster-robust standard error is exactly 0: there are too few clusters within the bandwidth to estimate the variance.", call. = FALSE)
-  }
   t   =  tau/se
   pv  = 2*pnorm(-abs(t))
   ci  = matrix(NA,nrow=3,ncol=2)
@@ -1309,7 +1313,6 @@ vcov.rdrobust <- function(object, ...) {
   se <- as.vector(object$se)
   V  <- diag(se^2, nrow = length(se), ncol = length(se))
   dimnames(V) <- list(rownames(object$se), rownames(object$se))
-  attr(V, "offdiag") <- "not estimated (placeholder zeros)"
   V
 }
 

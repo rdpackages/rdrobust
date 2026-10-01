@@ -72,8 +72,8 @@ defaults, so e.g. {cmd:legend(off)} or {cmd:xline(0.5)} take effect
 {p 4 8}{it:Note:} {cmd:col_dots()} and {cmd:col_lines()} were accepted by
 earlier versions but never had any effect -- the binned means and the fit line
 are drawn inside {cmd:rdplot}, which exposes no hook for per-plot colours.
-They are no longer accepted, so the mistake is reported instead of being
-silently ignored.{p_end}
+They are still accepted, so existing do-files keep running, and a note says
+they are ignored.{p_end}
 
 {marker results}{...}
 {title:Stored results}

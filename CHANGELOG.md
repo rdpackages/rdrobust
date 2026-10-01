@@ -20,8 +20,10 @@ Changes in results:
   per-bin confidence intervals use `N - 1` degrees of freedom, as R and Python.
 - Bandwidth selection: the `bwcheck` floor and the first pilot bandwidth are
   padded by a factor `1 + sqrt(eps)`, so the observation that sets them keeps a
-  positive kernel weight (R, Python, Stata). Selected bandwidths move by less
-  than `1e-6` in relative terms.
+  positive kernel weight (R, Python, Stata). Selected bandwidths and the
+  resulting estimates change slightly: by less than `1e-6` in relative terms on
+  the Senate test grids, and by about `2e-6` in a cost-sharing replication
+  (`rdrobust(op_n_per, week)`). Fits with a fixed bandwidth are unchanged.
 - R: the default `ginv.tol` is `1e-15` (was `1e-20`), as in Python and Stata.
   With a covariate that is nearly collinear on one side of the cutoff, the
   selected bandwidth no longer depends on row order or numerical noise.
@@ -35,17 +37,28 @@ Errors and warnings:
   or an unrelated error; Python raised a linear-algebra error; and Stata printed
   a message and continued, usually with the full range as bandwidth.
 - A side of the cutoff with fewer than `q + 1` distinct values of `x`
-  (`p + 1` in `rdbwselect()`) stops with an informative error.
+  (`p + 1` in `rdbwselect()`) stops with an informative error (R, Python,
+  Stata; `ValueError` in Python). A cutoff outside the range of `x` still
+  reports that first.
 - With clustered standard errors, a warning when either side has fewer than 10
-  clusters within the bandwidth, and when a standard error is exactly 0.
-- Input validation: `vce`, `kernel` and `bwselect` are case-insensitive in
-  `rdbwselect()` as in `rdrobust()`; `nnmatch`, negative weights,
-  `binselect`, collinear covariates with `covs_drop = FALSE`, and a cutoff
-  outside the range of `x` give informative errors.
+  clusters with positive weight within the bandwidth, and a stronger one with
+  `p + 1` or fewer, where the cluster-robust variance is not identified and the
+  standard error can be zero (R, Python, Stata; Stata respects `nowarnings`).
+- Input validation:
+  - R and Python: `rdbwselect()` accepts the same option casing as
+    `rdrobust()`, and both functions reject negative weights and an `nnmatch`
+    that is not a positive integer (`ValueError` in Python).
+  - R: `rdplot()` validates `binselect`; `rdrobust()` explains rank-deficient
+    covariates with `covs_drop = FALSE` (Python still raises a linear-algebra
+    error there).
+  - Stata keeps dropping observations with nonpositive weights, as before.
 - Stata: `e(sample)` is set, user matrices and tempvars are no longer
-  overwritten, and `rdrobustplot` accepts twoway options.
+  overwritten, `rdrobustplot` accepts twoway options and now honours `noci` and
+  `nochecks`. `rdplot` and `rdrobustplot` still accept options they do not use
+  (and `col_dots()`/`col_lines()`), now with a note that they are ignored.
 
-Tests: R has a `testthat` suite (116 tests); Python has 37 tests.
+Tests: R has a `testthat` suite; Python has a pytest suite. Both include the
+examples from the PR #25 review.
 
 ## September 27, 2026 update
 

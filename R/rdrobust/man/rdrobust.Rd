@@ -162,7 +162,7 @@ The CR2/CR3 leverage correction applies to both the conventional and the robust 
 
 \code{coef()} returns the Conventional, Bias-Corrected and Robust point estimates as a named vector.
 
-\code{vcov()} returns a \strong{diagonal-only} matrix holding the squared standard errors of those same three rows. Its off-diagonal entries are \strong{placeholder zeros, not estimated covariances, and not a claim that the rows are independent}: the three rows are different estimators of the \emph{same} parameter and are strongly correlated, but the quantities needed to form their cross-covariances (the design matrices behind \code{tau_cl} and \code{tau_bc}) are not retained on the fitted object, so they cannot be recovered after the fact. The returned matrix carries an \code{"offdiag"} attribute saying so.
+\code{vcov()} returns a \strong{diagonal-only} matrix holding the squared standard errors of those same three rows. Its off-diagonal entries are \strong{placeholder zeros, not estimated covariances, and not a claim that the rows are independent}: the three rows are different estimators of the \emph{same} parameter and are strongly correlated, but the quantities needed to form their cross-covariances (the design matrices behind \code{tau_cl} and \code{tau_bc}) are not retained on the fitted object, so they cannot be recovered after the fact.
 
 The practical consequence: do not use this matrix to test or combine \emph{across} rows -- for example, a Wald test that the Conventional and Robust estimates differ would be wrong, because it would treat two highly correlated numbers as independent. Per-row inference is unaffected; use \code{object$se}, \code{object$ci} and \code{object$pv}, or the Robust row, which is the one intended for reporting.
 }

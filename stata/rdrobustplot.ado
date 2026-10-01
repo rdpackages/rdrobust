@@ -12,10 +12,10 @@ program define rdrobustplot, rclass
 	* ST-9: scale/xlabel/ylabel/xtitle/ytitle were accepted and then never
 	* referenced -- silently dead. They are ordinary twoway options, so they
 	* are now folded into the graph_options() handed to rdplot (see below).
-	* col_dots()/col_lines() are NOT here any more: they are per-plot marker
-	* and line colours, and rdplot builds its own twoway call with no hook for
-	* them, so they could never have worked. Removed rather than left as
-	* silent no-ops -- Stata now reports "option col_dots() not allowed".
+	* col_dots()/col_lines() are per-plot marker and line colours, and rdplot
+	* builds its own twoway call with no hook for them, so they have never had
+	* an effect. They are still accepted, so existing scripts keep running,
+	* with a note saying they are ignored.
 	* Two passthrough routes, kept separate on purpose:
 	*  - rdplot ANALYSIS options (masspoints() etc.) are declared by name
 	*    below and forwarded to rdplot as such;
@@ -31,7 +31,9 @@ program define rdrobustplot, rclass
 		xtitle(string asis) ytitle(string asis) ///
 		masspoints(string) covs_drop(string) covs_eval(string) ///
 		support(string) genvars nochecks PRECision(string) ///
-		graph_options(string asis) shade * ]
+		graph_options(string asis) col_dots(string) col_lines(string) shade * ]
+
+	if (`"`col_dots'`col_lines'"' != "") di as text "Note: col_dots() and col_lines() have no effect and are ignored."
 
 	* -----------------------------------------------------------------------
 	* Validate: require a previous rdrobust call
@@ -93,6 +95,8 @@ program define rdrobustplot, rclass
 	* -----------------------------------------------------------------------
 	* Delegate to rdplot using the SAME bandwidth the rdrobust call used
 	* -----------------------------------------------------------------------
+	* NOCI is declared in capitals (no abbreviation), so its macro is `noci'.
+	* The lowercase nochecks below is a negated option, stored in `checks'.
 	local ci_flag = cond("`noci'"!="", "", "ci(`level')")
 	local shade_flag = cond("`shade'"!="", "shade", "")
 	local covs_flag  = cond("`covs'"!="",  "covs(`covs')", "")
@@ -129,7 +133,7 @@ program define rdrobustplot, rclass
 	if ("`precision'"  != "") local rdp_pass "`rdp_pass' precision(`precision')"
 	capture noisily rdplot `y' `x' , c(`c') h(`h_l' `h_r') p(`p') ///
 		nbins(`nbins') binselect(`binselect') kernel(`kernel') ///
-		`covs_flag' `ci_flag' `shade_flag' `genvars' `nochecks' `rdp_pass' ///
+		`covs_flag' `ci_flag' `shade_flag' `genvars' `checks' `rdp_pass' ///
 		graph_options(`gopts')
 	local _rdp_rc = _rc
 	_estimates unhold `_rdrp_est'

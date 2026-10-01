@@ -191,21 +191,15 @@ program define rdrobust, eclass
 		}		
 		
 		* Was `scalar rho = ...`, a GLOBAL scalar that clobbered any user scalar
-		* named rho and was never dropped. A local suffices -- it is used only
-		* in the two lines below.
-		local rho_use = round(`rho', .0001)
-		if (`rho_use' > 0)  {
+		* named rho and was never dropped. The option value is used directly,
+		* without rounding, so that b = h/rho holds for any positive rho.
+		if (`rho' > 0)  {
 			* rho() silently overrode an explicit b(). Say so.
 			if ("`b'" != "") {
 				di as text "Note: both b() and rho() were specified; rho() takes precedence and b() is ignored (b = h/rho)."
 			}
-			local b_l = `h_l'/`rho_use'
-			local b_r = `h_r'/`rho_use'
-		}
-		else if (`rho' > 0) {
-			* A positive rho below 5e-5 rounds to 0 and was silently discarded.
-			di as error "{err}{cmd:rho()} = `rho' is too small: it rounds to 0 at the 1e-4 precision used here and would be ignored."
-			exit 125
+			local b_l = `h_l'/`rho'
+			local b_r = `h_r'/`rho'
 		}
 	}	
 	
@@ -788,10 +782,12 @@ masspoints_found = 0
 		w_b_l = rdrobust_kweight(X_l,`c',b_l,"`kernel'");	w_b_r = rdrobust_kweight(X_r,`c',b_r,"`kernel'")
 
 		// Cluster-robust variances need many clusters; with a handful per side
-		// they are unreliable, and with as few as p+1 they can collapse to 0.
-		if ("`cluster'"!="") {
+		// they are unreliable, and with p+1 or fewer the variance is not
+		// identified (the standard error collapses to zero up to rounding).
+		if ("`cluster'"!="" & st_local("warnings")=="") {
 			gh_l = rows(uniqrows(select(C_l, w_h_l:>0))); gh_r = rows(uniqrows(select(C_r, w_h_r:>0)))
-			if (min((gh_l, gh_r)) < 10) printf("{txt}Warning: only %g (left) and %g (right) clusters within the bandwidth. Cluster-robust standard errors are unreliable with fewer than 10 clusters on a side.\n", gh_l, gh_r)
+			if (min((gh_l, gh_r)) <= `p'+1) printf("{txt}Warning: only %g (left) and %g (right) clusters within the bandwidth. With p+1 = %g or fewer clusters on a side the cluster-robust variance is not identified and the standard error can be zero.\n", gh_l, gh_r, `p'+1)
+			else if (min((gh_l, gh_r)) < 10) printf("{txt}Warning: only %g (left) and %g (right) clusters within the bandwidth. Cluster-robust standard errors are unreliable with fewer than 10 clusters on a side.\n", gh_l, gh_r)
 		}
 		
 		if ("`weights'"!="") {
@@ -1119,7 +1115,6 @@ masspoints_found = 0
 		st_numscalar("N_h_l", N_h_l);	st_numscalar("N_b_l", N_b_l)
 		st_numscalar("N_h_r", N_h_r);	st_numscalar("N_b_r", N_b_r)
 		
-		if ("`cluster'"!="" & (se_tau_cl==0 | se_tau_rb==0)) printf("{txt}Warning: a cluster-robust standard error is exactly 0: there are too few clusters within the bandwidth to estimate the variance.\n")
 		st_numscalar("tau_cl", tau_cl); st_numscalar("se_tau_cl", se_tau_cl)
 		st_numscalar("tau_bc", tau_bc);	st_numscalar("se_tau_rb", se_tau_rb)
 		

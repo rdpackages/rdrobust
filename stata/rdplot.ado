@@ -7,11 +7,12 @@
 capture program drop rdplot
 program define rdplot, eclass
 	version 16.0
-	* ST-10: the trailing `*' used to collect any unrecognised option into
-	* `options', which this ado never reads -- so a typo'd option was accepted
-	* and silently ignored, while rdrobust and rdbwselect correctly rc=198 on
-	* the same mistake. Twoway options have their own graph_options() slot.
-	syntax anything [if] [, c(real 0) p(integer 4) nbins(string) covs(string) covs_eval(string) covs_drop(string)  binselect(string) scale(string) kernel(string) weights(string) h(string) support(string) masspoints(string) genvars hide ci(real 0) shade graph_options(string asis) nochecks PRECision(string)]
+	* ST-10: the trailing `*' collects any unrecognised option into `options',
+	* which this ado does not use. It is kept so existing scripts keep running,
+	* but such options are now reported instead of being ignored silently.
+	* Twoway options have their own graph_options() slot.
+	syntax anything [if] [, c(real 0) p(integer 4) nbins(string) covs(string) covs_eval(string) covs_drop(string)  binselect(string) scale(string) kernel(string) weights(string) h(string) support(string) masspoints(string) genvars hide ci(real 0) shade graph_options(string asis) nochecks PRECision(string) *]
+	if (`"`options'"' != "") di as text `"Note: option(s) `options' not recognized by rdplot and ignored. Twoway options go in graph_options()."'
 
 	marksample touse
 	capture mata: mata describe rdrobust_kweight()

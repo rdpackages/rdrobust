@@ -311,6 +311,12 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
                     and bwcheck == round(bwcheck)):
                 raise Exception("bwcheck must be a single positive integer")
 
+        # nnmatch was not validated: 2.5 was accepted, and 0 failed later with an
+        # unrelated-looking bandwidth error. R rejects both up front.
+        if not (np.isscalar(nnmatch) and np.isfinite(nnmatch) and nnmatch >= 1
+                and nnmatch == round(nnmatch)):
+            raise ValueError("nnmatch must be a single positive integer")
+
         if (masspoints is not None and masspoints is not False
                 and masspoints not in ("check", "adjust", "off", "")):
             raise Exception("masspoints must be one of 'check', 'adjust', 'off', or False")
@@ -407,6 +413,12 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
         if weights is not None:
             weights = np.array(weights).reshape(-1,1)
             if subset is not None: weights = weights[subset]
+            # As in rdrobust(): a negative weight is an error, not silently dropped.
+            _wfin = weights[complete_cases(weights)]
+            if np.any(_wfin < 0):
+                raise Exception(
+                    "`weights` must be non-negative; "
+                    f"{int(np.sum(_wfin < 0))} negative value(s) found.")
             na_ok = na_ok & complete_cases(weights) & (weights>=0).reshape(-1,)
         
         x = x[na_ok]
@@ -471,7 +483,7 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
     # Fail early, and say why, when one side cannot support the polynomial fits.
     M0_l = len(np.unique(X_l)); M0_r = len(np.unique(X_r))
     if min(M0_l, M0_r) < p + 1:
-        raise Exception("Not enough distinct running-variable values on the "
+        raise ValueError("Not enough distinct running-variable values on the "
                         + ("left" if M0_l < p + 1 else "right")
                         + f" side of the cutoff ({min(M0_l, M0_r)}) to fit a polynomial of order p = {p}.")
     
@@ -599,8 +611,10 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
     h_sel_l = bws.iloc[0, 0]
     h_sel_r = bws.iloc[0, 1]
     # Degenerate-cascade guard (see funs.py). Must run before the effective-N
-    # computation, which would otherwise count against a NaN window.
-    bw_guard(bws.iloc[0].values)
+    # computation, which would otherwise count against a NaN window. It checks
+    # every returned row: with all=True a later selector can fail while the
+    # first one is fine.
+    bw_guard(bws.to_numpy())
 
     # X_l/X_r and c are on the STANDARDIZED scale here, while bws was restored
     # to the original scale above. Comparing the two directly made every
@@ -769,8 +783,10 @@ def _rdbwselect_compute(
         b_mserd = x_sd*b_bw_d
  
     if bwselect=="msecomb1" or bwselect=="cercomb1" or all: 
-        h_msecomb1 = min(h_mserd,h_msesum)
-        b_msecomb1 = min(b_mserd,b_msesum)
+        # np.min passes a NaN through (the built-in min does not, and would
+        # hide an undefined msesum pilot behind a valid mserd).
+        h_msecomb1 = np.min([h_mserd,h_msesum])
+        b_msecomb1 = np.min([b_mserd,b_msesum])
     if bwselect=="msecomb2" or bwselect=="cercomb2" or  all:
         h_msecomb2_l = np.median(np.array([h_mserd,h_msesum,h_msetwo_l]))
         h_msecomb2_r = np.median(np.array([h_mserd,h_msesum,h_msetwo_r]))
