@@ -182,6 +182,10 @@ rdrobust_check_opt <- function(value, what) {
   out
 }
 
+# var() of a single observation is NA, which crashed the fuzzy first-stage
+# checks with "missing value where TRUE/FALSE needed". One value has no spread.
+rd_var0 = function(v) if (length(v) < 2) 0 else var(as.vector(v))
+
 qrXXinv = function(x, ..., allow_singular = TRUE) {
   G <- crossprod(x)
   R <- try(chol(G), silent = TRUE)
@@ -280,6 +284,8 @@ rdrobust_bw = function(Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale, vce, nn
   # across the 6-18 pilot calls per rdrobust invocation. The B-fit
   # below still runs each call (its h_B differs per stage).
   dT = dZ = dC = 0
+  # Returned when a pilot fit is not identified; rdrobust_bw_guard() reports it.
+  nan_out = list(V=NaN, B=NaN, R=NaN, rate=1/(2*o+3))
   crv3 = (vce=="crv3") & !is.null(C)
   crv2 = (vce=="crv2") & !is.null(C)
   key <- paste0(o, "_", nu)
@@ -291,6 +297,7 @@ rdrobust_bw = function(Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale, vce, nn
     s      <- cached$s
     if (!is.null(T)) dT <- 1
     if (!is.null(Z)) dZ <- ncol(Z)
+    if (!is.finite(V_V)) return(nan_out)
   } else {
   w = rdrobust_kweight(X, c, h_V, kernel)
   if (!is.null(W)) w = W*w
@@ -298,6 +305,15 @@ rdrobust_bw = function(Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale, vce, nn
   ind_V = w> 0; eY = Y[ind_V];eX = X[ind_V];eW = w[ind_V]
   n_V = sum(ind_V)
   D_V = eY
+  # A pilot with fewer distinct x than coefficients is not identified. It used
+  # to go through ginv() and return a bandwidth from an arbitrary fit (Stata's
+  # cholinv() gives missing, Python's Cholesky raised). Counting distinct
+  # values, rather than testing the factorization, gives the same answer on
+  # every platform and in every language.
+  if (length(unique(eX)) < o + 1) {
+    if (!is.null(vcache)) assign(key, list(V_V=NaN, BConst=NaN, s=1), envir = vcache, inherits = FALSE)
+    return(nan_out)
+  }
   R_V = .rdrobust_vander(as.numeric(eX - c), o)
   invG_V = qrXXinv(R_V*sqrt(eW))
   s = 1
@@ -372,10 +388,17 @@ rdrobust_bw = function(Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale, vce, nn
         }
   }
         
+        # An undefined pilot from the previous stage, or a window with fewer
+        # distinct x than coefficients, used to crash below in svd() or in the
+        # NN loop. Pass it on as NaN so rdrobust_bw_guard() reports it.
+        if (!is.finite(h_B) || h_B <= 0) {
+          return(nan_out)
+        }
         w = rdrobust_kweight(X, c, h_B, kernel)
         if (!is.null(W)) w = W*w
         ind = w> 0 
         n_B = sum(ind)
+        if (length(unique(X[ind])) < o_B + 1) return(nan_out)
         eY = Y[ind];eX = X[ind];eW = w[ind]
         D_B = eY
         R_B = .rdrobust_vander(as.numeric(eX - c), o_B)

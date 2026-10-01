@@ -467,6 +467,13 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
     x_min = np.min(x)
     x_max = np.max(x)
     N = N_r + N_l
+
+    # Fail early, and say why, when one side cannot support the polynomial fits.
+    M0_l = len(np.unique(X_l)); M0_r = len(np.unique(X_r))
+    if min(M0_l, M0_r) < p + 1:
+        raise Exception("Not enough distinct running-variable values on the "
+                        + ("left" if M0_l < p + 1 else "right")
+                        + f" side of the cutoff ({min(M0_l, M0_r)}) to fit a polynomial of order p = {p}.")
     
     M_l = N_l
     M_r = N_r
@@ -636,8 +643,10 @@ def _rdbwselect_compute(
     if bwcheck is not None:
         bwcheck_l = min(bwcheck, M_l)
         bwcheck_r = min(bwcheck, M_r)
-        bw_min_l = np.abs(X_uniq_l-c)[bwcheck_l-1]
-        bw_min_r = np.abs(X_uniq_r-c)[bwcheck_r-1]
+        # Pad by (1 + sqrt(eps)) so the bwcheck-th value keeps a positive
+        # kernel weight; at exactly the bandwidth it got weight 0.
+        bw_min_l = np.abs(X_uniq_l-c)[bwcheck_l-1]*(1 + np.sqrt(np.finfo(float).eps))
+        bw_min_r = np.abs(X_uniq_r-c)[bwcheck_r-1]*(1 + np.sqrt(np.finfo(float).eps))
         c_bw = max(c_bw, bw_min_l, bw_min_r)
 
     # Per-side V-fit caches: rdrobust_bw's V-fit depends only on (o, nu)
@@ -647,11 +656,11 @@ def _rdbwselect_compute(
 
     #*** Step 1: d_bw
     C_d_l = (rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c, q+1, q+1,
-                          q+2, c_bw, range_l, 0, vce, nnmatch,
+                          q+2, c_bw, range_l*(1 + np.sqrt(np.finfo(float).eps)), 0, vce, nnmatch,
                           kernel, dups_l, dupsid_l, covs_drop_coll,
                           _vcache=vcache_l))
     C_d_r = (rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c, q+1, q+1,
-                          q+2, c_bw, range_r, 0, vce, nnmatch,
+                          q+2, c_bw, range_r*(1 + np.sqrt(np.finfo(float).eps)), 0, vce, nnmatch,
                           kernel, dups_r, dupsid_r, covs_drop_coll,
                           _vcache=vcache_r))
     #*** TWO bw 

@@ -2,7 +2,7 @@
 * RDROBUST STATA PACKAGE -- rdrobust
 * Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell, Rocio Titiunik
 ********************************************************************************
-*! version 11.1.0 22may2026
+*! version 11.1.1 01oct2026
 
 capture program drop rdrobust
 program define rdrobust, eclass
@@ -426,6 +426,17 @@ program define rdrobust, eclass
 			 exit 125
 			}
 	}
+
+	* Fail early, and say why, when one side cannot support the polynomial fits.
+	* Done here, in the validation block, because an exit from inside the Mata
+	* work blocks does not surface its own return code (see the note below).
+	mata: _x0 = st_data(., ("`y' `x'"), 0)[,2]; st_local("_M0_l", strofreal(rows(uniqrows(select(_x0, _x0:<`c'))))); st_local("_M0_r", strofreal(rows(uniqrows(select(_x0, _x0:>=`c')))))
+	mata: mata drop _x0
+	if (min(`_M0_l', `_M0_r') < `q'+1) {
+		local _side = cond(`_M0_l' < `q'+1, "left", "right")
+		di as error "{err}Not enough distinct running-variable values on the `_side' side of the cutoff (" min(`_M0_l', `_M0_r') ") to fit a polynomial of order q = `q'."
+		exit 2001
+	}
 	*********************** END ERROR CHECKING ************************************************************
 	}
 	* End of validation-only capture block. Splitting validation from the
@@ -595,8 +606,8 @@ masspoints_found = 0
 		if (bwcheck > 0) {
 			bwcheck_l = min((bwcheck, M_l))
 			bwcheck_r = min((bwcheck, M_r))
-			bw_min_l = abs(X_uniq_l:-c)[bwcheck_l]
-			bw_min_r = abs(X_uniq_r:-c)[bwcheck_r]
+			bw_min_l = abs(X_uniq_l:-c)[bwcheck_l]*(1+sqrt(epsilon(1)))
+			bw_min_r = abs(X_uniq_r:-c)[bwcheck_r]*(1+sqrt(epsilon(1)))
 			c_bw = max((c_bw, bw_min_l, bw_min_r))
 		}		
 		
@@ -604,10 +615,14 @@ masspoints_found = 0
 		// T1: per-side V-fit caches reused across all pilot calls.
 		vcache_l = asarray_create("string")
 		vcache_r = asarray_create("string")
+		// Set when any pilot fit is not identified (rdrobust_bw returns missing).
+		bw_undef = 0
 
 		*** Step 1: d_bw
-		C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q'+1, nu=`q'+1, o_B=`q'+2, h_V=c_bw, h_B=range_l, 0, "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
-		C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q'+1, nu=`q'+1, o_B=`q'+2, h_V=c_bw, h_B=range_r, 0, "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+		C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q'+1, nu=`q'+1, o_B=`q'+2, h_V=c_bw, h_B=range_l*(1+sqrt(epsilon(1))), 0, "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+		bw_undef = max((bw_undef, hasmissing(C_d_l[1..3])))
+		C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q'+1, nu=`q'+1, o_B=`q'+2, h_V=c_bw, h_B=range_r*(1+sqrt(epsilon(1))), 0, "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+		bw_undef = max((bw_undef, hasmissing(C_d_r[1..3])))
 		if (C_d_l[1]==0 | C_d_l[2]==0 | C_d_r[1]==0 | C_d_r[2]==0 |C_d_l[1]==. | C_d_l[2]==. | C_d_l[3]==. |C_d_r[1]==. | C_d_r[2]==. | C_d_r[3]==.) printf("{err}Not enough variability to compute the preliminary bandwidth. Consider using option {cmd:stdvars(on)} (now the default) to standardize the running variable before bandwidth selection; or check for mass points with {cmd:masspoints(check)}.\n")
 	
 		*** BW-TWO
@@ -625,8 +640,10 @@ masspoints_found = 0
 			}
 			* Bias bw
 			C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_l, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+			bw_undef = max((bw_undef, hasmissing(C_b_l[1..3])))
 			b_bw_l = (  (C_b_l[1]              /   (C_b_l[2]^2 + `scaleregul'*C_b_l[3])))^C_b_l[4]
 			C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_r, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+			bw_undef = max((bw_undef, hasmissing(C_b_r[1..3])))
 			b_bw_r = (  (C_b_r[1]              /   (C_b_r[2]^2 + `scaleregul'*C_b_r[3])))^C_b_r[4]
 			if  ("`bwrestrict'"=="on") {
 			b_bw_l = min((b_bw_l, range_l))
@@ -634,8 +651,10 @@ masspoints_found = 0
 			}
 			* Main bw
 			C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_l, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+			bw_undef = max((bw_undef, hasmissing(C_h_l[1..3])))
 			h_bw_l = (  (C_h_l[1]              /   (C_h_l[2]^2 + `scaleregul'*C_h_l[3])))^C_h_l[4]
 			C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_r, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+			bw_undef = max((bw_undef, hasmissing(C_h_r[1..3])))
 			h_bw_r = (  (C_h_r[1]              /   (C_h_r[2]^2 + `scaleregul'*C_h_r[3])))^C_h_r[4]
 			if  ("`bwrestrict'"=="on") {
 			h_bw_l = min((h_bw_l, range_l))
@@ -651,12 +670,16 @@ masspoints_found = 0
 			if (bwcheck > 0) d_bw_s = max((d_bw_s, bw_min_l, bw_min_r))		
 			* Bias bw
 			C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_s, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+			bw_undef = max((bw_undef, hasmissing(C_b_l[1..3])))
 			C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_s, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+			bw_undef = max((bw_undef, hasmissing(C_b_r[1..3])))
 			b_bw_s = ( ((C_b_l[1] + C_b_r[1])  /  ((C_b_r[2] + C_b_l[2])^2 + `scaleregul'*(C_b_r[3]+C_b_l[3]))))^C_b_l[4]
 			if  ("`bwrestrict'"=="on") b_bw_s = min((b_bw_s, bw_max))
 			* Main bw
 			C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_s, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+			bw_undef = max((bw_undef, hasmissing(C_h_l[1..3])))
 			C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_s, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+			bw_undef = max((bw_undef, hasmissing(C_h_r[1..3])))
 			h_bw_s = ( ((C_h_l[1] + C_h_r[1])  /  ((C_h_r[2] + C_h_l[2])^2 + `scaleregul'*(C_h_r[3] + C_h_l[3]))))^C_h_l[4]
 			if  ("`bwrestrict'"=="on") h_bw_s = min((h_bw_s, bw_max))
 		}
@@ -670,13 +693,17 @@ masspoints_found = 0
 			if (bwcheck > 0) d_bw_d = max((d_bw_d, bw_min_l, bw_min_r))		
 			* Bias bw
 			C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_d, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+			bw_undef = max((bw_undef, hasmissing(C_b_l[1..3])))
 			C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_d, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+			bw_undef = max((bw_undef, hasmissing(C_b_r[1..3])))
 			b_bw_d = ( ((C_b_l[1] + C_b_r[1])  /  ((C_b_r[2] - C_b_l[2])^2 + `scaleregul'*(C_b_r[3] + C_b_l[3]))))^C_b_l[4]
 			if  ("`bwrestrict'"=="on") b_bw_d = min((b_bw_d, bw_max))
 			
 			* Main bw
 			C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_d, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+			bw_undef = max((bw_undef, hasmissing(C_h_l[1..3])))
 			C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_d, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+			bw_undef = max((bw_undef, hasmissing(C_h_r[1..3])))
 			h_bw_d = ( ((C_h_l[1] + C_h_r[1])  /  ((C_h_r[2] - C_h_l[2])^2 + `scaleregul'*(C_h_r[3] + C_h_l[3]))))^C_h_l[4]
 			if  ("`bwrestrict'"=="on") h_bw_d = min((h_bw_d, bw_max))
 			
@@ -686,6 +713,8 @@ masspoints_found = 0
 
 		if (C_b_l[1]==0 | C_b_l[2]==0 | C_b_r[1]==0 | C_b_r[2]==0 |C_b_l[1]==. | C_b_l[2]==. | C_b_l[3]==. | C_b_r[1]==. | C_b_r[2]==. | C_b_r[3]==.) printf("{err}Not enough variability to compute the bias bandwidth (b). Consider using option {cmd:stdvars(on)} (now the default) to standardize the running variable; or check for mass points with {cmd:masspoints(check)}.\n")
 		if (C_h_l[1]==0 | C_h_l[2]==0 | C_h_r[1]==0 | C_h_r[2]==0 |C_h_l[1]==. | C_h_l[2]==. | C_h_l[3]==. | C_h_r[1]==. | C_h_r[2]==. | C_h_r[3]==.) printf("{err}Not enough variability to compute the loc. poly. bandwidth (h). Consider using option {cmd:stdvars(on)} (now the default) to standardize the running variable; or check for mass points with {cmd:masspoints(check)}.\n")
+		// Stopped at the top of the estimation block below.
+		if (bw_undef) st_local("_bw_undef", "1")
 	
 		cer_h = mN^(-(`p'/((3+`p')*(3+2*`p'))))
 		if ("`cluster'"!="") cer_h = (g_l+g_r)^(-(`p'/((3+`p')*(3+2*`p'))))
@@ -746,12 +775,24 @@ masspoints_found = 0
 
 	mata{
 	
+		if (st_local("_bw_undef")=="1") {
+			display("{err}Not enough variability in the running variable to compute the bandwidth. Check for mass points with option {cmd:masspoints(check)}; if the running variable is discrete, an RD design may not be identified at this sample size.")
+			exit(2001)
+		}
+
 		*** Estimation and Inference
 		
 		c = strtoreal("`c'")
 	
 		w_h_l = rdrobust_kweight(X_l,`c',h_l,"`kernel'");	w_h_r = rdrobust_kweight(X_r,`c',h_r,"`kernel'")
 		w_b_l = rdrobust_kweight(X_l,`c',b_l,"`kernel'");	w_b_r = rdrobust_kweight(X_r,`c',b_r,"`kernel'")
+
+		// Cluster-robust variances need many clusters; with a handful per side
+		// they are unreliable, and with as few as p+1 they can collapse to 0.
+		if ("`cluster'"!="") {
+			gh_l = rows(uniqrows(select(C_l, w_h_l:>0))); gh_r = rows(uniqrows(select(C_r, w_h_r:>0)))
+			if (min((gh_l, gh_r)) < 10) printf("{txt}Warning: only %g (left) and %g (right) clusters within the bandwidth. Cluster-robust standard errors are unreliable with fewer than 10 clusters on a side.\n", gh_l, gh_r)
+		}
 		
 		if ("`weights'"!="") {
 			w_h_l = fw_l:*w_h_l;	w_h_r = fw_r:*w_h_r
@@ -1078,6 +1119,7 @@ masspoints_found = 0
 		st_numscalar("N_h_l", N_h_l);	st_numscalar("N_b_l", N_b_l)
 		st_numscalar("N_h_r", N_h_r);	st_numscalar("N_b_r", N_b_r)
 		
+		if ("`cluster'"!="" & (se_tau_cl==0 | se_tau_rb==0)) printf("{txt}Warning: a cluster-robust standard error is exactly 0: there are too few clusters within the bandwidth to estimate the variance.\n")
 		st_numscalar("tau_cl", tau_cl); st_numscalar("se_tau_cl", se_tau_cl)
 		st_numscalar("tau_bc", tau_bc);	st_numscalar("se_tau_rb", se_tau_rb)
 		

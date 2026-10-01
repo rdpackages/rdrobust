@@ -16,7 +16,7 @@ For more details, and related Stata and R packages useful for analysis of RD des
 \usage{
 rdplot(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv",  
           scale = NULL, kernel = "uni", weights = NULL, h = NULL, 
-          covs = NULL, covs_eval = "mean", covs_drop = TRUE, ginv.tol = 1e-20,
+          covs = NULL, covs_eval = "mean", covs_drop = TRUE, ginv.tol = 1e-15,
           support = NULL, subset = NULL, masspoints = "adjust",
           hide = FALSE, ci = NULL, shade = FALSE, title = NULL, 
           x.label = NULL, y.label = NULL, x.lim = NULL, y.lim = NULL, 
@@ -59,7 +59,7 @@ If not specified, the bandwidths are chosen to span the full support of the data
   }}
   \item{covs_eval}{sets the evaluation points for the additional covariates, when included in the estimation. Options are: \code{covs_eval = 0} and \code{covs_eval = "mean"} (default)}
   \item{covs_drop}{if TRUE, it checks for collinear additional covariates and drops them. Default is TRUE.}
-    \item{ginv.tol}{tolerance used to invert matrices involving covariates when \code{covs_drop=TRUE}.}
+    \item{ginv.tol}{tolerance used to invert matrices involving covariates when \code{covs_drop=TRUE}: directions with singular value below \code{ginv.tol} times the largest are discarded. Default is \code{1e-15}; smaller values can invert numerical noise.}
   \item{support}{specifies an optional extended support of the running variable to be used in the construction of the bins;  default is the sample range.}
   \item{subset}{an optional vector specifying a subset of observations to be used.}
     \item{masspoints}{checks and controls for repeated observations in the running variable. Options are:

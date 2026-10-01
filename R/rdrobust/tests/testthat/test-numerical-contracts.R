@@ -26,6 +26,9 @@ test_that("RDsenate fixed-bandwidth baseline is stable", {
 })
 
 test_that("RDsenate data-driven baseline is stable", {
+  ## Values since 2026-10-01: the pilot bandwidth h_B = range is padded by
+  ## (1 + sqrt(eps)) so the farthest observation keeps a positive weight (D1);
+  ## this moved h by about 5e-8 relative.
   data(rdrobust_RDsenate, envir = environment())
   y <- rdrobust_RDsenate$vote
   x <- rdrobust_RDsenate$margin
@@ -33,14 +36,14 @@ test_that("RDsenate data-driven baseline is stable", {
   est <- rdrobust(y = y, x = x)
 
   expect_equal(as.numeric(est$bws),
-               c(17.7543972211599, 28.0280871511408,
-                 17.7543972211599, 28.0280871511408),
+               c(17.7543981926642, 28.0280885876685,
+                 17.7543981926642, 28.0280885876685),
                tolerance = 1e-9)
   expect_equal(as.numeric(est$coef),
-               c(7.41413080197352, 7.50650247058758, 7.50650247058758),
+               c(7.41413074911209, 7.50650236486938, 7.50650236486938),
                tolerance = 1e-9)
   expect_equal(as.numeric(est$se),
-               c(1.45871602382597, 1.45871602382597, 1.74125841460802),
+               c(1.45871598890695, 1.45871598890695, 1.7412583753243),
                tolerance = 1e-9)
   expect_equal(as.numeric(est$N_h), c(360, 323))
 })
@@ -53,16 +56,16 @@ test_that("RDsenate bandwidth-selector baselines are stable", {
   bw <- rdbwselect(y = y, x = x, all = TRUE)
 
   expect_equal(as.numeric(bw$bws["mserd", ]),
-               c(17.7543972211599, 17.7543972211599,
-                 28.0280871511408, 28.0280871511408),
+               c(17.7543981926642, 17.7543981926642,
+                 28.0280885876685, 28.0280885876685),
                tolerance = 1e-9)
   expect_equal(as.numeric(bw$bws["msetwo", ]),
-               c(16.1698202033388, 18.1264623349676,
-                 27.1038901767765, 29.3435512423602),
+               c(16.1698198341379, 18.1264687019701,
+                 27.1038896746599, 29.3435621754159),
                tolerance = 1e-9)
   expect_equal(as.numeric(bw$bws["cerrd", ]),
-               c(12.4067757744621, 12.4067757744621,
-                 28.0280871511408, 28.0280871511408),
+               c(12.4067764533495, 12.4067764533495,
+                 28.0280885876685, 28.0280885876685),
                tolerance = 1e-9)
 })
 

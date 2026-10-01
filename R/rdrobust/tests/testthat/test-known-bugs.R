@@ -70,9 +70,14 @@ test_that("R-9: rdbwselect accepts the same option casing as rdrobust", {
 
 test_that("NEW-1: a degenerate bandwidth is reported, never returned as NaN", {
 
+  ## Two values of x per side cannot identify the pilot polynomials. The
+  ## selector must either return a finite bandwidth or say so; never NaN, and
+  ## never a crash from deep inside the fit.
   mp <- make_masspoint_fixture(n = 2000, K = 5, seed = 2)
-  bw <- rdbwselect(y = mp$y, x = mp$x)
-  expect_true(is.finite(bw$bws[1, 1]))
+  bw <- tryCatch(suppressWarnings(rdbwselect(y = mp$y, x = mp$x)),
+                 error = function(e) conditionMessage(e))
+  if (is.character(bw)) expect_match(bw, "Not enough variability")
+  else expect_true(is.finite(bw$bws[1, 1]))
 })
 
 test_that("NEW-2: covs_drop=FALSE with collinear covariates errors informatively", {

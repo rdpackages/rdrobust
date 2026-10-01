@@ -1,5 +1,5 @@
 rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = NULL,
-                      covs = NULL,  covs_drop = TRUE, ginv.tol = 1e-20,
+                      covs = NULL,  covs_drop = TRUE, ginv.tol = 1e-15,
                       kernel = "tri", weights = NULL, bwselect = "mserd",
                       vce = "nn", cluster = NULL,
                       nnmatch = 3,  scaleregul = 1, sharpbw = FALSE,
@@ -143,6 +143,13 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
   x_min=min(x);  x_max=max(x)
   range_l = abs(c-x_min);  range_r = abs(c-x_max)
   N = N_l + N_r
+
+  # Fail early, and say why, when one side cannot support the polynomial fits.
+  M0_l = length(unique(X_l)); M0_r = length(unique(X_r))
+  if (min(M0_l, M0_r) < p + 1) {
+    stop(sprintf("Not enough distinct running-variable values on the %s side of the cutoff (%d) to fit a polynomial of order p = %d.",
+                 if (M0_l < p + 1) "left" else "right", min(M0_l, M0_r), p), call. = FALSE)
+  }
 
   ## The `c` range check further down (the exit=1 block) is reached too late:
   ## with c outside the support one side is empty, and the masspoints block
@@ -349,10 +356,10 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
     T_l  = fuzzy[ind_l,,drop=FALSE];  T_r  = fuzzy[ind_r,,drop=FALSE];
     # Reject fully degenerate first stage (no variation, no jump). One-sided
     # non-compliance falls through to the perf_comp branch.
-    if (var(T_l) == 0 && var(T_r) == 0 && abs(mean(T_l) - mean(T_r)) < .Machine$double.eps^0.5) {
+    if (rd_var0(T_l) == 0 && rd_var0(T_r) == 0 && abs(mean(T_l) - mean(T_r)) < .Machine$double.eps^0.5) {
       stop("Fuzzy RD: first-stage variable has no variation and no jump at the cutoff. The fuzzy estimator is not identified.", call. = FALSE)
     }
-    if (var(T_l)==0 | var(T_r)==0) perf_comp=TRUE
+    if (rd_var0(T_l)==0 | rd_var0(T_r)==0) perf_comp=TRUE
     if (isTRUE(perf_comp) | isTRUE(sharpbw)) {
       T_l = T_r = NULL
       }
@@ -384,8 +391,8 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
     if (!is.null(bwcheck)) {
       bwcheck_l = min(bwcheck, M_l)
 			bwcheck_r = min(bwcheck, M_r)
-      bw_min_l = abs(X_uniq_l-c)[bwcheck_l]
-      bw_min_r = abs(X_uniq_r-c)[bwcheck_r]
+      bw_min_l = abs(X_uniq_l-c)[bwcheck_l] * (1 + sqrt(.Machine$double.eps))
+      bw_min_r = abs(X_uniq_r-c)[bwcheck_r] * (1 + sqrt(.Machine$double.eps))
       c_bw = max(c_bw, bw_min_l, bw_min_r)
       bw.adj <- 1
     }
@@ -396,8 +403,8 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
     vcache_r <- new.env(parent = emptyenv())
 
     ### Step 1: d_bw
-    C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw, h_B=range_l, 0, vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol, vcache = vcache_l)
-    C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw, h_B=range_r, 0, vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol, vcache = vcache_r)
+    C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw, h_B=range_l * (1 + sqrt(.Machine$double.eps)), 0, vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol, vcache = vcache_l)
+    C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw, h_B=range_r * (1 + sqrt(.Machine$double.eps)), 0, vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol, vcache = vcache_r)
     ### TWO
     if  (bwselect=="msetwo" |  bwselect=="certwo" | bwselect=="msecomb2" | bwselect=="cercomb2"  | isTRUE(all))  {		
       d_bw_l = c((  C_d_l$V              /   C_d_l$B^2             )^C_d_l$rate)

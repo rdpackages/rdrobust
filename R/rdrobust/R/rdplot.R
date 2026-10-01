@@ -1,6 +1,6 @@
 rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = NULL,
                   kernel = "uni", weights = NULL, h = NULL,
-                  covs = NULL,  covs_eval = "mean", covs_drop = TRUE, ginv.tol = 1e-20,
+                  covs = NULL,  covs_eval = "mean", covs_drop = TRUE, ginv.tol = 1e-15,
                   support = NULL, subset = NULL, masspoints = "adjust",
                   hide = FALSE, ci = NULL, shade = FALSE,
                   title = NULL, x.label = NULL, y.label = NULL, x.lim = NULL, y.lim = NULL,

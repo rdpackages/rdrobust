@@ -530,6 +530,13 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
     N_r = len(X_r)
     N = N_r + N_l
 
+    # Fail early, and say why, when one side cannot support the polynomial fits.
+    M0_l = len(np.unique(X_l)); M0_r = len(np.unique(X_r))
+    if min(M0_l, M0_r) < q + 1:
+        raise Exception("Not enough distinct running-variable values on the "
+                        + ("left" if M0_l < q + 1 else "right")
+                        + f" side of the cutoff ({min(M0_l, M0_r)}) to fit a polynomial of order q = {q}.")
+
     # Reject fully degenerate first stage (no variation, no jump). One-sided
     # non-compliance falls through to the perf_comp branch downstream.
     if fuzzy is not None:
@@ -751,7 +758,18 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
     w_h_r = rdrobust_kweight(X_r,c,h_r,kernel)
     w_b_l = rdrobust_kweight(X_l,c,b_l,kernel)	
     w_b_r = rdrobust_kweight(X_r,c,b_r,kernel)
-    
+
+    # Cluster-robust variances need many clusters; with a handful per side they
+    # are unreliable, and with as few as p+1 they can collapse to exactly zero.
+    if cluster is not None:
+        cl_l = np.asarray(cluster[x<c]).reshape(-1)
+        cl_r = np.asarray(cluster[x>=c]).reshape(-1)
+        gh_l = len(np.unique(cl_l[np.asarray(w_h_l).reshape(-1) > 0]))
+        gh_r = len(np.unique(cl_r[np.asarray(w_h_r).reshape(-1) > 0]))
+        if min(gh_l, gh_r) < 10:
+            warnings.warn(f"Only {gh_l} (left) and {gh_r} (right) clusters within the bandwidth. "
+                          "Cluster-robust standard errors are unreliable with fewer than 10 clusters on a side.")
+
     if weights is not None:
         fw_l = weights[x<c]  
         fw_r = weights[x>=c]
@@ -1112,6 +1130,9 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
 
     tau = np.array([tau_cl, tau_bc, tau_bc]).reshape(-1,1)
     se  = np.array([se_tau_cl,se_tau_cl,se_tau_rb]).reshape(-1,1)
+    if cluster is not None and np.any(se == 0):
+        warnings.warn("A cluster-robust standard error is exactly 0: there are too few clusters "
+                      "within the bandwidth to estimate the variance.")
     z   =  tau/se
     pv  = 2*sct.norm.cdf(-np.abs(z))
     ci = np.column_stack((tau - quant*se,tau + quant*se))

@@ -1,6 +1,6 @@
 rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
                     p = NULL, q = NULL, h = NULL, b = NULL, rho = NULL,
-                    covs = NULL, covs_drop = TRUE, ginv.tol = 1e-20,
+                    covs = NULL, covs_drop = TRUE, ginv.tol = 1e-15,
                     kernel = "tri", weights = NULL, bwselect = "mserd",
                     vce = "nn", cluster = NULL, nnmatch = 3, level = 95,
                     scalepar = 1, scaleregul = 1, sharpbw = FALSE,
@@ -190,6 +190,13 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   range_l = abs(c-x_min);  range_r = abs(c-x_max)
   N_l = length(X_l);   N_r = length(X_r)
   N = N_r + N_l
+
+  # Fail early, and say why, when one side cannot support the polynomial fits.
+  M0_l = length(unique(X_l)); M0_r = length(unique(X_r))
+  if (min(M0_l, M0_r) < q + 1) {
+    stop(sprintf("Not enough distinct running-variable values on the %s side of the cutoff (%d) to fit a polynomial of order q = %d.",
+                 if (M0_l < q + 1) "left" else "right", min(M0_l, M0_r), q), call. = FALSE)
+  }
   quant = -qnorm(abs((1-(level/100))/2))
   
   dT = 0
@@ -203,11 +210,11 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
     # sample (zero variance on both sides AND no jump at the cutoff). The
     # one-sided cases (e.g. T=0 left and varying right, or T=0 left and T=1
     # right) are legitimate and handled by the perf_comp branch below.
-    if (var(T_l) == 0 && var(T_r) == 0 && abs(mean(T_l) - mean(T_r)) < .Machine$double.eps^0.5) {
+    if (rd_var0(T_l) == 0 && rd_var0(T_r) == 0 && abs(mean(T_l) - mean(T_r)) < .Machine$double.eps^0.5) {
       stop("Fuzzy RD: first-stage variable has no variation and no jump at the cutoff. The fuzzy estimator is not identified.", call. = FALSE)
     }
 
-    if (var(T_l)==0 | var(T_r)==0) perf_comp=TRUE
+    if (rd_var0(T_l)==0 | rd_var0(T_r)==0) perf_comp=TRUE
 
   if (isTRUE(perf_comp) | isTRUE(sharpbw)) {
       dT = 0
@@ -438,8 +445,8 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
     bw.adj <- 0
     if (!is.null(bwcheck)) {
       bwcheck_l = min(bwcheck, M_l);  bwcheck_r = min(bwcheck, M_r)
-      bw_min_l = abs(X_uniq_l-c)[bwcheck_l]
-      bw_min_r = abs(X_uniq_r-c)[bwcheck_r]
+      bw_min_l = abs(X_uniq_l-c)[bwcheck_l] * (1 + sqrt(.Machine$double.eps))
+      bw_min_r = abs(X_uniq_r-c)[bwcheck_r] * (1 + sqrt(.Machine$double.eps))
       c_bw = max(c_bw, bw_min_l, bw_min_r)
       bw.adj <- 1
     }
@@ -452,8 +459,8 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
     vcache_r <- new.env(parent = emptyenv())
 
     ### Step 1: d_bw
-    C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, bw_fw_l, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw, h_B=range_l, 0,         vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol, vcache = vcache_l)
-    C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, bw_fw_r, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw, h_B=range_r, 0,         vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol, vcache = vcache_r)
+    C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, bw_fw_l, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw, h_B=range_l * (1 + sqrt(.Machine$double.eps)), 0,         vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol, vcache = vcache_l)
+    C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, bw_fw_r, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw, h_B=range_r * (1 + sqrt(.Machine$double.eps)), 0,         vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol, vcache = vcache_r)
 
     ### TWO
     if (bwselect=="msetwo" | bwselect=="certwo" | bwselect=="msecomb2" | bwselect=="cercomb2") {
@@ -594,6 +601,17 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
          call. = FALSE)
   }
   
+  # Cluster-robust variances need many clusters; with a handful per side they
+  # are unreliable, and with as few as p+1 they can collapse to exactly zero.
+  if (!is.null(cluster)) {
+    gh_l = length(unique(C_l[w_h_l > 0])); gh_r = length(unique(C_r[w_h_r > 0]))
+    if (min(gh_l, gh_r) < 10) {
+      warning(sprintf(paste0("Only %d (left) and %d (right) clusters within the bandwidth. ",
+                             "Cluster-robust standard errors are unreliable with fewer than 10 clusters on a side."),
+                      gh_l, gh_r), call. = FALSE)
+    }
+  }
+
   if (!is.null(weights)) {
     w_h_l <- fw_l*w_h_l;	w_h_r <- fw_r*w_h_r
     w_b_l <- fw_l*w_b_l;	w_b_r <- fw_r*w_b_r			
@@ -930,6 +948,9 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
 
   tau = c(tau_cl, tau_bc, tau_bc)
   se  = c(se_tau_cl,se_tau_cl,se_tau_rb)
+  if (!is.null(cluster) && isTRUE(any(se == 0, na.rm = TRUE))) {
+    warning("A cluster-robust standard error is exactly 0: there are too few clusters within the bandwidth to estimate the variance.", call. = FALSE)
+  }
   t   =  tau/se
   pv  = 2*pnorm(-abs(t))
   ci  = matrix(NA,nrow=3,ncol=2)

@@ -2,7 +2,7 @@
 * RDROBUST STATA PACKAGE -- rdplot
 * Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell, Rocio Titiunik
 ********************************************************************************
-*! version 11.1.0 22may2026
+*! version 11.1.1 01oct2026
 
 capture program drop rdplot
 program define rdplot, eclass
@@ -709,7 +709,8 @@ if  ("`covs_eval'"=="mean" & "`covs'"!="") {
 	bin_med_l = rdrobust_median(rdplot_length_l)
 	bin_med_r = rdrobust_median(rdplot_length_r) 
 	
-	quant = -invt(rdplot_N, abs((1-(`ci'/100))/2))
+	// N-1 degrees of freedom per bin, as in R and Python (was N).
+	quant = -invt(rowmax((rdplot_N:-1, J(rows(rdplot_N),1,1))), abs((1-(`ci'/100))/2))
 	rdplot_ci_l = rdplot_mean_y - quant:*rdplot_se_y
 	rdplot_ci_r = rdplot_mean_y + quant:*rdplot_se_y
 		
