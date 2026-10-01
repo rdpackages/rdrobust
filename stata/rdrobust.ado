@@ -2,7 +2,7 @@
 * RDROBUST STATA PACKAGE -- rdrobust
 * Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell, Rocio Titiunik
 ********************************************************************************
-*! version 11.1.0 22may2026
+*! version 11.1.1 01oct2026
 
 capture program drop rdrobust
 program define rdrobust, eclass
@@ -46,12 +46,27 @@ program define rdrobust, eclass
 
 	local kernel   = lower("`kernel'")
 	local bwselect = lower("`bwselect'")
-	
+
+	* Normalize the remaining string options here, before anything branches on
+	* them. These used to be compared case-sensitively against lowercase
+	* literals, so stdvars(ON) silently behaved as stdvars(off) -- a 43-fold
+	* difference in the selected bandwidth on scaled data, with no warning.
+	* Empty values are left empty so the DEFAULTS block below still fires.
+	local masspoints = lower("`masspoints'")
+	local stdvars    = lower("`stdvars'")
+	local bwrestrict = lower("`bwrestrict'")
+	local covs_drop  = lower("`covs_drop'")
+
 	******************** Set VCE ***************************
 	local nnmatch = 3
 	local cr_method = ""
 	tokenize `vce'
 	local w : word count `vce'
+	* Normalize the vce TYPE (first token) only. The remaining tokens are a
+	* cluster variable name and an nnmatch count, and Stata variable names are
+	* case sensitive, so they must not be lowercased. Without this, vce(NN)
+	* failed with rc=7 while kernel() and bwselect() accepted any case.
+	if `w' >= 1 local 1 = lower(`"`1'"')
 	if `w' == 1 {
 		local vce_select `"`1'"'
 	}
@@ -161,6 +176,12 @@ program define rdrobust, eclass
 		exit 125
 	}
 	
+	* Transport buffers for the coefficient / variance matrices. These used to
+	* be created as GLOBAL matrices literally named `b' and `V', which silently
+	* destroyed any user matrices of those names (they were dropped again at the
+	* end, so the originals were gone for good).
+	tempname bmat Vmat
+
 	*** Manual bandwidth
 	if ("`h'"!="") {
 		local bwselect = "Manual"
@@ -169,11 +190,17 @@ program define rdrobust, eclass
 			local b_l = `h_l'
 		}		
 		
-		scalar rho= round(`rho', .0001)
-		if (rho>0)  {
+		* Was `scalar rho = ...`, a GLOBAL scalar that clobbered any user scalar
+		* named rho and was never dropped. The option value is used directly,
+		* without rounding, so that b = h/rho holds for any positive rho.
+		if (`rho' > 0)  {
+			* rho() silently overrode an explicit b(). Say so.
+			if ("`b'" != "") {
+				di as text "Note: both b() and rho() were specified; rho() takes precedence and b() is ignored (b = h/rho)."
+			}
 			local b_l = `h_l'/`rho'
 			local b_r = `h_r'/`rho'
-		}		
+		}
 	}	
 	
 	*** Default bandwidth 
@@ -267,7 +294,27 @@ program define rdrobust, eclass
 	**** DEFAULTS ***************************************
 	if ("`masspoints'"=="") local masspoints = "adjust"
 	if ("`stdvars'"=="")    local stdvars    = "on"
-	if ("`bwrestrict'"=="") local bwrestrict = "on"	
+	if ("`bwrestrict'"=="") local bwrestrict = "on"
+
+	* Validate the on/off-style options against their whitelists. Previously an
+	* unrecognized value fell through to the "not on" branch and was silently
+	* treated as off, which quietly defeated the scale-robustness default.
+	if !inlist("`masspoints'","adjust","check","off") {
+		di as error "{err}{cmd:masspoints()} incorrectly specified (received '`masspoints''); allowed: adjust, check, off."
+		exit 198
+	}
+	if !inlist("`stdvars'","on","off") {
+		di as error "{err}{cmd:stdvars()} incorrectly specified (received '`stdvars''); allowed: on, off."
+		exit 198
+	}
+	if !inlist("`bwrestrict'","on","off") {
+		di as error "{err}{cmd:bwrestrict()} incorrectly specified (received '`bwrestrict''); allowed: on, off."
+		exit 198
+	}
+	if !inlist("`covs_drop'","off","invsym","pinv") {
+		di as error "{err}{cmd:covs_drop()} incorrectly specified (received '`covs_drop''); allowed: off, invsym, pinv."
+		exit 198
+	}
 	*****************************************************************
 	
 	* Only compute what we need. `su x, d` also computes skewness/kurtosis/etc.
@@ -368,10 +415,21 @@ program define rdrobust, eclass
 			 exit 125
 			}
 			if ("`masspoints'" != "" & ///
-			    !inlist("`masspoints'", "check", "adjust", "off", "false")) {
+			    !inlist("`masspoints'", "check", "adjust", "off")) {
 			 di as error  "{err}{cmd:masspoints()} must be one of check, adjust, off"
 			 exit 125
 			}
+	}
+
+	* Fail early, and say why, when one side cannot support the polynomial fits.
+	* Done here, in the validation block, because an exit from inside the Mata
+	* work blocks does not surface its own return code (see the note below).
+	mata: _x0 = st_data(., ("`y' `x'"), 0)[,2]; st_local("_M0_l", strofreal(rows(uniqrows(select(_x0, _x0:<`c'))))); st_local("_M0_r", strofreal(rows(uniqrows(select(_x0, _x0:>=`c')))))
+	mata: mata drop _x0
+	if (min(`_M0_l', `_M0_r') < `q'+1) {
+		local _side = cond(`_M0_l' < `q'+1, "left", "right")
+		di as error "{err}Not enough distinct running-variable values on the `_side' side of the cutoff (" min(`_M0_l', `_M0_r') ") to fit a polynomial of order q = `q'."
+		exit 2001
 	}
 	*********************** END ERROR CHECKING ************************************************************
 	}
@@ -393,8 +451,12 @@ program define rdrobust, eclass
 		sort `x', stable
 		if ("`vce_select'"=="nn") {
 			tempvar dups dupsid
-			by `x': gen `storage_type' dups = _N
-			by `x': gen `storage_type' dupsid = _n
+			* Use the TEMPVAR macros, not the literal names: `gen dups = _N`
+			* created a permanent variable called `dups`, so a user variable of
+			* that name broke every default vce(nn) run (and the rc=110 was
+			* masked into a misleading rc=3499 by the capture-noisily+mata path).
+			by `x': gen `storage_type' `dups' = _N
+			by `x': gen `storage_type' `dupsid' = _n
 		}
 	}
 
@@ -424,6 +486,14 @@ program define rdrobust, eclass
 		dZ=dT=dC=Z_l=Z_r=T_l=T_r=C_l=C_r=fw_l=fw_r=g_l=g_r=dups_l=dups_r=dupsid_l=dupsid_r=g_l=g_r=eT_l=eT_r=eZ_l=eZ_r=indC_l=indC_r=eC_l=eC_r=0
 		
 		N   = length(X);	N_l = length(X_l);	N_r = length(X_r)
+
+		// Unique-value counts per side, computed HERE because this block is
+		// common to the manual-h and auto-bandwidth paths. They used to be set
+		// only inside the auto-bandwidth branch, so h() + masspoints(check)
+		// crashed rc=111 at the display -- or, after an earlier run in the same
+		// session, silently displayed STALE counts from that run.
+		st_numscalar("M_l", length(uniqrows(X_l)))
+		st_numscalar("M_r", length(uniqrows(X_r)))
 				
 		if ("`covs'"!="") {
 			Z   = st_data(.,tokens("`covs_list'"), 0); dZ  = cols(Z)
@@ -461,7 +531,7 @@ program define rdrobust, eclass
 		}
 		
 		if ("`vce_select'"=="nn") {
-			dups      = st_data(.,("dups"), 0); dupsid    = st_data(.,("dupsid"), 0)
+			dups      = st_data(.,("`dups'"), 0); dupsid    = st_data(.,("`dupsid'"), 0)
 			dups_l    = dups[ind_l];    dups_r    = dups[ind_r]
 			dupsid_l  = dupsid[ind_l];  dupsid_r  = dupsid[ind_r]
 		}
@@ -530,8 +600,8 @@ masspoints_found = 0
 		if (bwcheck > 0) {
 			bwcheck_l = min((bwcheck, M_l))
 			bwcheck_r = min((bwcheck, M_r))
-			bw_min_l = abs(X_uniq_l:-c)[bwcheck_l]
-			bw_min_r = abs(X_uniq_r:-c)[bwcheck_r]
+			bw_min_l = abs(X_uniq_l:-c)[bwcheck_l]*(1+sqrt(epsilon(1)))
+			bw_min_r = abs(X_uniq_r:-c)[bwcheck_r]*(1+sqrt(epsilon(1)))
 			c_bw = max((c_bw, bw_min_l, bw_min_r))
 		}		
 		
@@ -539,10 +609,14 @@ masspoints_found = 0
 		// T1: per-side V-fit caches reused across all pilot calls.
 		vcache_l = asarray_create("string")
 		vcache_r = asarray_create("string")
+		// Set when any pilot fit is not identified (rdrobust_bw returns missing).
+		bw_undef = 0
 
 		*** Step 1: d_bw
-		C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q'+1, nu=`q'+1, o_B=`q'+2, h_V=c_bw, h_B=range_l, 0, "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
-		C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q'+1, nu=`q'+1, o_B=`q'+2, h_V=c_bw, h_B=range_r, 0, "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+		C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q'+1, nu=`q'+1, o_B=`q'+2, h_V=c_bw, h_B=range_l*(1+sqrt(epsilon(1))), 0, "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+		bw_undef = max((bw_undef, hasmissing(C_d_l[1..3])))
+		C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q'+1, nu=`q'+1, o_B=`q'+2, h_V=c_bw, h_B=range_r*(1+sqrt(epsilon(1))), 0, "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+		bw_undef = max((bw_undef, hasmissing(C_d_r[1..3])))
 		if (C_d_l[1]==0 | C_d_l[2]==0 | C_d_r[1]==0 | C_d_r[2]==0 |C_d_l[1]==. | C_d_l[2]==. | C_d_l[3]==. |C_d_r[1]==. | C_d_r[2]==. | C_d_r[3]==.) printf("{err}Not enough variability to compute the preliminary bandwidth. Consider using option {cmd:stdvars(on)} (now the default) to standardize the running variable before bandwidth selection; or check for mass points with {cmd:masspoints(check)}.\n")
 	
 		*** BW-TWO
@@ -560,8 +634,10 @@ masspoints_found = 0
 			}
 			* Bias bw
 			C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_l, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+			bw_undef = max((bw_undef, hasmissing(C_b_l[1..3])))
 			b_bw_l = (  (C_b_l[1]              /   (C_b_l[2]^2 + `scaleregul'*C_b_l[3])))^C_b_l[4]
 			C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_r, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+			bw_undef = max((bw_undef, hasmissing(C_b_r[1..3])))
 			b_bw_r = (  (C_b_r[1]              /   (C_b_r[2]^2 + `scaleregul'*C_b_r[3])))^C_b_r[4]
 			if  ("`bwrestrict'"=="on") {
 			b_bw_l = min((b_bw_l, range_l))
@@ -569,8 +645,10 @@ masspoints_found = 0
 			}
 			* Main bw
 			C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_l, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+			bw_undef = max((bw_undef, hasmissing(C_h_l[1..3])))
 			h_bw_l = (  (C_h_l[1]              /   (C_h_l[2]^2 + `scaleregul'*C_h_l[3])))^C_h_l[4]
 			C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_r, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+			bw_undef = max((bw_undef, hasmissing(C_h_r[1..3])))
 			h_bw_r = (  (C_h_r[1]              /   (C_h_r[2]^2 + `scaleregul'*C_h_r[3])))^C_h_r[4]
 			if  ("`bwrestrict'"=="on") {
 			h_bw_l = min((h_bw_l, range_l))
@@ -586,12 +664,16 @@ masspoints_found = 0
 			if (bwcheck > 0) d_bw_s = max((d_bw_s, bw_min_l, bw_min_r))		
 			* Bias bw
 			C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_s, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+			bw_undef = max((bw_undef, hasmissing(C_b_l[1..3])))
 			C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_s, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+			bw_undef = max((bw_undef, hasmissing(C_b_r[1..3])))
 			b_bw_s = ( ((C_b_l[1] + C_b_r[1])  /  ((C_b_r[2] + C_b_l[2])^2 + `scaleregul'*(C_b_r[3]+C_b_l[3]))))^C_b_l[4]
 			if  ("`bwrestrict'"=="on") b_bw_s = min((b_bw_s, bw_max))
 			* Main bw
 			C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_s, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+			bw_undef = max((bw_undef, hasmissing(C_h_l[1..3])))
 			C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_s, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+			bw_undef = max((bw_undef, hasmissing(C_h_r[1..3])))
 			h_bw_s = ( ((C_h_l[1] + C_h_r[1])  /  ((C_h_r[2] + C_h_l[2])^2 + `scaleregul'*(C_h_r[3] + C_h_l[3]))))^C_h_l[4]
 			if  ("`bwrestrict'"=="on") h_bw_s = min((h_bw_s, bw_max))
 		}
@@ -605,13 +687,17 @@ masspoints_found = 0
 			if (bwcheck > 0) d_bw_d = max((d_bw_d, bw_min_l, bw_min_r))		
 			* Bias bw
 			C_b_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_d, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+			bw_undef = max((bw_undef, hasmissing(C_b_l[1..3])))
 			C_b_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`q', nu=`p'+1, o_B=`q'+1, h_V=c_bw, h_B=d_bw_d, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+			bw_undef = max((bw_undef, hasmissing(C_b_r[1..3])))
 			b_bw_d = ( ((C_b_l[1] + C_b_r[1])  /  ((C_b_r[2] - C_b_l[2])^2 + `scaleregul'*(C_b_r[3] + C_b_l[3]))))^C_b_l[4]
 			if  ("`bwrestrict'"=="on") b_bw_d = min((b_bw_d, bw_max))
 			
 			* Main bw
 			C_h_l  = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_d, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_l, dupsid_l, covs_drop_coll, "`cr_method'", vcache_l)
+			bw_undef = max((bw_undef, hasmissing(C_h_l[1..3])))
 			C_h_r  = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=`p', nu=`deriv', o_B=`q', h_V=c_bw, h_B=b_bw_d, `scaleregul', "`vce_select'", `nnmatch', "`kernel'", dups_r, dupsid_r, covs_drop_coll, "`cr_method'", vcache_r)
+			bw_undef = max((bw_undef, hasmissing(C_h_r[1..3])))
 			h_bw_d = ( ((C_h_l[1] + C_h_r[1])  /  ((C_h_r[2] - C_h_l[2])^2 + `scaleregul'*(C_h_r[3] + C_h_l[3]))))^C_h_l[4]
 			if  ("`bwrestrict'"=="on") h_bw_d = min((h_bw_d, bw_max))
 			
@@ -621,6 +707,8 @@ masspoints_found = 0
 
 		if (C_b_l[1]==0 | C_b_l[2]==0 | C_b_r[1]==0 | C_b_r[2]==0 |C_b_l[1]==. | C_b_l[2]==. | C_b_l[3]==. | C_b_r[1]==. | C_b_r[2]==. | C_b_r[3]==.) printf("{err}Not enough variability to compute the bias bandwidth (b). Consider using option {cmd:stdvars(on)} (now the default) to standardize the running variable; or check for mass points with {cmd:masspoints(check)}.\n")
 		if (C_h_l[1]==0 | C_h_l[2]==0 | C_h_r[1]==0 | C_h_r[2]==0 |C_h_l[1]==. | C_h_l[2]==. | C_h_l[3]==. | C_h_r[1]==. | C_h_r[2]==. | C_h_r[3]==.) printf("{err}Not enough variability to compute the loc. poly. bandwidth (h). Consider using option {cmd:stdvars(on)} (now the default) to standardize the running variable; or check for mass points with {cmd:masspoints(check)}.\n")
+		// Stopped at the top of the estimation block below.
+		if (bw_undef) st_local("_bw_undef", "1")
 	
 		cer_h = mN^(-(`p'/((3+`p')*(3+2*`p'))))
 		if ("`cluster'"!="") cer_h = (g_l+g_r)^(-(`p'/((3+`p')*(3+2*`p'))))
@@ -681,12 +769,26 @@ masspoints_found = 0
 
 	mata{
 	
+		if (st_local("_bw_undef")=="1") {
+			display("{err}Not enough variability in the running variable to compute the bandwidth. Check for mass points with option {cmd:masspoints(check)}; if the running variable is discrete, an RD design may not be identified at this sample size.")
+			exit(2001)
+		}
+
 		*** Estimation and Inference
 		
 		c = strtoreal("`c'")
 	
 		w_h_l = rdrobust_kweight(X_l,`c',h_l,"`kernel'");	w_h_r = rdrobust_kweight(X_r,`c',h_r,"`kernel'")
 		w_b_l = rdrobust_kweight(X_l,`c',b_l,"`kernel'");	w_b_r = rdrobust_kweight(X_r,`c',b_r,"`kernel'")
+
+		// Cluster-robust variances need many clusters; with a handful per side
+		// they are unreliable, and with p+1 or fewer the variance is not
+		// identified (the standard error collapses to zero up to rounding).
+		if ("`cluster'"!="" & st_local("warnings")=="") {
+			gh_l = rows(uniqrows(select(C_l, w_h_l:>0))); gh_r = rows(uniqrows(select(C_r, w_h_r:>0)))
+			if (min((gh_l, gh_r)) <= `p'+1) printf("{txt}Warning: only %g (left) and %g (right) clusters within the bandwidth. With p+1 = %g or fewer clusters on a side the cluster-robust variance is not identified and the standard error can be zero.\n", gh_l, gh_r, `p'+1)
+			else if (min((gh_l, gh_r)) < 10) printf("{txt}Warning: only %g (left) and %g (right) clusters within the bandwidth. Cluster-robust standard errors are unreliable with fewer than 10 clusters on a side.\n", gh_l, gh_r)
+		}
 		
 		if ("`weights'"!="") {
 			w_h_l = fw_l:*w_h_l;	w_h_r = fw_r:*w_h_r
@@ -746,7 +848,10 @@ masspoints_found = 0
 		
 		if (rank(invG_p_l)==. | rank(invG_p_r)==. | rank(invG_q_l)==. | rank(invG_q_r)==. ){
 		display("{err}Invertibility problem: check variability of running variable around cutoff. Try checking for mass points with option {cmd:masspoints(check)}.")
-			exit(1)
+			* rc=1 is Stata's --Break--, so under `qui` the user saw ONLY
+			* "--Break--" with no hint of the real cause. 506 is the standard
+			* "matrix not positive definite" code.
+			exit(506)
 		}
 		
 		e_p1 = J((`q'+1),1,0); e_p1[`p'+2]=1
@@ -845,12 +950,17 @@ masspoints_found = 0
 			
 			*** Sharp RD ********************
 			if (dT==0) {
-				tau_cl = `scalepar'*s_Y'*beta_p[(`deriv'+1),]'
-				tau_bc = `scalepar'*s_Y'*beta_bc[(`deriv'+1),]'				
-				tau_Y_cl_l = `scalepar'*s_Y'*beta_p_l[(`deriv'+1),]'
-				tau_Y_cl_r = `scalepar'*s_Y'*beta_p_r[(`deriv'+1),]'
-				tau_Y_bc_l = `scalepar'*s_Y'*beta_bc_l[(`deriv'+1),]'
-				tau_Y_bc_r = `scalepar'*s_Y'*beta_bc_r[(`deriv'+1),]'				
+				* factorial(deriv) converts the local-polynomial coefficient
+				* into the derivative estimate. It was missing on these tau
+				* lines while beta_Y_p_l/r below and V both carry it, so for
+				* deriv >= 2 tau was 1/deriv! of the correct value and the
+				* returns were internally inconsistent.
+				tau_cl = `scalepar'*factorial(`deriv')*s_Y'*beta_p[(`deriv'+1),]'
+				tau_bc = `scalepar'*factorial(`deriv')*s_Y'*beta_bc[(`deriv'+1),]'				
+				tau_Y_cl_l = `scalepar'*factorial(`deriv')*s_Y'*beta_p_l[(`deriv'+1),]'
+				tau_Y_cl_r = `scalepar'*factorial(`deriv')*s_Y'*beta_p_r[(`deriv'+1),]'
+				tau_Y_bc_l = `scalepar'*factorial(`deriv')*s_Y'*beta_bc_l[(`deriv'+1),]'
+				tau_Y_bc_r = `scalepar'*factorial(`deriv')*s_Y'*beta_bc_r[(`deriv'+1),]'				
 				bias_l = tau_Y_cl_l-tau_Y_bc_l
 				bias_r = tau_Y_cl_r-tau_Y_bc_r 		
 				
@@ -1025,8 +1135,8 @@ masspoints_found = 0
 		*                                                          displayed table)
 		*   Robust:         point = tau_bc,  SE = sqrt(V_tau_rb)  (CCT-recommended RBC)
 		* e(V) is block-diagonal (each row is its own estimand).
-		st_matrix("b", (tau_cl, tau_bc, tau_bc))
-		st_matrix("V", (V_tau_cl, 0, 0 \ 0, V_tau_cl, 0 \ 0, 0, V_tau_rb))
+		st_matrix("`bmat'", (tau_cl, tau_bc, tau_bc))
+		st_matrix("`Vmat'", (V_tau_cl, 0, 0 \ 0, V_tau_cl, 0 \ 0, 0, V_tau_rb))
 		st_matrix("V_Y_cl_r", V_Y_cl_r); st_matrix("V_Y_cl_l", V_Y_cl_l)
 		st_matrix("V_Y_bc_r", V_Y_bc_r); st_matrix("V_Y_bc_l", V_Y_bc_l)
 		st_numscalar("masspoints_found", masspoints_found)
@@ -1177,9 +1287,9 @@ masspoints_found = 0
 	local ci_l_rb = round(scalar(tau_bc - quant*se_tau_rb),0.001)
 	local ci_r_rb = round(scalar(tau_bc + quant*se_tau_rb),0.001)
 
-	matrix colnames b = Conventional Bias-corrected Robust
-	matrix rownames V = Conventional Bias-corrected Robust
-	matrix colnames V = Conventional Bias-corrected Robust
+	matrix colnames `bmat' = Conventional Bias-corrected Robust
+	matrix rownames `Vmat' = Conventional Bias-corrected Robust
+	matrix colnames `Vmat' = Conventional Bias-corrected Robust
 
 	}
 	local _rc = _rc
@@ -1206,7 +1316,15 @@ masspoints_found = 0
 
 	ereturn clear
 
-	ereturn post b V, esample(`touse')
+	* ST-6: `touse' came from `marksample' and so marked the [if]/[in] sample
+	* ONLY. Every missing-value drop happens inside the work frame, so
+	* e(sample) claimed rows that never entered the estimation (verified 1390
+	* marked vs e(N)=1244). `drop_cond' is written over variables that exist
+	* in this frame too, and locals survive the frame switch, so re-apply the
+	* very same condition here. Same fix as rdhte.ado ST-8.
+	qui replace `touse' = 0 if `drop_cond'
+
+	ereturn post `bmat' `Vmat', esample(`touse')
 	
 	ereturn scalar N = `N'
 	ereturn scalar N_l = scalar(N_l)
@@ -1311,12 +1429,12 @@ masspoints_found = 0
 
 	* Drop transient matrices/scalars used as Mata-to-Stata transport buffers
 	* so they don't leak into the caller's namespace.
-	cap matrix drop b V
 	cap scalar drop h_l h_r b_l b_r quant
 	cap scalar drop N_h_l N_h_r N_b_l N_b_r
 	cap scalar drop tau_cl tau_bc se_tau_cl se_tau_rb
 	cap scalar drop tau_Y_cl_l tau_Y_cl_r tau_Y_bc_l tau_Y_bc_r
 	cap scalar drop bias_l bias_r g_l g_r masspoints_found
+	cap scalar drop M_l M_r
 	cap scalar drop tau_T_cl tau_T_bc se_tau_T_cl se_tau_T_rb
 	cap scalar drop tau_T_cl_l tau_T_cl_r tau_T_bc_l tau_T_bc_r
 

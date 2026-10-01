@@ -339,6 +339,20 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     
    
     
+    # Normalize the string options before anything branches on them. The kernel
+    # label is derived immediately below and the mass-point block rewrites
+    # binselect, so both must already be in canonical form: lowercasing later
+    # (as this function used to) made kernel="TRI" estimate triangular but
+    # report "Uniform".
+    kernel     = norm_opt(kernel)
+    binselect  = norm_opt(binselect)
+    masspoints = norm_opt(masspoints)
+
+    # binselect must be validated here, not left to fail downstream: an unknown
+    # value used to reach the bin-count logic and die with an unbound
+    # J_star_orig, even when nbins was supplied.
+    check_opt(binselect, "binselect")
+
     kernel_type = "Uniform"
     if kernel=="epanechnikov" or kernel=="epa": kernel_type = "Epanechnikov"
     if kernel=="triangular" or kernel=="tri": kernel_type = "Triangular"
@@ -383,10 +397,8 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     if c<=x_min or c>=x_max:
         raise Exception("c should be set within the range of x")
     
-    kernel   = kernel.lower()
-    kernel_list = ['uni','uniform','tri','triangular','epa','epanechnikov','']
-    if kernel not in kernel_list:   
-        raise Exception("kernel incorrectly specified")
+    # (kernel was normalized above, before the kernel label was derived.)
+    check_opt(kernel, "kernel")
         
     if not np.isscalar(p) or p not in range(21):
         raise Exception('Polynomial order p incorrectly specified.')
@@ -687,8 +699,22 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     
     bin_x_l = np.searchsorted(jumps_l, x_l,side='right') - J_star_l - 1
     bin_x_l[bin_x_l==0] =-1   # to mimick R behaviour of FindInterval function in R
-    bin_x_r = np.searchsorted(jumps_r, x_r,side='left')
-    bin_x_r[bin_x_r==J_star_r] = J_star_r-1  # to mimick R behaviour of FindInterval function in R
+    # PY-5. R uses findInterval(x_r, jumps_r, rightmost.closed=TRUE), whose
+    # bins are LEFT-closed / right-open: jumps[i] <= x < jumps[i+1], numbered
+    # 1..J_star_r, with the very last bin closed on the right so the maximum
+    # lands in bin J_star_r.
+    #
+    # searchsorted(side='left') is the opposite convention -- (jumps[i-1],
+    # jumps[i]] -- so an interior point sitting exactly on a bin edge was put
+    # in the bin below R's. It also numbers 0..J_star_r, i.e. J_star_r+1
+    # distinct values, where bin 0 holds only the minimum; the old clamp then
+    # folded J_star_r into J_star_r-1, MERGING the outermost two bins and
+    # yielding one bin fewer than requested (16 instead of 17).
+    #
+    # side='right' reproduces findInterval exactly, including its 1-based
+    # numbering; only the rightmost.closed adjustment is still needed.
+    bin_x_r = np.searchsorted(jumps_r, x_r, side='right')
+    bin_x_r[bin_x_r==J_star_r+1] = J_star_r  # rightmost.closed=TRUE
 
     aux_l  = pd.DataFrame({'bin_x_l':bin_x_l, 'y_l':y_l, 'x_l':x_l})
     rdplot_l  = aux_l.groupby('bin_x_l').agg({'y_l': 'mean', 'x_l':'mean'}).reset_index()
@@ -804,8 +830,8 @@ def rdplot(y, x, c = 0, p = 4, nbins = None, binselect = "esmv", scale = None,
     rdplot_max_bin_l = jumps_l[1:(J_star_l + 1)]
     rdplot_min_bin_r = jumps_r[0:J_star_r]
     rdplot_max_bin_r = jumps_r[1:(J_star_r + 1)]
-    rdplot_min_bin = np.concatenate((rdplot_min_bin_l[np.flip(-rdplot_bin_l)-1], rdplot_min_bin_r[rdplot_bin_r-1]))
-    rdplot_max_bin = np.concatenate((rdplot_max_bin_l[np.flip(-rdplot_bin_l)-1], rdplot_max_bin_r[rdplot_bin_r-1]))
+    rdplot_min_bin = np.concatenate((rdplot_min_bin_l[rdplot_bin_l+J_star_l], rdplot_min_bin_r[rdplot_bin_r-1]))
+    rdplot_max_bin = np.concatenate((rdplot_max_bin_l[rdplot_bin_l+J_star_l], rdplot_max_bin_r[rdplot_bin_r-1]))
 
     bin_length = rdplot_max_bin-rdplot_min_bin
     bin_avg_l = mean(bin_length[:J_star_l])

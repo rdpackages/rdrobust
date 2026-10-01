@@ -1,5 +1,5 @@
 {smcl}
-{* *!version 11.1.0  2026-05-22}{...}
+{* *!version 11.1.1  2026-10-01}{...}
 {viewerjumpto "Syntax" "rdrobust##syntax"}{...}
 {viewerjumpto "Description" "rdrobust##description"}{...}
 {viewerjumpto "Options" "rdrobust##options"}{...}
@@ -104,7 +104,9 @@ If two bandwidths are specified, the first bandwidth is used for the data below 
 If two bandwidths are specified, the first bandwidth is used for the data below the cutoff and the second bandwidth is used for the data above the cutoff.{p_end}
 
 {p 4 8}{cmd:rho(}{it:#}{cmd:)} specifies the value of {it:rho}, so that the bias bandwidth {it:b} equals {it:b}={it:h}/{it:rho}.
-Default is {cmd:rho(1)} if {it:h} is specified but {it:b} is not.{p_end}
+Default is {cmd:rho(1)} if {it:h} is specified but {it:b} is not.
+If both {cmd:b()} and {cmd:rho()} are given, {cmd:rho()} takes precedence and
+{cmd:b()} is ignored; a note is displayed so the choice is visible.{p_end}
 
 {p 4 8}{cmd:covs(}{it:covars}{cmd:)} specifies additional covariates to be used for estimation and inference.{p_end}
 
@@ -221,7 +223,7 @@ Default is {cmd:level(95)}.{p_end}
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:e(N)}}original number of observations{p_end}
+{synopt:{cmd:e(N)}}number of observations after listwise deletion on every variable entering the estimation: y, x, {cmd:fuzzy()}, {cmd:covs()}, the cluster variable and the weights{p_end}
 {synopt:{cmd:e(N_l)}}original number of observations to the left of the cutoff{p_end}
 {synopt:{cmd:e(N_r)}}original number of observations to the right of the cutoff{p_end}
 {synopt:{cmd:e(N_h_l)}}effective number of observations (given by the bandwidth h_l) used to the left of the cutoff{p_end}
@@ -292,6 +294,12 @@ Default is {cmd:level(95)}.{p_end}
 {synopt:{cmd:e(V_cl_l)}}conventional variance-covariance matrix to the left of the cutoff{p_end}
 {synopt:{cmd:e(V_rb_r)}}robust variance-covariance matrix to the right of the cutoff{p_end}
 {synopt:{cmd:e(V_rb_l)}}robust variance-covariance matrix to the left of the cutoff{p_end}
+
+{p 4 8}{cmd:e(sample)} marks the estimation sample: the observations that
+survived both the {cmd:if}/{cmd:in} restriction and the listwise deletion
+described under {cmd:e(N)}, so {cmd:count if e(sample)} equals {cmd:e(N)}.
+(Through version 11.1.0 it reflected only {cmd:if}/{cmd:in} and therefore
+overstated the sample whenever any model variable had missing values.){p_end}
 
 {marker references}{...}
 {title:References}

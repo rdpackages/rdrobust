@@ -20,10 +20,72 @@ try:
     _NB_AVAILABLE = True
 except ImportError:
     _NB_AVAILABLE = False
+
     def njit(*args, **kwargs):
         if len(args) == 1 and callable(args[0]):
             return args[0]
         return lambda f: f
+
+
+# ------------------------------------------------------------------ options --
+#
+# Shared normalization and whitelists for the string-valued options, mirroring
+# rdrobust_norm_opt() / rdrobust_valid in the R package's functions.R.
+#
+# Every entry point must normalize BEFORE any branch reads the option.
+# Normalizing late is not cosmetic: rdplot() used to derive its kernel label
+# before lowercasing, so kernel="TRI" estimated with the triangular kernel but
+# reported "Uniform".
+
+RD_VALID = {
+    "kernel":     ['uni', 'uniform', 'tri', 'triangular', 'epa', 'epanechnikov', ''],
+    "bwselect":   ['mserd', 'msetwo', 'msesum', 'msecomb1', 'msecomb2',
+                   'cerrd', 'certwo', 'cersum', 'cercomb1', 'cercomb2', ''],
+    "vce":        ['nn', 'hc0', 'hc1', 'hc2', 'hc3', 'cr1', 'cr2', 'cr3', ''],
+    "masspoints": ['check', 'adjust', 'off', ''],
+    "binselect":  ['es', 'espr', 'esmv', 'esmvpr',
+                   'qs', 'qspr', 'qsmv', 'qsmvpr', ''],
+}
+
+
+def norm_opt(value):
+    """Trim and lowercase a string option; pass non-strings through unchanged.
+
+    None and False are sentinels used by masspoints, so they must survive.
+    """
+    if isinstance(value, str):
+        return value.strip().lower()
+    return value
+
+
+def bw_guard(bws, what="bandwidth"):
+    """Raise an informative error on a degenerate bandwidth cascade.
+
+    When the running variable has too little variation (typically a handful of
+    mass points) the V/B pilot quantities collapse and the selected bandwidth
+    comes out NaN or non-positive. Stata has printed a diagnostic for this
+    since forever (rdbwselect.ado:486,556,557); R and Python had no
+    counterpart, so rdbwselect() returned h = NaN silently and rdrobust() then
+    died with an unrelated-looking error deep in the fit.
+    """
+    arr = np.asarray(bws, dtype=float)
+    if np.all(np.isfinite(arr)) and np.all(arr > 0):
+        return True
+    raise Exception(
+        f"Not enough variability in the running variable to compute the {what}. "
+        "Check for mass points with masspoints='check'; if the running variable "
+        "is discrete, an RD design may not be identified at this sample size."
+    )
+
+
+def check_opt(value, what):
+    """Raise if `value` is outside the whitelist for `what`."""
+    if isinstance(value, str) and value in RD_VALID[what]:
+        return value
+    allowed = ", ".join(v for v in RD_VALID[what] if v)
+    raise Exception(
+        f"{what} incorrectly specified (received '{value}'); allowed: {allowed}."
+    )
 
 
 @njit(cache=True)
@@ -568,6 +630,15 @@ def inv_chol(x):
     # No check is made if x is indeed positive definite!
     c, low = cho_factor(x, lower=True)
     return cho_solve((c, low), np.eye(x.shape[0]))
+
+def inv_chol_or_pinv(x):
+    # R's qrXXinv(): Cholesky, falling back to a generalized inverse when the
+    # factorization fails. Used for the bandwidth pilots, whose identification
+    # is checked beforehand by counting distinct values of x.
+    try:
+        return inv_chol(x)
+    except np.linalg.LinAlgError:
+        return np.linalg.pinv(x)
         
 def qrXXinv(x):
     return inv_chol(crossprod(x,x))
@@ -1000,13 +1071,17 @@ def _rdrobust_bw_Vfit(Y, X, T, Z, C, W, c, o, nu, h_V,
     eX = X[ind_V]
     eW = w[ind_V]
     n_V = np.sum(ind_V)
+    # A pilot with fewer distinct x than coefficients is not identified; the
+    # caller turns this into an informative error (as in R and Stata).
+    if len(np.unique(eX)) < o + 1:
+        return np.nan, np.nan, 1
     D_V = eY.copy()
     R_V = _vander(eX - c, o)
     # Py-2: compute G = R'WR once, then invG via inv_chol. Lets us pass G to
     # rdrobust_vce so the CRV3 branch can skip the inv(invG) round-trip.
     RWsq_V = R_V * np.sqrt(eW).reshape(-1,1)
     G_V    = crossprod(RWsq_V)
-    invG_V = inv_chol(G_V)
+    invG_V = inv_chol_or_pinv(G_V)
     s = 1
     eT = eC = eZ = None
     if T is not None:
@@ -1087,6 +1162,11 @@ def rdrobust_bw(Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale,
     dT = 1 if T is not None else 0
     dZ = ncol(Z) if Z is not None else 0
 
+    # Returned when a pilot fit is not identified (fewer distinct x than
+    # coefficients, or an undefined pilot from the previous stage); bw_guard()
+    # then reports it. These used to raise LinAlgError from the Cholesky.
+    nan_out = (np.nan, np.nan, np.nan, 1/(2*o+3))
+
     key = (o, nu)
     if _vcache is not None and key in _vcache:
         V_V, BConst, s = _vcache[key]
@@ -1096,11 +1176,17 @@ def rdrobust_bw(Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale,
                                            covs_drop_coll)
         if _vcache is not None:
             _vcache[key] = (V_V, BConst, s)
+    if not np.isfinite(V_V):
+        return nan_out
 
+    if not (np.isfinite(h_B) and h_B > 0):
+        return nan_out
     w = rdrobust_kweight(X, c, h_B, kernel)
     if not np.isscalar(W): w = W*w
     ind = w> 0
     n_B = sum(ind)
+    if len(np.unique(X[ind])) < o_B + 1:
+        return nan_out
     eY = Y[ind]
     eX = X[ind]
     eW = w[ind]
@@ -1109,7 +1195,7 @@ def rdrobust_bw(Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale,
     # Py-2: G_B kept around for the CRV3 branch.
     RWsq_B = R_B * np.sqrt(eW).reshape(-1,1)
     G_B    = crossprod(RWsq_B)
-    invG_B = inv_chol(G_B)
+    invG_B = inv_chol_or_pinv(G_B)
 
     eT = eC = eZ = None
     if T is not None:

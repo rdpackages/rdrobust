@@ -1,8 +1,8 @@
 Package: rdrobust
 Type: Package
 Title: Robust Data-Driven Statistical Inference in Regression-Discontinuity Designs
-Version: 4.1.0
-Date: 2026-05-22
+Version: 4.1.1
+Date: 2026-10-01
 Authors@R: c(person(given = c("Sebastian"),
                       family = "Calonico",
                       role = c("aut", "cre"),
@@ -26,4 +26,5 @@ License: GPL-3
 URL: https://github.com/rdpackages/rdrobust
 BugReports: https://github.com/rdpackages/rdrobust/issues
 Imports: ggplot2, MASS
-Suggests: broom, gridExtra
+Suggests: broom, gridExtra, testthat (>= 3.0.0)
+Config/testthat/edition: 3

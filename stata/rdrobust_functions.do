@@ -2,7 +2,7 @@
 * RDROBUST STATA PACKAGE -- rdrobust_functions
 * Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell, Rocio Titiunik
 ********************************************************************************
-*!version 11.1.0  2026-05-22
+*!version 11.1.1  2026-10-01
 
 version 16.0
 
@@ -117,6 +117,7 @@ real matrix rdrobust_bw(real matrix Y, real matrix X, real matrix T, real matrix
 			if (rows(Z)>1) dZ = cols(Z)
 			if (rows(C)>1) dC = 1
 			used_cache = 1
+			if (V_V>=.) return((.,.,.,1/(2*o+3)))
 		}
 	}
 	if (used_cache == 0) {
@@ -126,6 +127,12 @@ real matrix rdrobust_bw(real matrix Y, real matrix X, real matrix T, real matrix
 	}
 	ind_V = selectindex(w:> 0); eY = Y[ind_V];eX = X[ind_V];eW = w[ind_V]
 	n_V = length(ind_V)
+	// A pilot with fewer distinct x than coefficients is not identified. The
+	// caller reports it; counting values gives the same answer as R and Python.
+	if (rows(uniqrows(eX)) < o+1) {
+		if (has_vcache) asarray(vcache, vkey, (.,.,1,1))
+		return((.,.,.,1/(2*o+3)))
+	}
 	D_V = eY
 	// Q1: Vandermonde via successive multiplication.
 	R_V = J(n_V,o+1,1)
@@ -134,6 +141,7 @@ real matrix rdrobust_bw(real matrix Y, real matrix X, real matrix T, real matrix
 		for (j=2; j<=(o+1); j++) R_V[.,j] = R_V[.,j-1] :* u_V_tmp
 	}
 	invG_V = cholinv(quadcross(R_V,eW,R_V))
+	if (hasmissing(invG_V)) invG_V = pinv(quadcross(R_V,eW,R_V))
 	e_v = J((o+1),1,0); e_v[nu+1]=1
 	s = 1
 	if (rows(T)>1) {
@@ -202,6 +210,9 @@ real matrix rdrobust_bw(real matrix Y, real matrix X, real matrix T, real matrix
 	}
 	}
 
+	// An undefined pilot from the previous stage, or a window with fewer
+	// distinct x than coefficients: pass it on as missing.
+	if (h_B>=. | h_B<=0) return((.,.,.,1/(2*o+3)))
 	w = rdrobust_kweight(X, c, h_B, kernel)
 	if (dW>1) {
 		w = W:*w
@@ -209,6 +220,7 @@ real matrix rdrobust_bw(real matrix Y, real matrix X, real matrix T, real matrix
 	ind = selectindex(w:> 0) 
 	n_B = length(ind)
 	eY = Y[ind];eX = X[ind];eW = w[ind]
+	if (rows(uniqrows(eX)) < o_B+1) return((.,.,.,1/(2*o+3)))
 	D_B = eY
 	// Q1: Vandermonde via successive multiplication.
 	R_B = J(n_B,o_B+1,1)
@@ -217,6 +229,7 @@ real matrix rdrobust_bw(real matrix Y, real matrix X, real matrix T, real matrix
 		for (j=2; j<=(o_B+1); j++) R_B[.,j] = R_B[.,j-1] :* u_B_tmp
 	}
 	invG_B = cholinv(quadcross(R_B,eW,R_B))
+	if (hasmissing(invG_B)) invG_B = pinv(quadcross(R_B,eW,R_B))
 	if (dT==1) {
 		eT = T[ind]
 		D_B = D_B,eT
