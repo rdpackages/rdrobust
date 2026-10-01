@@ -1,6 +1,6 @@
 ********************************************************************************
 * RDROBUST STATA PACKAGE -- rdplot
-* Authors: Sebastian Calonico, Matias D. Cattaneo, Max Farrell, Rocio Tititunik
+* Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell, Rocio Titiunik
 ********************************************************************************
 *! version 11.1.0 22may2026
 
