@@ -26,7 +26,10 @@ Changes in results:
   (`rdrobust(op_n_per, week)`). Fits with a fixed bandwidth are unchanged.
 - R: the default `ginv.tol` is `1e-15` (was `1e-20`), as in Python and Stata.
   With a covariate that is nearly collinear on one side of the cutoff, the
-  selected bandwidth no longer depends on row order or numerical noise.
+  selected bandwidth depended on row order (2e-3 relative on the Kuo data,
+  default options); it no longer does there. With `vce = "hc0"` to `"hc3"` and
+  `masspoints = "off"` a smaller dependence (about 1e-3) remains in such
+  near-collinear designs; it is also in 4.0.0.
 
 Errors and warnings:
 
@@ -52,6 +55,11 @@ Errors and warnings:
     covariates with `covs_drop = FALSE` (Python still raises a linear-algebra
     error there).
   - Stata keeps dropping observations with nonpositive weights, as before.
+  - Stata: a non-numeric `nnmatch` in `vce(nn ...)`, such as a variable name
+    where the cluster variable would go for other types, is rejected with
+    `vce() incorrectly specified` (it used to fail inside Mata).
+  - Python: with a single cluster on a side the standard errors are `NaN`, as
+    in R, instead of a `ZeroDivisionError`.
 - Stata: `e(sample)` is set, user matrices and tempvars are no longer
   overwritten, `rdrobustplot` accepts twoway options and now honours `noci` and
   `nochecks`. `rdplot` and `rdrobustplot` still accept options they do not use

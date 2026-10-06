@@ -88,6 +88,13 @@ program define rdrobust, eclass
 		di as error "{err}{cmd:vce()} incorrectly specified"
 		exit 125
 	}
+	* nnmatch must be a number before it reaches an expression or Mata: with
+	* vce(nn cl) the token "cl" used to die inside Mata with "cl not found".
+	capture confirm number `nnmatch'
+	if _rc {
+		di as error "{err}{cmd:vce()} incorrectly specified: nnmatch should be a positive integer"
+		exit 125
+	}
 
 	* Disallow vce(nncluster ...): warn and shift to cr1 (default when clusters)
 	if ("`vce_select'"=="nncluster") {

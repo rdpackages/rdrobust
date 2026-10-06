@@ -922,7 +922,9 @@ def rdrobust_vce(d, s, RX, res, C, invG=None, sqrtRX=None, crv2=False,
         # T3: use cached cluster_idx if supplied, else build once.
         cl_indices = _build_cluster_idx(C_flat) if cluster_idx is None else cluster_idx
         g = len(cl_indices)
-        w = ((n-1)/(n-k_df))*(g/(g-1))
+        # With a single cluster the CR1 factor g/(g-1) is undefined: return NaN
+        # like R (where it is Inf*0) instead of a ZeroDivisionError.
+        w = ((n-1)/(n-k_df))*(g/(g-1)) if g > 1 else np.nan
 
         if d==0:
             for i in range(g):

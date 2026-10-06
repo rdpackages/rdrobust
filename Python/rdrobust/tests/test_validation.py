@@ -59,7 +59,7 @@ def test_negative_weights_are_named_as_the_problem(rd):
     # the reported error was "c should be set within the range of x" -- an
     # error about the cutoff, for a mistake in weights.
     w = np.where(rd["x"] < 0, -1.0, 1.0)
-    with pytest.raises(Exception, match="must be non-negative"):
+    with pytest.raises(ValueError, match="must be non-negative"):
         rdrobust(rd["y"], rd["x"], weights=w)
 
 
@@ -80,3 +80,17 @@ def test_rdbwselect_rejects_cutoff_outside_support(rd):
 def test_cutoff_on_the_boundary_is_rejected(rd):
     with pytest.raises(Exception, match="within the range of x"):
         rdrobust(rd["y"], rd["x"], c=float(np.max(rd["x"])))
+
+
+# --- a single cluster on a side ------------------------------------------
+
+def test_single_cluster_per_side_gives_nan_se_not_a_crash(rd):
+    # The CR1 factor g/(g-1) is undefined with one cluster. R returns NaN
+    # standard errors (with the p+1-or-fewer warning); Python used to raise a
+    # bare ZeroDivisionError from funs.py.
+    i = np.arange(rd["n"])
+    cl = i % 40
+    active = (cl < 1).astype(float)
+    with pytest.warns(UserWarning, match="clusters within the bandwidth"):
+        fit = rdrobust(rd["y"], rd["x"], h=0.8, cluster=cl, weights=active, vce="cr1")
+    assert np.all(np.isnan(fit.se.values))

@@ -416,7 +416,7 @@ def rdbwselect(y, x, c = None, fuzzy = None, deriv = None, p = None, q = None,
             # As in rdrobust(): a negative weight is an error, not silently dropped.
             _wfin = weights[complete_cases(weights)]
             if np.any(_wfin < 0):
-                raise Exception(
+                raise ValueError(
                     "`weights` must be non-negative; "
                     f"{int(np.sum(_wfin < 0))} negative value(s) found.")
             na_ok = na_ok & complete_cases(weights) & (weights>=0).reshape(-1,)

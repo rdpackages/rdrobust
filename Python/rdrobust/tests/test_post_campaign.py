@@ -178,5 +178,5 @@ def test_nnmatch_is_validated(rd, bad):
 
 def test_rdbwselect_rejects_negative_weights(rd):
     w = np.ones(rd["n"]); w[:5] = -1
-    with pytest.raises(Exception, match="non-negative"):
+    with pytest.raises(ValueError, match="non-negative"):
         quiet(rdbwselect, rd["y"], rd["x"], weights=w)
