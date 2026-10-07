@@ -1,6 +1,6 @@
 rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = NULL,
                   kernel = "uni", weights = NULL, h = NULL,
-                  covs = NULL,  covs_eval = "mean", covs_drop = TRUE, ginv.tol = 1e-20,
+                  covs = NULL,  covs_eval = "mean", covs_drop = TRUE, ginv.tol = 1e-15,
                   support = NULL, subset = NULL, masspoints = "adjust",
                   hide = FALSE, ci = NULL, shade = FALSE,
                   title = NULL, x.label = NULL, y.label = NULL, x.lim = NULL, y.lim = NULL,
@@ -109,10 +109,25 @@ rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = 
     flag_no_ci <- TRUE
   }
   
+  # Normalize the string options before anything branches on them, using the
+  # same helper as rdrobust()/rdbwselect(). The mass-point block below rewrites
+  # binselect, and the kernel label is derived here, so both must already be in
+  # canonical form.
+  kernel     <- rdrobust_norm_opt(kernel)
+  binselect  <- rdrobust_norm_opt(binselect)
+  masspoints <- rdrobust_norm_opt(masspoints)
+
   kernel_type = "Uniform"
   if (kernel %in% c("epanechnikov", "epa")) kernel_type = "Epanechnikov"
   if (kernel %in% c("triangular",   "tri")) kernel_type = "Triangular"
-  
+
+  # binselect must be validated here, not left to fail downstream: an unknown
+  # value used to reach the bin-count logic and die with
+  # "object 'J_star_orig' not found", even when nbins was supplied.
+  if (!binselect %in% rdrobust_valid$binselect) {
+    stop(rdrobust_check_opt(binselect, "binselect"), call. = FALSE)
+  }
+
   ### Mass Points
   if (is.null(masspoints)) masspoints=FALSE
   mN = n;  M_l = n_l;  M_r = n_r
@@ -548,8 +563,8 @@ rdplot = function(y, x, c = 0, p = 4, nbins = NULL, binselect = "esmv", scale = 
 	bin_med_l = median(bin_length_l)
 	bin_med_r = median(bin_length_r)
 	
-	rdplot_min_bin = c(rdplot_min_bin_l[rev(-rdplot_bin_l)], rdplot_min_bin_r[rdplot_bin_r])
-	rdplot_max_bin = c(rdplot_max_bin_l[rev(-rdplot_bin_l)], rdplot_max_bin_r[rdplot_bin_r])
+	rdplot_min_bin = c(rdplot_min_bin_l[(rdplot_bin_l+J_star_l+1)], rdplot_min_bin_r[rdplot_bin_r])
+	rdplot_max_bin = c(rdplot_max_bin_l[(rdplot_bin_l+J_star_l+1)], rdplot_max_bin_r[rdplot_bin_r])
 	bin_length     = c(bin_length_l, bin_length_r)
 	bin_avg        = c(bin_avg_l, bin_avg_r)
 	bin_med        = c(bin_med_l, bin_med_r)

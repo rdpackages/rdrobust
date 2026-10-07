@@ -2,12 +2,17 @@
 * RDROBUST STATA PACKAGE -- rdplot
 * Authors: Sebastian Calonico, Matias D. Cattaneo, Max H. Farrell, Rocio Titiunik
 ********************************************************************************
-*! version 11.1.0 22may2026
+*! version 11.1.1 01oct2026
 
 capture program drop rdplot
 program define rdplot, eclass
 	version 16.0
-	syntax anything [if] [, c(real 0) p(integer 4) nbins(string) covs(string) covs_eval(string) covs_drop(string)  binselect(string) scale(string) kernel(string) weights(string) h(string) support(string) masspoints(string) genvars hide ci(real 0) shade graph_options(string asis) nochecks PRECision(string)  *]
+	* ST-10: the trailing `*' collects any unrecognised option into `options',
+	* which this ado does not use. It is kept so existing scripts keep running,
+	* but such options are now reported instead of being ignored silently.
+	* Twoway options have their own graph_options() slot.
+	syntax anything [if] [, c(real 0) p(integer 4) nbins(string) covs(string) covs_eval(string) covs_drop(string)  binselect(string) scale(string) kernel(string) weights(string) h(string) support(string) masspoints(string) genvars hide ci(real 0) shade graph_options(string asis) nochecks PRECision(string) *]
+	if (`"`options'"' != "") di as text `"Note: option(s) `options' not recognized by rdplot and ignored. Twoway options go in graph_options()."'
 
 	marksample touse
 	capture mata: mata describe rdrobust_kweight()
@@ -228,7 +233,7 @@ program define rdplot, eclass
 		}
 
 		if ("`masspoints'" != "" & ///
-		    !inlist("`masspoints'", "check", "adjust", "off", "false")) {
+		    !inlist("`masspoints'", "check", "adjust", "off")) {
 			di as error "{err}{cmd:masspoints()} must be one of check, adjust, off"
 			exit 125
 		}
@@ -705,7 +710,8 @@ if  ("`covs_eval'"=="mean" & "`covs'"!="") {
 	bin_med_l = rdrobust_median(rdplot_length_l)
 	bin_med_r = rdrobust_median(rdplot_length_r) 
 	
-	quant = -invt(rdplot_N, abs((1-(`ci'/100))/2))
+	// N-1 degrees of freedom per bin, as in R and Python (was N).
+	quant = -invt(rowmax((rdplot_N:-1, J(rows(rdplot_N),1,1))), abs((1-(`ci'/100))/2))
 	rdplot_ci_l = rdplot_mean_y - quant:*rdplot_se_y
 	rdplot_ci_r = rdplot_mean_y + quant:*rdplot_se_y
 		
@@ -906,6 +912,35 @@ if  ("`covs_eval'"=="mean" & "`covs'"!="") {
 ** PART 2: genvars=TRUE
 ****************************
 if ("`genvars'"!="") {
+	* The missing-value drops happened inside the work frame, which has since
+	* been dropped, so `touse' here is still the raw [if]/[in] sample. Two
+	* consequences, both fixed by narrowing it to the analytic sample with the
+	* same `drop_cond' the work frame used:
+	*   (a) genvars attached bin statistics to observations that never entered
+	*       the estimation (missing y, missing covs, non-positive weights);
+	*   (b) it CRASHED rc=3301 whenever such an observation had a valid x that
+	*       fell in a bin holding no retained observation -- select() returned
+	*       0 rows and the 1x10 assignment below failed. Verified on 3000 obs
+	*       with y missing in 1/150 and x in 151/260: 418 bins but only 417
+	*       non-empty, and row 50 (missing y, x=.304) mapped to the empty
+	*       bin 63.
+	qui replace `touse' = 0 if `drop_cond'
+
+	* ST-10: a second genvars run died with a bare rc=110 ("already defined").
+	* Name the collision instead. Deliberately NOT a blanket
+	* `capture drop rdplot_*': that would delete user variables that merely
+	* share the prefix (the defect fixed in nprobust lprobust.ado ST-12).
+	local _rdp_exist ""
+	foreach _v in id N min_bin max_bin mean_bin mean_x mean_y se_y ci_l ci_r hat_y {
+		capture confirm variable rdplot_`_v'
+		if (_rc == 0) local _rdp_exist "`_rdp_exist' rdplot_`_v'"
+	}
+	cap local _x = 0
+	if ("`_rdp_exist'" != "") {
+		di as err "genvars: the following variables already exist:`_rdp_exist'"
+		di as err "Drop them before rerunning rdplot with genvars, e.g.  drop`_rdp_exist'"
+		exit 110
+	}
 	qui for any id N min_bin max_bin mean_bin mean_x mean_y se_y ci_l ci_r hat_y: qui gen `storage_type' rdplot_X = .
 }
 
@@ -918,11 +953,18 @@ if ("`genvars'"!="") {
 					bin_i = 2; while(ZZ[i,1] >= bins[bin_i] & bin_i < length(bins)) bin_i++
 					rdplot_i = bin_i - `J_star_l' - 2
 					if (rdplot_i >= 0) rdplot_i = rdplot_i + 1
-					ZZ[i,2..11] = select(rdplot, rdplot[.,1]:==rdplot_i)
+					// A bin can legitimately hold no observation (mass points,
+					// an extended support(), a very large J). select() then
+					// returns 0 rows and this assignment used to abort the
+					// whole command; leave the bin columns missing instead.
+					_sel = select(rdplot, rdplot[.,1]:==rdplot_i)
+					if (rows(_sel) == 1) {
+					ZZ[i,2..11] = _sel
 					ZZ[i,12] = 0; for (j=0; j<=p; j++) {
-					if (ZZ[i,2] <0) ZZ[i,12] = ZZ[i,12] + ((ZZ[i,1]-c)^j)*gamma_p1_l[j+1] 
+					if (ZZ[i,2] <0) ZZ[i,12] = ZZ[i,12] + ((ZZ[i,1]-c)^j)*gamma_p1_l[j+1]
 					else            ZZ[i,12] = ZZ[i,12] + ((ZZ[i,1]-c)^j)*gamma_p1_r[j+1]
-					}		
+					}
+					}
 				}
 			}
 		}

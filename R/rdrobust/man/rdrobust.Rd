@@ -1,7 +1,9 @@
 \name{rdrobust}
-\alias{rdrobust} 
+\alias{rdrobust}
 \alias{print.rdrobust}
 \alias{summary.rdrobust}
+\alias{coef.rdrobust}
+\alias{vcov.rdrobust}
 \title{Local-Polynomial RD Estimation with Robust Confidence Intervals}
 \description{
 
@@ -20,7 +22,7 @@ Print-control flags \code{detail} and \code{all} moved from \code{rdrobust()} to
 \usage{rdrobust(y, x, c = NULL,  fuzzy = NULL,
           deriv = NULL, p = NULL, q = NULL, 
           h = NULL, b = NULL, rho = NULL, 
-          covs = NULL,  covs_drop = TRUE, ginv.tol = 1e-20,
+          covs = NULL,  covs_drop = TRUE, ginv.tol = 1e-15,
           kernel = "tri", weights = NULL, bwselect = "mserd", 
           vce = "nn", cluster = NULL, 
           nnmatch = 3, level = 95, scalepar = 1, scaleregul = 1, 
@@ -45,7 +47,7 @@ Print-control flags \code{detail} and \code{all} moved from \code{rdrobust()} to
     \item a numeric vector, matrix, or data frame: passed through unchanged (backwards compatible).
   }}
   \item{covs_drop}{if TRUE, it checks for collinear additional covariates and drops them. Default is TRUE.}
-  \item{ginv.tol}{tolerance used to invert matrices involving covariates when \code{covs_drop=TRUE}.}
+  \item{ginv.tol}{tolerance used to invert matrices involving covariates when \code{covs_drop=TRUE}: directions with singular value below \code{ginv.tol} times the largest are discarded. Default is \code{1e-15}; smaller values can invert numerical noise.}
   \item{kernel}{is the kernel function used to construct the local-polynomial estimator(s). Options are \code{triangular} (default option), \code{epanechnikov} and \code{uniform}.}
   \item{weights}{is the variable used for optional weighting of the estimation procedure. The unit-specific weights multiply the kernel function.}
 
@@ -156,6 +158,15 @@ The CR2/CR3 leverage correction applies to both the conventional and the robust 
   \item{n_clust}{vector with the number of clusters to the left and to the right of the cutoff. \code{NULL} when \code{cluster} is not specified.}
   \item{tau_T, se_T, z_T, pv_T, ci_T}{first-stage estimates, standard errors, z-statistics, p-values, and confidence intervals for the treatment indicator (fuzzy RD only).}
 }
+\section{Extractor methods (\code{coef} and \code{vcov})}{
+
+\code{coef()} returns the Conventional, Bias-Corrected and Robust point estimates as a named vector.
+
+\code{vcov()} returns a \strong{diagonal-only} matrix holding the squared standard errors of those same three rows. Its off-diagonal entries are \strong{placeholder zeros, not estimated covariances, and not a claim that the rows are independent}: the three rows are different estimators of the \emph{same} parameter and are strongly correlated, but the quantities needed to form their cross-covariances (the design matrices behind \code{tau_cl} and \code{tau_bc}) are not retained on the fitted object, so they cannot be recovered after the fact.
+
+The practical consequence: do not use this matrix to test or combine \emph{across} rows -- for example, a Wald test that the Conventional and Robust estimates differ would be wrong, because it would treat two highly correlated numbers as independent. Per-row inference is unaffected; use \code{object$se}, \code{object$ci} and \code{object$pv}, or the Robust row, which is the one intended for reporting.
+}
+
 \references{
 Calonico, S., M. D. Cattaneo, and M. H. Farrell. 2018. \href{https://rdpackages.github.io/references/Calonico-Cattaneo-Farrell_2018_JASA.pdf}{On the Effect of Bias Estimation on Coverage Accuracy in Nonparametric Inference.} \emph{Journal of the American Statistical Association}, 113(522): 767-779.
 

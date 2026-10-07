@@ -81,7 +81,7 @@ jobs:
       - name: Install R dependencies
         run: |
           repos <- c(RSPM = Sys.getenv("RSPM"), CRAN = "https://cloud.r-project.org")
-          install.packages(c("ggplot2", "MASS", "broom", "gridExtra"), repos = repos)
+          install.packages(c("ggplot2", "MASS", "broom", "gridExtra", "testthat"), repos = repos)
         shell: Rscript {0}
 
       - name: Build R source package

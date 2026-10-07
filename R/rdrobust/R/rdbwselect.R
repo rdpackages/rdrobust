@@ -1,5 +1,5 @@
 rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = NULL,
-                      covs = NULL,  covs_drop = TRUE, ginv.tol = 1e-20,
+                      covs = NULL,  covs_drop = TRUE, ginv.tol = 1e-15,
                       kernel = "tri", weights = NULL, bwselect = "mserd",
                       vce = "nn", cluster = NULL,
                       nnmatch = 3,  scaleregul = 1, sharpbw = FALSE,
@@ -91,6 +91,11 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
   
   if (!is.null(weights)){
     if (!is.null(subset)) weights <- weights[subset]
+    # As in rdrobust(): a negative weight is an error, not silently dropped.
+    if (any(weights[complete.cases(weights)] < 0))
+      stop("`weights` must be non-negative; ",
+           sum(weights[complete.cases(weights)] < 0),
+           " negative value(s) found.", call. = FALSE)
     na.ok <- na.ok & complete.cases(weights) & weights>=0
   } 
   
@@ -102,7 +107,15 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
   if (!is.null(weights)) weights = as.matrix(weights[na.ok])
   
   if (is.null(masspoints)) masspoints=FALSE
-  
+
+  # Normalize the string options before anything branches on them, using the
+  # same helper as rdrobust(). rdbwselect() previously never lowercased at all,
+  # so kernel = "TRI" was rejected here while rdrobust() accepted it.
+  kernel     <- rdrobust_norm_opt(kernel)
+  bwselect   <- rdrobust_norm_opt(bwselect)
+  vce        <- rdrobust_norm_opt(vce)
+  masspoints <- rdrobust_norm_opt(masspoints)
+
   if (vce=="nn" | masspoints=="check" | masspoints=="adjust") {
     order_x = order(x)
     x = x[order_x,,drop=FALSE]
@@ -135,6 +148,22 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
   x_min=min(x);  x_max=max(x)
   range_l = abs(c-x_min);  range_r = abs(c-x_max)
   N = N_l + N_r
+
+
+  ## The `c` range check further down (the exit=1 block) is reached too late:
+  ## with c outside the support one side is empty, and the masspoints block
+  ## just below computes mass_l/mass_r as 1-M/N with N=0, so the function dies
+  ## on `if (mass_l >= 0.2 | ...)` with "missing value where TRUE/FALSE
+  ## needed" before the informative check ever runs. Fail here instead.
+  if (c <= x_min | c >= x_max)
+    stop("c should be set within the range of x", call. = FALSE)
+
+  # Fail early, and say why, when one side cannot support the polynomial fits.
+  M0_l = length(unique(X_l)); M0_r = length(unique(X_r))
+  if (min(M0_l, M0_r) < p + 1) {
+    stop(sprintf("Not enough distinct running-variable values on the %s side of the cutoff (%d) to fit a polynomial of order p = %d.",
+                 if (M0_l < p + 1) "left" else "right", min(M0_l, M0_r), p), call. = FALSE)
+  }
 
   M_l = N_l;  M_r = N_r
 
@@ -184,28 +213,22 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
   
     exit=0
     #################  ERRORS
-    if (kernel!="uni" & kernel!="uniform" & kernel!="tri" & kernel!="triangular" & kernel!="epa" & kernel!="epanechnikov" & kernel!="" ){
-      warning("kernel incorrectly specified")
-      exit = 1
-    }
-    
-    valid_bwselect <- c("mserd","msetwo","msesum","msecomb1","msecomb2",
-                        "cerrd","certwo","cersum","cercomb1","cercomb2","")
-    valid_vce      <- c("nn","hc0","hc1","hc2","hc3","cr1","cr2","cr3","")
+    # Whitelists are shared with rdrobust() (see functions.R) so the two
+    # front-ends cannot drift apart on what they accept.
+    msg <- rdrobust_check_opt(kernel, "kernel")
+    if (!is.null(msg)) { warning(msg); exit = 1 }
 
-    if (!bwselect %in% valid_bwselect) {
-      if (bwselect %in% c("cct","ik","cv","CCT","IK","CV")) {
+    if (!bwselect %in% rdrobust_valid$bwselect) {
+      if (bwselect %in% c("cct","ik","cv")) {
         warning("bwselect options IK, CCT and CV have been deprecated. Please see help for new options")
       } else {
-        warning("bwselect incorrectly specified")
+        warning(rdrobust_check_opt(bwselect, "bwselect"))
       }
       exit = 1
     }
 
-    if (!vce %in% valid_vce) {
-      warning("vce incorrectly specified")
-      exit = 1
-    }
+    msg <- rdrobust_check_opt(vce, "vce")
+    if (!is.null(msg)) { warning(msg); exit = 1 }
 
     if (c<=x_min | c>=x_max){
       warning("c should be set within the range of x")
@@ -227,7 +250,7 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
       exit = 1
     }
     
-    p_round = round(p)/p;    q_round = round(q)/q;    d_round = round(deriv+1)/(deriv+1);    m_round = round(nnmatch)/nnmatch
+    p_round = round(p)/p;    q_round = round(q)/q;    d_round = round(deriv+1)/(deriv+1);    m_round = if (isTRUE(nnmatch > 0)) round(nnmatch)/nnmatch else 1  # nnmatch<=0 already flagged above; 0/0 crashed
         
     if ((p_round!=1 &p>0) | (q_round!=1&q>0) | d_round!=1 | m_round!=1 ){
       warning("p,q,deriv and matches should be integer numbers")
@@ -336,10 +359,10 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
     T_l  = fuzzy[ind_l,,drop=FALSE];  T_r  = fuzzy[ind_r,,drop=FALSE];
     # Reject fully degenerate first stage (no variation, no jump). One-sided
     # non-compliance falls through to the perf_comp branch.
-    if (var(T_l) == 0 && var(T_r) == 0 && abs(mean(T_l) - mean(T_r)) < .Machine$double.eps^0.5) {
+    if (rd_var0(T_l) == 0 && rd_var0(T_r) == 0 && abs(mean(T_l) - mean(T_r)) < .Machine$double.eps^0.5) {
       stop("Fuzzy RD: first-stage variable has no variation and no jump at the cutoff. The fuzzy estimator is not identified.", call. = FALSE)
     }
-    if (var(T_l)==0 | var(T_r)==0) perf_comp=TRUE
+    if (rd_var0(T_l)==0 | rd_var0(T_r)==0) perf_comp=TRUE
     if (isTRUE(perf_comp) | isTRUE(sharpbw)) {
       T_l = T_r = NULL
       }
@@ -371,8 +394,8 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
     if (!is.null(bwcheck)) {
       bwcheck_l = min(bwcheck, M_l)
 			bwcheck_r = min(bwcheck, M_r)
-      bw_min_l = abs(X_uniq_l-c)[bwcheck_l]
-      bw_min_r = abs(X_uniq_r-c)[bwcheck_r]
+      bw_min_l = abs(X_uniq_l-c)[bwcheck_l] * (1 + sqrt(.Machine$double.eps))
+      bw_min_r = abs(X_uniq_r-c)[bwcheck_r] * (1 + sqrt(.Machine$double.eps))
       c_bw = max(c_bw, bw_min_l, bw_min_r)
       bw.adj <- 1
     }
@@ -383,8 +406,8 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
     vcache_r <- new.env(parent = emptyenv())
 
     ### Step 1: d_bw
-    C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw, h_B=range_l, 0, vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol, vcache = vcache_l)
-    C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw, h_B=range_r, 0, vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol, vcache = vcache_r)
+    C_d_l = rdrobust_bw(Y_l, X_l, T_l, Z_l, C_l, fw_l, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw, h_B=range_l * (1 + sqrt(.Machine$double.eps)), 0, vce, nnmatch, kernel, dups_l, dupsid_l, covs_drop_coll, ginv.tol, vcache = vcache_l)
+    C_d_r = rdrobust_bw(Y_r, X_r, T_r, Z_r, C_r, fw_r, c=c, o=q+1, nu=q+1, o_B=q+2, h_V=c_bw, h_B=range_r * (1 + sqrt(.Machine$double.eps)), 0, vce, nnmatch, kernel, dups_r, dupsid_r, covs_drop_coll, ginv.tol, vcache = vcache_r)
     ### TWO
     if  (bwselect=="msetwo" |  bwselect=="certwo" | bwselect=="msecomb2" | bwselect=="cercomb2"  | isTRUE(all))  {		
       d_bw_l = c((  C_d_l$V              /   C_d_l$B^2             )^C_d_l$rate)
@@ -553,14 +576,23 @@ if (isFALSE(all)){
 
 
 
+### Degenerate-cascade guard (see functions.R). Must run before the effective-N
+### computation, which would otherwise be counting against a NaN window.
+rdrobust_bw_guard(bws)
+
 ### Eff N
-w_h_l <- rdrobust_kweight(X_l,c,bws[1,1],kernel)
-w_h_r <- rdrobust_kweight(X_r,c,bws[1,2],kernel)
+# X_l/X_r and c are on the STANDARDIZED scale here, while bws was restored to
+# the original scale above (x_sd*...). Comparing the two directly made every
+# observation fall inside the window, so this reported the full sample instead
+# of the effective one. Convert back before counting.
+w_h_l <- rdrobust_kweight(x_sd*X_l,c_orig,bws[1,1],kernel)
+w_h_r <- rdrobust_kweight(x_sd*X_r,c_orig,bws[1,2],kernel)
 N_h_l <- sum(w_h_l> 0)
 N_h_r <- sum(w_h_r> 0)
 
+  # c_orig, not c: the returned cutoff must be on the user's scale.
   out = list(bws=bws,
-             bwselect=bwselect, kernel=kernel_type, p=p, q=q, c=c,
+             bwselect=bwselect, kernel=kernel_type, p=p, q=q, c=c_orig,
              N=c(N_l,N_r), N_h=c(N_h_l,N_h_r), M=c(M_l,M_r), vce=vce_type, masspoints=masspoints)
   out$call <- match.call()
   class(out) <- "rdbwselect"
