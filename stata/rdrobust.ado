@@ -788,12 +788,12 @@ masspoints_found = 0
 		w_h_l = rdrobust_kweight(X_l,`c',h_l,"`kernel'");	w_h_r = rdrobust_kweight(X_r,`c',h_r,"`kernel'")
 		w_b_l = rdrobust_kweight(X_l,`c',b_l,"`kernel'");	w_b_r = rdrobust_kweight(X_r,`c',b_r,"`kernel'")
 
-		// Cluster-robust variances need many clusters; with a handful per side
-		// they are unreliable, and with p+1 or fewer the variance is not
-		// identified (the standard error collapses to zero up to rounding).
+		// Few clusters can make inference unreliable or the covariance estimate
+		// rank deficient. The count alone does not establish that the scalar RD
+		// variance is unidentified. Nonpositive user weights were dropped earlier.
 		if ("`cluster'"!="" & st_local("warnings")=="") {
 			gh_l = rows(uniqrows(select(C_l, w_h_l:>0))); gh_r = rows(uniqrows(select(C_r, w_h_r:>0)))
-			if (min((gh_l, gh_r)) <= `p'+1) printf("{txt}Warning: only %g (left) and %g (right) clusters within the bandwidth. With p+1 = %g or fewer clusters on a side the cluster-robust variance is not identified and the standard error can be zero.\n", gh_l, gh_r, `p'+1)
+			if (min((gh_l, gh_r)) <= `p'+1) printf("{txt}Warning: only %g (left) and %g (right) clusters within the bandwidth. With p+1 = %g or fewer clusters on a side, cluster-robust inference may be unreliable and the estimated variance may be degenerate.\n", gh_l, gh_r, `p'+1)
 			else if (min((gh_l, gh_r)) < 10) printf("{txt}Warning: only %g (left) and %g (right) clusters within the bandwidth. Cluster-robust standard errors are unreliable with fewer than 10 clusters on a side.\n", gh_l, gh_r)
 		}
 		

@@ -45,8 +45,9 @@ Errors and warnings:
   reports that first.
 - With clustered standard errors, a warning when either side has fewer than 10
   clusters with positive weight within the bandwidth, and a stronger one with
-  `p + 1` or fewer, where the cluster-robust variance is not identified and the
-  standard error can be zero (R, Python, Stata; Stata respects `nowarnings`).
+  `p + 1` or fewer: inference may be unreliable and the estimated variance may
+  be degenerate (R, Python, Stata; Stata respects `nowarnings`). The cluster
+  count alone does not establish that the scalar RD variance is unidentified.
 - Input validation:
   - R and Python: `rdbwselect()` accepts the same option casing as
     `rdrobust()`, and both functions reject negative weights and an `nnmatch`

@@ -85,10 +85,10 @@ test_that("Review 1: b = h/rho for non-round rho, scalar and asymmetric h", {
   }
 })
 
-test_that("D3: p+1 or fewer clusters on a side gives the not-identified warning", {
+test_that("D3: p+1 mass-point clusters warn about a degenerate variance", {
 
-  ## Two clusters per side within h (cluster = x), p = 1: the CR variance is not
-  ## identified and the conventional SE collapses to rounding error.
+  ## Two mass points per side within h (cluster = x), p = 1: the fit is
+  ## saturated at the cluster level and the conventional SE is near zero.
   x <- rep(c(-5:-1, 0:4), each = 30)
   set.seed(3)
   y <- 1 + 0.5 * x + (x >= 0.5) + rnorm(length(x))
@@ -98,8 +98,40 @@ test_that("D3: p+1 or fewer clusters on a side gives the not-identified warning"
     warning = function(cnd) { w <<- c(w, conditionMessage(cnd)); invokeRestart("muffleWarning") }
   )
   expect_true(any(grepl("Only 2 (left) and 2 (right) clusters", w, fixed = TRUE) &
-                  grepl("not identified", w, fixed = TRUE)))
+                  grepl("estimated variance may be degenerate", w, fixed = TRUE)))
   expect_lt(est$se[1], 1e-8)
+})
+
+test_that("D3: p+1 general clusters can have positive variance", {
+  x <- seq(-1, 1, length.out = 800)
+  i <- 0:799
+  cluster <- i %% 2 + 2 * (x >= 0)
+  y <- 1 + x + 0.7 * (x >= 0) + 0.3 * (i %% 2) + 0.2 * sin(i * 0.113)
+  w <- character()
+  est <- withCallingHandlers(
+    rdrobust(y, x, h = 0.8, b = 0.9, cluster = cluster, vce = "cr1"),
+    warning = function(cnd) { w <<- c(w, conditionMessage(cnd)); invokeRestart("muffleWarning") }
+  )
+  expect_true(any(grepl("inference may be unreliable", w, fixed = TRUE)))
+  expect_false(any(grepl("not identified", w, fixed = TRUE)))
+
+  ## Independent local-linear CR1 calculation, including the package's
+  ## finite-sample correction over the union of the h/b windows.
+  variances <- vapply(list(x < 0, x >= 0), function(side) {
+    keep <- side & abs(x) < 0.9
+    X <- cbind(1, x[keep])
+    weights <- pmax(1 - abs(x[keep]) / 0.8, 0)
+    invG <- solve(crossprod(X, weights * X))
+    residual <- y[keep] - X %*% (invG %*% crossprod(X, weights * y[keep]))
+    scores <- vapply(unique(cluster[keep]), function(g) {
+      selected <- cluster[keep] == g
+      as.vector(crossprod(X[selected, ], weights[selected] * residual[selected]))
+    }, numeric(2))
+    V <- invG %*% tcrossprod(scores) %*% invG * ((sum(keep) - 1) / (sum(keep) - 2)) * 2
+    V[1, 1]
+  }, numeric(1))
+  expect_true(all(variances > 0))
+  expect_equal(unname(est$se[1]), sqrt(sum(variances)), tolerance = 1e-12)
 })
 
 test_that("Review 2: all = TRUE stops when any selector is undefined; mserd alone works", {

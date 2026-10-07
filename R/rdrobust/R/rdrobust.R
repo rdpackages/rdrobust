@@ -606,16 +606,16 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
     w_b_l <- fw_l*w_b_l;	w_b_r <- fw_r*w_b_r			
   }
 
-  # Cluster-robust variances need many clusters; with a handful per side they
-  # are unreliable, and with p+1 or fewer the variance is not identified (the
-  # standard error collapses to zero up to rounding). Counted after the user
-  # weights, so zero-weight observations do not count.
+  # Few clusters can make inference unreliable or the covariance estimate
+  # rank deficient. The count alone does not establish that the scalar RD
+  # variance is unidentified. Count after applying the user weights so that
+  # zero-weight observations do not count.
   if (!is.null(cluster)) {
     gh_l = length(unique(C_l[w_h_l > 0])); gh_r = length(unique(C_r[w_h_r > 0]))
     if (min(gh_l, gh_r) <= p + 1) {
       warning(sprintf(paste0("Only %d (left) and %d (right) clusters within the bandwidth. ",
-                             "With p+1 = %d or fewer clusters on a side the cluster-robust variance is not identified ",
-                             "and the standard error can be zero."),
+                             "With p+1 = %d or fewer clusters on a side, cluster-robust inference ",
+                             "may be unreliable and the estimated variance may be degenerate."),
                       gh_l, gh_r, p + 1), call. = FALSE)
     } else if (min(gh_l, gh_r) < 10) {
       warning(sprintf(paste0("Only %d (left) and %d (right) clusters within the bandwidth. ",

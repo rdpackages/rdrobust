@@ -160,13 +160,43 @@ def test_combination_selectors_do_not_hide_an_undefined_pilot(bwselect):
     assert np.all(np.isfinite(bws) & (bws > 0))
 
 
-def test_p_plus_one_clusters_not_identified_warning():
+def test_p_plus_one_mass_point_clusters_warn_on_degenerate_variance():
     x = np.repeat(np.r_[np.arange(-5, 0), np.arange(0, 5)], 30).astype(float)
     y = 1 + 0.5 * x + (x >= 0.5) + np.random.default_rng(3).normal(size=x.size)
-    with pytest.warns(UserWarning, match="not identified"):
+    with pytest.warns(UserWarning, match="estimated variance may be degenerate"):
         with contextlib.redirect_stdout(io.StringIO()):
             est = rdrobust(y, x, c=0.5, h=2, b=5, p=1, cluster=x, vce="cr1")
     assert est.se.iloc[0, 0] < 1e-8
+
+
+def test_p_plus_one_general_clusters_can_have_positive_variance():
+    # Unlike clustering on p+1 mass points, each cluster spans many x values.
+    x = np.linspace(-1, 1, 800)
+    i = np.arange(x.size)
+    cluster = i % 2 + 2 * (x >= 0)
+    y = 1 + x + 0.7 * (x >= 0) + 0.3 * (i % 2) + 0.2 * np.sin(i * 0.113)
+    with pytest.warns(UserWarning, match="inference may be unreliable") as caught:
+        est = rdrobust(y, x, h=0.8, b=0.9, cluster=cluster, vce="cr1")
+    assert not any("not identified" in str(w.message) for w in caught)
+
+    # Independent local-linear CR1 calculation. rdrobust uses the union of
+    # the h/b windows for the finite-sample correction, with zero h-weights
+    # outside the estimation window.
+    variances = []
+    for side in (x < 0, x >= 0):
+        keep = side & (np.abs(x) < 0.9)
+        X = np.column_stack([np.ones(keep.sum()), x[keep]])
+        w = np.maximum(1 - np.abs(x[keep]) / 0.8, 0)
+        invG = np.linalg.inv(X.T @ (w[:, None] * X))
+        residual = y[keep] - X @ (invG @ (X.T @ (w * y[keep])))
+        scores = np.array([
+            X[cluster[keep] == g].T @ (w[cluster[keep] == g] * residual[cluster[keep] == g])
+            for g in np.unique(cluster[keep])
+        ])
+        V = invG @ scores.T @ scores @ invG * ((keep.sum() - 1) / (keep.sum() - 2)) * 2
+        variances.append(V[0, 0])
+    assert all(v > 0 for v in variances)
+    np.testing.assert_allclose(est.se.iloc[0, 0], np.sqrt(sum(variances)), rtol=1e-12)
 
 
 @pytest.mark.parametrize("bad", [0, 2.5])

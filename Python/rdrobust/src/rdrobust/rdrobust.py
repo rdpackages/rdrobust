@@ -759,10 +759,10 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
         w_b_l = fw_l*w_b_l
         w_b_r = fw_r*w_b_r			
 
-    # Cluster-robust variances need many clusters; with a handful per side they
-    # are unreliable, and with p+1 or fewer the variance is not identified (the
-    # standard error collapses to zero up to rounding). Counted after the user
-    # weights, so zero-weight observations do not count.
+    # Few clusters can make inference unreliable or the covariance estimate
+    # rank deficient. The count alone does not establish that the scalar RD
+    # variance is unidentified. Count after applying the user weights so that
+    # zero-weight observations do not count.
     if cluster is not None:
         cl_l = np.asarray(cluster[x<c]).reshape(-1)
         cl_r = np.asarray(cluster[x>=c]).reshape(-1)
@@ -770,8 +770,8 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
         gh_r = len(np.unique(cl_r[np.asarray(w_h_r).reshape(-1) > 0]))
         if min(gh_l, gh_r) <= p + 1:
             warnings.warn(f"Only {gh_l} (left) and {gh_r} (right) clusters within the bandwidth. "
-                          f"With p+1 = {p + 1} or fewer clusters on a side the cluster-robust variance "
-                          "is not identified and the standard error can be zero.")
+                          f"With p+1 = {p + 1} or fewer clusters on a side, cluster-robust inference "
+                          "may be unreliable and the estimated variance may be degenerate.")
         elif min(gh_l, gh_r) < 10:
             warnings.warn(f"Only {gh_l} (left) and {gh_r} (right) clusters within the bandwidth. "
                           "Cluster-robust standard errors are unreliable with fewer than 10 clusters on a side.")
