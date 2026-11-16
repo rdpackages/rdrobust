@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- R: with `bwcheck` set, `masspoints = "off"` and a variance other than
+  `vce = "nn"`, the data are not sorted by `x`, and the bandwidth floor on the
+  right of the cutoff was read from the distinct values of `x` in data order
+  instead of the `bwcheck`-th closest one. The selected bandwidths, and so every
+  estimate, depended on the row order of the data. On the Senate data with
+  `vce = "hc1"` and `bwcheck = 20`, six random row orders gave point estimates
+  from 7.20 to 7.42; every order now gives 7.4175, as sorted data and the
+  Python port do. Affects `rdrobust()` and `rdbwselect()` in R 4.0.0 to 4.1.1
+  (R 3.0.0 stopped with an error in this configuration).
+
 ## October 1, 2026 update: R 4.1.1, Python 2.1.1, Stata 11.1.1
 
 Fixes from a three-language audit. R `4.1.1` replaces the unreleased GitHub

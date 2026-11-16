@@ -172,7 +172,9 @@ rdbwselect = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL, p = NULL, q = 
   # masspoints='off'.
   if (masspoints=="check" | masspoints=="adjust" | !is.null(bwcheck)) {
     X_uniq_l = sort(unique(X_l), decreasing=TRUE)
-    X_uniq_r = unique(X_r)
+    # Sorted explicitly: with masspoints = "off" and an HC/CR vce the data are
+    # not pre-sorted, and bwcheck reads the bwcheck-th closest value from here.
+    X_uniq_r = sort(unique(X_r))
     M_l = length(X_uniq_l)
     M_r = length(X_uniq_r)
     M = M_l + M_r
