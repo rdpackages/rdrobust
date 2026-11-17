@@ -81,3 +81,30 @@ test_that("extreme magnitudes of x and y do not destabilise the estimate", {
                  tolerance = 1e-7, label = sprintf("x * %g", s))
   }
 })
+
+test_that("bwcheck does not depend on row order when the data are not pre-sorted", {
+  ## With masspoints = "off" and an HC/CR variance the data are not sorted by
+  ## x, so the bwcheck floor on the right of the cutoff must not be read off
+  ## the unique values in data order.
+  fx <- make_rd_fixture(n = 1000)
+  set.seed(102)
+  o <- sample(fx$n)
+  for (v in c("hc1", "hc3")) {
+    a <- list(masspoints = "off", vce = v, bwcheck = 50)
+    expect_equal(rd_key(do.call(rdrobust, c(list(y = fx$y[o], x = fx$x[o]), a))),
+                 rd_key(do.call(rdrobust, c(list(y = fx$y, x = fx$x), a))),
+                 tolerance = 1e-10)
+    expect_equal(do.call(rdbwselect, c(list(y = fx$y[o], x = fx$x[o]), a))$bws,
+                 do.call(rdbwselect, c(list(y = fx$y, x = fx$x), a))$bws,
+                 tolerance = 1e-10)
+  }
+  ## The floor is the distance to the bwcheck-th closest distinct x on each
+  ## side, so it must match the sorted-data fit (which masspoints = "check"
+  ## also produces).
+  s <- order(fx$x)
+  expect_equal(rd_key(rdrobust(y = fx$y, x = fx$x, masspoints = "off",
+                               vce = "hc1", bwcheck = 50)),
+               rd_key(rdrobust(y = fx$y[s], x = fx$x[s], masspoints = "off",
+                               vce = "hc1", bwcheck = 50)),
+               tolerance = 1e-10)
+})
