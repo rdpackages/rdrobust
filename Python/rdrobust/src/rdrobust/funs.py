@@ -677,7 +677,7 @@ def rdrobust_kweight(X, c, h, kernel):
     return w
 
 def rdrobust_res(X, y, T, Z, m, hii, vce, matches, dups, dupsid, d,
-                 crv3=False, crv2=False, has_cluster=False):
+                 crv3=False, crv2=False, has_cluster=False, n_df=None):
 
     n = len(y)
     dT = dZ =  0
@@ -710,7 +710,13 @@ def rdrobust_res(X, y, T, Z, m, hii, vce, matches, dups, dupsid, d,
     else:
 
         if vce=="hc0": w = 1
-        elif vce=="hc1": w = 1 if has_cluster else np.sqrt(n/(n-d))
+        elif vce=="hc1":
+            n_df = n if n_df is None else n_df
+            w = np.nan
+            if has_cluster:
+                w = 1
+            elif n_df > d:
+                w = np.sqrt(n_df/(n_df-d))
         elif vce=="hc2":
             hii = hii.reshape(-1)
             w = np.sqrt(1/np.maximum(1-hii, 1e-8))
@@ -727,7 +733,7 @@ def rdrobust_res(X, y, T, Z, m, hii, vce, matches, dups, dupsid, d,
     return res
 
 def rdrobust_vce(d, s, RX, res, C, invG=None, sqrtRX=None, crv2=False,
-                 k_override=None, cluster_idx=None, G=None):
+                 k_override=None, cluster_idx=None, G=None, n_df=None, g_df=None):
     # G: optional precomputed X'WX (the Gram). When supplied, CRV3 skips the
     # G = inv(invG) round-trip the caller already had to compute X'WX before
     # forming invG, so passing it through avoids two unnecessary k×k inverses
@@ -917,25 +923,24 @@ def rdrobust_vce(d, s, RX, res, C, invG=None, sqrtRX=None, crv2=False,
     else:
         # Standard cluster-robust (CR1) with small-sample df correction
         C_flat = C.reshape(-1)
-        try: n = len(C_flat)
-        except: n = 1
         # T3: use cached cluster_idx if supplied, else build once.
         cl_indices = _build_cluster_idx(C_flat) if cluster_idx is None else cluster_idx
-        g = len(cl_indices)
-        # With a single cluster the CR1 factor g/(g-1) is undefined: return NaN
-        # like R (where it is Inf*0) instead of a ZeroDivisionError.
-        w = ((n-1)/(n-k_df))*(g/(g-1)) if g > 1 else np.nan
+        # For the conventional fit, the score array can include bias-window
+        # rows with zero estimation weight. Use its supplied sample counts.
+        n_df = len(C_flat) if n_df is None else n_df
+        g_df = len(cl_indices) if g_df is None else g_df
+        w = np.nan
+        if n_df > k_df and g_df > 1:
+            w = ((n_df-1)/(n_df-k_df))*(g_df/(g_df-1))
 
         if d==0:
-            for i in range(g):
-                ind = cl_indices[i]
+            for ind in cl_indices:
                 Xi = RX[ind,:]
                 ri = res[ind,:]
                 Xr = crossprod(Xi,ri).T
                 M = M + crossprod(Xr,Xr)
         else:
-            for i in range(g):
-                ind = cl_indices[i]
+            for ind in cl_indices:
                 Xi = RX[ind,:]
                 ri = res[ind,:]
                 MHolder = np.zeros((1+d,k))

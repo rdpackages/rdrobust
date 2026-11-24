@@ -179,12 +179,10 @@ def test_p_plus_one_general_clusters_can_have_positive_variance():
         est = rdrobust(y, x, h=0.8, b=0.9, cluster=cluster, vce="cr1")
     assert not any("not identified" in str(w.message) for w in caught)
 
-    # Independent local-linear CR1 calculation. rdrobust uses the union of
-    # the h/b windows for the finite-sample correction, with zero h-weights
-    # outside the estimation window.
+    # Independent local-linear CR1 calculation using the estimation sample.
     variances = []
     for side in (x < 0, x >= 0):
-        keep = side & (np.abs(x) < 0.9)
+        keep = side & (np.abs(x) < 0.8)
         X = np.column_stack([np.ones(keep.sum()), x[keep]])
         w = np.maximum(1 - np.abs(x[keep]) / 0.8, 0)
         invG = np.linalg.inv(X.T @ (w[:, None] * X))
@@ -197,6 +195,45 @@ def test_p_plus_one_general_clusters_can_have_positive_variance():
         variances.append(V[0, 0])
     assert all(v > 0 for v in variances)
     np.testing.assert_allclose(est.se.iloc[0, 0], np.sqrt(sum(variances)), rtol=1e-12)
+
+
+@pytest.mark.parametrize("vce,expected", [("hc1", 0.259027485692751), ("cr1", 0.711581929424620)])
+def test_conventional_se_uses_estimation_window(vce, expected):
+    i = np.arange(1, 1001)
+    x = (i - 500.5) / 100
+    y = 1 + 0.2 * x + 1.42 * (x >= 0) + np.sin(i / 3) + np.cos(i / 8)
+    cluster = (i - 1) // 10 if vce == "cr1" else None
+    options = dict(kernel="uniform", cluster=cluster, vce=vce, masspoints="off")
+
+    # Reference from separate fits inside h using R sandwich's vcovHC and
+    # vcovCL, both with type = "HC1".
+    for b in (0.8, 1.2, 3.8):
+        est = rdrobust(y, x, h=1.2, b=b, **options)
+        assert est.se.iloc[0, 0] == pytest.approx(expected, rel=1e-10)
+
+    # The fuzzy first stage uses the same adjustment, also with asymmetric
+    # bandwidths and zero user weights.
+    fuzzy = (i % 11 < np.where(x >= 0, 8, 4)).astype(float)
+    weights = (i % 7 != 0).astype(float)
+    h = (1.2, 1.6)
+    narrow = rdrobust(y, x, h=h, b=h, fuzzy=fuzzy, weights=weights, **options)
+    wide = rdrobust(y, x, h=h, b=(3.2, 3.8), fuzzy=fuzzy, weights=weights, **options)
+    assert wide.se.iloc[0, 0] == pytest.approx(narrow.se.iloc[0, 0], rel=1e-10)
+    assert wide.se_T.iloc[0, 0] == pytest.approx(narrow.se_T.iloc[0, 0], rel=1e-10)
+
+
+def test_bias_window_cannot_supply_conventional_degrees_of_freedom():
+    x = np.r_[np.arange(-10, 0), np.arange(1, 11)].astype(float)
+    y = 1 + x + (x >= 0) + np.sin(x)
+    hc1 = rdrobust(y, x, h=2.5, b=7.5, kernel="uniform", vce="hc1")
+    assert np.isnan(hc1.se.iloc[0, 0])
+    assert np.isfinite(hc1.se.iloc[2, 0])
+
+    cluster = np.sign(x) * np.ceil(np.abs(x) / 3)
+    with pytest.warns(UserWarning, match="estimated variance may be degenerate"):
+        cr1 = rdrobust(y, x, h=3.5, b=7.5, kernel="uniform", cluster=cluster, vce="cr1")
+    assert np.isnan(cr1.se.iloc[0, 0])
+    assert np.isfinite(cr1.se.iloc[2, 0])
 
 
 @pytest.mark.parametrize("bad", [0, 2.5])

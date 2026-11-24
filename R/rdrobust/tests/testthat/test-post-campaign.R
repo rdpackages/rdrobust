@@ -115,10 +115,9 @@ test_that("D3: p+1 general clusters can have positive variance", {
   expect_true(any(grepl("inference may be unreliable", w, fixed = TRUE)))
   expect_false(any(grepl("not identified", w, fixed = TRUE)))
 
-  ## Independent local-linear CR1 calculation, including the package's
-  ## finite-sample correction over the union of the h/b windows.
+  ## Independent local-linear CR1 calculation using the estimation sample.
   variances <- vapply(list(x < 0, x >= 0), function(side) {
-    keep <- side & abs(x) < 0.9
+    keep <- side & abs(x) < 0.8
     X <- cbind(1, x[keep])
     weights <- pmax(1 - abs(x[keep]) / 0.8, 0)
     invG <- solve(crossprod(X, weights * X))
@@ -132,6 +131,55 @@ test_that("D3: p+1 general clusters can have positive variance", {
   }, numeric(1))
   expect_true(all(variances > 0))
   expect_equal(unname(est$se[1]), sqrt(sum(variances)), tolerance = 1e-12)
+})
+
+test_that("conventional HC1 and CR1 SEs use the estimation window", {
+  i <- seq_len(1000)
+  x <- (i - 500.5) / 100
+  y <- 1 + 0.2 * x + 1.42 * (x >= 0) + sin(i / 3) + cos(i / 8)
+  cluster <- (i - 1L) %/% 10L
+
+  ## Reference from separate fits inside h using sandwich::vcovHC and
+  ## sandwich::vcovCL, both with type = "HC1".
+  expected <- c(hc1 = 0.259027485692751, cr1 = 0.711581929424620)
+  for (vce in names(expected)) {
+    ids <- if (vce == "cr1") cluster else NULL
+    for (b in c(0.8, 1.2, 3.8)) {
+      est <- rdrobust(y, x, h = 1.2, b = b, kernel = "uniform",
+                      cluster = ids, vce = vce, masspoints = "off")
+      expect_equal(est$se[1], unname(expected[vce]), tolerance = 1e-10)
+    }
+
+    ## The fuzzy first stage uses the same adjustment, also with asymmetric
+    ## bandwidths and zero user weights.
+    fuzzy <- as.numeric(i %% 11L < ifelse(x >= 0, 8L, 4L))
+    weights <- as.numeric(i %% 7L != 0L)
+    h <- c(1.2, 1.6)
+    fit <- function(b) rdrobust(y, x, fuzzy = fuzzy, weights = weights,
+                               h = h, b = b, kernel = "uniform", cluster = ids,
+                               vce = vce, masspoints = "off")
+    narrow <- fit(h)
+    wide <- fit(c(3.2, 3.8))
+    expect_equal(wide$se[1], narrow$se[1], tolerance = 1e-10)
+    expect_equal(wide$se_T[1], narrow$se_T[1], tolerance = 1e-10)
+  }
+})
+
+test_that("a wider bias window cannot supply conventional degrees of freedom", {
+  x <- c(-10:-1, 1:10)
+  y <- 1 + x + (x >= 0) + sin(x)
+  hc1 <- rdrobust(y, x, h = 2.5, b = 7.5, kernel = "uniform", vce = "hc1")
+  expect_true(is.nan(hc1$se[1]))
+  expect_true(is.finite(hc1$se[3]))
+
+  ids <- sign(x) * ceiling(abs(x) / 3)
+  expect_warning(
+    cr1 <- rdrobust(y, x, h = 3.5, b = 7.5, kernel = "uniform",
+                    cluster = ids, vce = "cr1"),
+    "estimated variance may be degenerate"
+  )
+  expect_true(is.nan(cr1$se[1]))
+  expect_true(is.finite(cr1$se[3]))
 })
 
 test_that("Review 2: all = TRUE stops when any selector is undefined; mserd alone works", {

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- R and Python: the conventional HC1 and CR1 adjustments use the observations
+  and clusters with positive weight in the estimation window. When the bias
+  bandwidth was wider, counting observations and clusters that only contributed
+  to bias correction could make conventional confidence intervals too narrow.
+
 - R: with `bwcheck` set, `masspoints = "off"` and a variance other than
   `vce = "nn"`, the data are not sorted by `x`, and the bandwidth floor on the
   right of the cutoff was read from the distinct values of `x` in data order

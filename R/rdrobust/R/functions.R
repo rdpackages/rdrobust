@@ -210,7 +210,8 @@ rdrobust_kweight = function(X, c,  h,  kernel){
   return(w)	
 }
 
-rdrobust_res = function(X, y, T, Z, m, hii, vce, matches, dups, dupsid, d, crv3=FALSE, crv2=FALSE, has_cluster=FALSE) {
+rdrobust_res = function(X, y, T, Z, m, hii, vce, matches, dups, dupsid, d,
+                        crv3=FALSE, crv2=FALSE, has_cluster=FALSE, n_df=length(y)) {
   n = length(y)
   dT=dZ=0
   if (!is.null(T)) dT = 1
@@ -266,7 +267,9 @@ rdrobust_res = function(X, y, T, Z, m, hii, vce, matches, dups, dupsid, d, crv3=
   }
   else {
     if (vce=="hc0") w = 1
-    else if (vce=="hc1") w = if (has_cluster) 1 else sqrt(n/(n-d))
+    else if (vce=="hc1") {
+      w = if (has_cluster) 1 else if (n_df > d) sqrt(n_df/(n_df-d)) else NaN
+    }
     else if (vce=="hc2") w = sqrt(1/pmax(1-hii, 1e-8))
     else                 w =      1/pmax(1-hii, 1e-8)
     res[,1] = w*(y-m[,1])
@@ -447,7 +450,8 @@ rdrobust_bw = function(Y, X, T, Z, C, W, c, o, nu, o_B, h_V, h_B, scale, vce, nn
 }
 
 rdrobust_vce = function(d, s, RX, res, C, invG=NULL, sqrtRX=NULL, crv2=FALSE,
-                        k_override=NULL, cluster_idx=NULL) {
+                        k_override=NULL, cluster_idx=NULL,
+                        n_df=length(C), g_df=length(cluster_idx)) {
   # k_override: when supplied, overrides the (n-1)/(n-k) df correction's k
   # for CR1. Used when RX is a "score-like" matrix (e.g. Q_q) whose ncol is
   # smaller than the effective number of regressors estimated. Without it,
@@ -651,9 +655,9 @@ rdrobust_vce = function(d, s, RX, res, C, invG=NULL, sqrtRX=NULL, crv2=FALSE,
   else {
     # Standard cluster-robust (CR1) with small-sample df correction
     if (is.null(cluster_idx)) cluster_idx = .rdrobust_cluster_idx(C)
-    g = length(cluster_idx)
-    n = length(C)
-    w = ((n-1)/(n-k_df))*(g/(g-1))
+    # For the conventional fit, the score array can include bias-window
+    # rows with zero estimation weight. Use its supplied sample counts.
+    w = if (n_df > k_df && g_df > 1) ((n_df-1)/(n_df-k_df))*(g_df/(g_df-1)) else NaN
     if (d==0){
       for (i in seq_along(cluster_idx)) {
         ind = cluster_idx[[i]]

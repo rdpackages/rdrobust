@@ -612,6 +612,7 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   # rank deficient. The count alone does not establish that the scalar RD
   # variance is unidentified. Count after applying the user weights so that
   # zero-weight observations do not count.
+  gh_l = gh_r = NULL
   if (!is.null(cluster)) {
     gh_l = length(unique(C_l[w_h_l > 0])); gh_r = length(unique(C_r[w_h_r > 0]))
     if (min(gh_l, gh_r) <= p + 1) {
@@ -851,8 +852,17 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
     predicts_q_r = R_q_r%*%beta_q_r
   }
 
-	res_h_l = rdrobust_res(eX_l, eY_l, eT_l, eZ_l, predicts_p_l, hii_p_l, vce, nnmatch, edups_l, edupsid_l, p+1, crv3=crv3, crv2=crv2, has_cluster=!is.null(cluster))
-	res_h_r = rdrobust_res(eX_r, eY_r, eT_r, eZ_r, predicts_p_r, hii_p_r, vce, nnmatch, edups_r, edupsid_r, p+1, crv3=crv3, crv2=crv2, has_cluster=!is.null(cluster))
+  # The shared arrays include bias-window rows. HC1 uses the count at h.
+  res_h_l = rdrobust_res(
+    eX_l, eY_l, eT_l, eZ_l, predicts_p_l, hii_p_l, vce, nnmatch,
+    edups_l, edupsid_l, p+1, crv3=crv3, crv2=crv2,
+    has_cluster=!is.null(cluster), n_df=N_h_l
+  )
+  res_h_r = rdrobust_res(
+    eX_r, eY_r, eT_r, eZ_r, predicts_p_r, hii_p_r, vce, nnmatch,
+    edups_r, edupsid_r, p+1, crv3=crv3, crv2=crv2,
+    has_cluster=!is.null(cluster), n_df=N_h_r
+  )
 
 		if (vce=="nn") {
 			res_b_l = res_h_l;	res_b_r = res_h_r
@@ -870,8 +880,16 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
   crv_invG_l = if (crv3 | crv2) invG_p_l else NULL
   crv_invG_r = if (crv3 | crv2) invG_p_r else NULL
 
-	V_Y_cl_l = invG_p_l%*%rdrobust_vce(dT+dZ, s_Y, as.matrix(R_p_l*W_h_l), res_h_l, eC_l, cluster_idx=cidx_l, invG=crv_invG_l, sqrtRX=sqrtRX_p_l, crv2=crv2)%*%invG_p_l
-	V_Y_cl_r = invG_p_r%*%rdrobust_vce(dT+dZ, s_Y, as.matrix(R_p_r*W_h_r), res_h_r, eC_r, cluster_idx=cidx_r, invG=crv_invG_r, sqrtRX=sqrtRX_p_r, crv2=crv2)%*%invG_p_r
+  V_Y_cl_l = invG_p_l %*% rdrobust_vce(
+    dT+dZ, s_Y, as.matrix(R_p_l*W_h_l), res_h_l, eC_l,
+    cluster_idx=cidx_l, invG=crv_invG_l, sqrtRX=sqrtRX_p_l,
+    crv2=crv2, n_df=N_h_l, g_df=gh_l
+  ) %*% invG_p_l
+  V_Y_cl_r = invG_p_r %*% rdrobust_vce(
+    dT+dZ, s_Y, as.matrix(R_p_r*W_h_r), res_h_r, eC_r,
+    cluster_idx=cidx_r, invG=crv_invG_r, sqrtRX=sqrtRX_p_r,
+    crv2=crv2, n_df=N_h_r, g_df=gh_r
+  ) %*% invG_p_r
 
   # V_rb: when h == b, use q-regression formulation directly (clean CRV2/CRV3).
   # When h != b with CRV2/CRV3, use Q_q sandwich + q-regression cluster leverage
@@ -902,8 +920,16 @@ rdrobust = function(y, x, c = NULL, fuzzy = NULL, deriv = NULL,
 	se_tau_cl = sqrt(V_tau_cl);	se_tau_rb = sqrt(V_tau_rb)
 
 	if (!is.null(fuzzy)) {
-		V_T_cl_l = invG_p_l%*%rdrobust_vce(dT+dZ, sV_T, as.matrix(R_p_l*W_h_l), res_h_l, eC_l, cluster_idx=cidx_l, invG=crv_invG_l, sqrtRX=sqrtRX_p_l, crv2=crv2)%*%invG_p_l
-		V_T_cl_r = invG_p_r%*%rdrobust_vce(dT+dZ, sV_T, as.matrix(R_p_r*W_h_r), res_h_r, eC_r, cluster_idx=cidx_r, invG=crv_invG_r, sqrtRX=sqrtRX_p_r, crv2=crv2)%*%invG_p_r
+    V_T_cl_l = invG_p_l %*% rdrobust_vce(
+      dT+dZ, sV_T, as.matrix(R_p_l*W_h_l), res_h_l, eC_l,
+      cluster_idx=cidx_l, invG=crv_invG_l, sqrtRX=sqrtRX_p_l,
+      crv2=crv2, n_df=N_h_l, g_df=gh_l
+    ) %*% invG_p_l
+    V_T_cl_r = invG_p_r %*% rdrobust_vce(
+      dT+dZ, sV_T, as.matrix(R_p_r*W_h_r), res_h_r, eC_r,
+      cluster_idx=cidx_r, invG=crv_invG_r, sqrtRX=sqrtRX_p_r,
+      crv2=crv2, n_df=N_h_r, g_df=gh_r
+    ) %*% invG_p_r
     if (hb_match & (crv3 | crv2)) {
       V_T_rb_l = invG_q_l%*%rdrobust_vce(dT+dZ, sV_T, as.matrix(R_q_l*W_h_l), res_b_l, eC_l, cluster_idx=cidx_l, invG=invG_q_l, sqrtRX=sqrtRX_q_l, crv2=crv2)%*%invG_q_l
       V_T_rb_r = invG_q_r%*%rdrobust_vce(dT+dZ, sV_T, as.matrix(R_q_r*W_h_r), res_b_r, eC_r, cluster_idx=cidx_r, invG=invG_q_r, sqrtRX=sqrtRX_q_r, crv2=crv2)%*%invG_q_r
